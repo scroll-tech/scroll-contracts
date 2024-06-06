@@ -6,7 +6,6 @@ import "@nomicfoundation/hardhat-verify";
 import "@nomicfoundation/hardhat-ethers";
 import "@nomicfoundation/hardhat-chai-matchers";
 import "@typechain/hardhat";
-import "@primitivefi/hardhat-dodoc";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import { readFileSync } from "fs";
@@ -71,7 +70,7 @@ const config: HardhatUserConfig = {
     artifacts: "./artifacts-hardhat",
     cache: "./cache-hardhat",
     sources: "./src",
-    tests: "./integration-test",
+    tests: "./hardhat-test",
   },
   typechain: {
     outDir: "./typechain",
@@ -84,7 +83,7 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
-      ethereum: process.env.ETHERSCAN_API_KEY || "",
+      mainnet: process.env.ETHERSCAN_API_KEY || "",
       sepolia: process.env.ETHERSCAN_API_KEY || "",
       scroll: process.env.SCROLLSCAN_API_KEY || "",
       scroll_sepolia: process.env.SCROLLSCAN_API_KEY || "",
@@ -110,42 +109,6 @@ const config: HardhatUserConfig = {
   },
   mocha: {
     timeout: 10000000,
-  },
-  dodoc: {
-    runOnCompile: true,
-    keepFileStructure: false,
-    include: [
-      "ScrollChain",
-      "L1ScrollMessenger",
-      "L2ScrollMessenger",
-      "L1GatewayRouter",
-      "L2GatewayRouter",
-      "L1StandardERC20Gateway",
-      "L2StandardERC20Gateway",
-      "L1ERC721Gateway",
-      "L2ERC721Gateway",
-      "L1ERC1155Gateway",
-      "L2ERC1155Gateway",
-      "L1WETHGateway",
-      "L2WETHGateway",
-      "ScrollStandardERC20Factory",
-    ],
-    outputDir: "docs/apis",
-    exclude: [
-      "IERC677Receiver",
-      "IL1ScrollMessenger",
-      "IL2ScrollMessenger",
-      "IL1GatewayRouter",
-      "IL2GatewayRouter",
-      "IL1ERC721Gateway",
-      "IL2ERC721Gateway",
-      "IL1ERC1155Gateway",
-      "IL2ERC1155Gateway",
-      "IScrollStandardERC20Factory",
-      "IScrollChain",
-      "ScrollChainCommitmentVerifier",
-      "WETH9",
-    ],
   },
 };
 
