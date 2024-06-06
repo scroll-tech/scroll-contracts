@@ -16,3 +16,6 @@ broadcast
 
 # eslint
 .eslintcache
+
+# Visual Studio Code
+.vscode

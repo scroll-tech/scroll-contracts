@@ -25,8 +25,8 @@ describe("ZkEvmVerifierV1", async () => {
   });
 
   it("should succeed", async () => {
-    const proof = hexlify(fs.readFileSync("./integration-test/testdata/plonk_verifier_0.9.8_proof.data"));
-    const instances = fs.readFileSync("./integration-test/testdata/plonk_verifier_0.9.8_pi.data");
+    const proof = hexlify(fs.readFileSync("./hardhat-test/testdata/plonk_verifier_0.9.8_proof.data"));
+    const instances = fs.readFileSync("./hardhat-test/testdata/plonk_verifier_0.9.8_pi.data");
 
     const publicInputHash = new Uint8Array(32);
     for (let i = 0; i < 32; i++) {
