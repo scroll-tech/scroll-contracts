@@ -9,7 +9,7 @@
     "test": "yarn test:hardhat && yarn test:forge",
     "solhint": "./node_modules/.bin/solhint -f table 'src/**/*.sol'",
     "lint:sol": "./node_modules/.bin/prettier --write 'src/**/*.sol'",
-    "lint:ts": "./node_modules/.bin/prettier --write 'integration-test/**/*.ts' 'scripts/**/*.ts' *.ts",
+    "lint:ts": "./node_modules/.bin/prettier --write 'hardhat-test/**/*.ts' 'scripts/**/*.ts' *.ts",
     "lint": "yarn lint:ts && yarn lint:sol",
     "coverage": "hardhat coverage",
     "coverage:forge": "forge coverage",

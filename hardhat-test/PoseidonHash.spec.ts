@@ -74,7 +74,7 @@ describe("PoseidonHash.spec", async () => {
     });
 
     it("should succeed on random inputs", async () => {
-      const lines = String(fs.readFileSync("./integration-test/testdata/poseidon_hash_with_domain.data")).split("\n");
+      const lines = String(fs.readFileSync("./hardhat-test/testdata/poseidon_hash_with_domain.data")).split("\n");
       for (const line of lines) {
         const [domain, a, b, hash] = line.split(" ");
         expect(await poseidon["poseidon(uint256[2],uint256)"]([a, b], domain)).to.eq(toBigInt(hash));
