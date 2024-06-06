@@ -13,7 +13,7 @@
     "lint": "yarn lint:ts && yarn lint:sol",
     "coverage": "hardhat coverage",
     "coverage:forge": "forge coverage",
-    "prepare": "cd .. && husky install contracts/.husky"
+    "prepare": "husky install .husky"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
