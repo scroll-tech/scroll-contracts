@@ -1,12 +1,11 @@
 # Scroll Contracts
 
-This directory contains the solidity code for Scroll L1 bridge and rollup contracts and L2 bridge and pre-deployed contracts. You can also find contract APIs and more details in the [`docs`](./docs) folder.
+This directory contains the solidity code for Scroll L1 bridge and rollup contracts and L2 bridge and pre-deployed contracts.
 
 ## Directory Structure
 
 <pre>
-├── <a href="./docs/">docs</a>: Documentation for the contracts
-├── <a href="./integration-test/">integration-test</a>: Hardhat integration tests
+├── <a href="./hardhat-test/">hardhat-test</a>: Hardhat integration tests
 ├── <a href="./lib/">lib</a>: External libraries and testing tools
 ├── <a href="./scripts">scripts</a>: Deployment scripts
 ├── <a href="./src">src</a>
@@ -72,7 +71,7 @@ yarn install
 - Run `yarn prettier:solidity` to run linting in fix mode, will auto-format all solidity codes.
 - Run `yarn prettier` to run linting in fix mode, will auto-format all typescript codes.
 - Run `yarn prepare` to install the precommit linting hook.
-- Run `forge build` to compile contracts with foundry.
+- Run `forge build --evm-version cancun` to compile contracts with foundry.
 - Run `npx hardhat compile` to compile with hardhat.
-- Run `forge test -vvv` to run foundry units tests. It will compile all contracts before running the unit tests.
+- Run `forge test --evm-version cancun -vvv` to run foundry units tests. It will compile all contracts before running the unit tests.
 - Run `npx hardhat test` to run integration tests. It may not compile all contracts before running, it's better to run `npx hardhat compile` first.

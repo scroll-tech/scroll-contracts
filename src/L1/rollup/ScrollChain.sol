@@ -89,10 +89,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the number of batches to revert is zero.
     error ErrorRevertZeroBatches();
 
-    /// @dev Thrown when the reverted batches are not in the ending of commited batch chain.
+    /// @dev Thrown when the reverted batches are not in the ending of committed batch chain.
     error ErrorRevertNotStartFromEnd();
 
-    /// @dev Thrown when reverting a finialized batch.
+    /// @dev Thrown when reverting a finalized batch.
     error ErrorRevertFinalizedBatch();
 
     /// @dev Thrown when the given state root is zero.
@@ -112,11 +112,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      *************/
 
     /// @dev Address of the point evaluation precompile used for EIP-4844 blob verification.
-    address private constant POINT_EVALUATION_PRECOMPILE_ADDR = address(0x0A);
+    address internal constant POINT_EVALUATION_PRECOMPILE_ADDR = address(0x0A);
 
     /// @dev BLS Modulus value defined in EIP-4844 and the magic value returned from a successful call to the
     /// point evaluation precompile
-    uint256 private constant BLS_MODULUS =
+    uint256 internal constant BLS_MODULUS =
         52435875175126190479447740508185965837690552500527637822603658699938581184513;
 
     /// @notice The chain id of the corresponding layer 2 chain.

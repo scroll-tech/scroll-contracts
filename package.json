@@ -13,13 +13,12 @@
     "lint": "yarn lint:ts && yarn lint:sol",
     "coverage": "hardhat coverage",
     "coverage:forge": "forge coverage",
-    "prepare": "cd .. && husky install contracts/.husky"
+    "prepare": "husky install .husky"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.6",
     "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-verify": "^2.0.5",
-    "@primitivefi/hardhat-dodoc": "^0.2.3",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "^4.2.21",

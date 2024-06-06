@@ -2,7 +2,7 @@
 import * as dotenv from "dotenv";
 
 import { ethers } from "hardhat";
-import { generateABI, createCode } from "../scripts/poseidon";
+import { generateABI, createCode } from "../poseidon";
 
 dotenv.config();
 
@@ -18,18 +18,20 @@ async function main() {
     const Poseidon2Elements = new ethers.ContractFactory(generateABI(2), createCode(2), deployer);
 
     const poseidon = await Poseidon2Elements.deploy();
-    console.log("Deploy PoseidonUnit2 contract, hash:", poseidon.deployTransaction.hash);
-    const receipt = await poseidon.deployTransaction.wait();
-    console.log(`✅ Deploy PoseidonUnit2 contract at: ${poseidon.address}, gas used: ${receipt.gasUsed}`);
-    PoseidonUnit2Address = poseidon.address;
+    console.log("Deploy PoseidonUnit2 contract, hash:", poseidon.deploymentTransaction()?.hash);
+    const receipt = await poseidon.deploymentTransaction()!.wait();
+    console.log(`✅ Deploy PoseidonUnit2 contract at: ${await poseidon.getAddress()}, gas used: ${receipt!.gasUsed}`);
+    PoseidonUnit2Address = await poseidon.getAddress();
   }
 
   const verifier = await ScrollChainCommitmentVerifier.deploy(PoseidonUnit2Address, L1ScrollChainAddress, {
     gasPrice: 1e9,
   });
-  console.log("Deploy ScrollChainCommitmentVerifier contract, hash:", verifier.deployTransaction.hash);
-  const receipt = await verifier.deployTransaction.wait();
-  console.log(`✅ Deploy ScrollChainCommitmentVerifier contract at: ${verifier.address}, gas used: ${receipt.gasUsed}`);
+  console.log("Deploy ScrollChainCommitmentVerifier contract, hash:", verifier.deploymentTransaction()!.hash);
+  const receipt = await verifier.deploymentTransaction()!.wait();
+  console.log(
+    `✅ Deploy ScrollChainCommitmentVerifier contract at: ${await verifier.getAddress()}, gas used: ${receipt!.gasUsed}`
+  );
 }
 
 // We recommend this pattern to be able to use async/await everywhere

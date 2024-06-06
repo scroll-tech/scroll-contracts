@@ -986,13 +986,6 @@
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts/-/contracts-4.9.3.tgz#00d7a8cf35a475b160b3f0293a6403c511099364"
   integrity sha512-He3LieZ1pP2TNt5JbkPA4PNT9WC3gOTOlDcFGJW4Le4QKqwmiNJCRt44APfxMxvq7OugU/cqYuPcSBzOw38DAg==
 
-"@primitivefi/hardhat-dodoc@^0.2.3":
-  version "0.2.3"
-  resolved "https://registry.yarnpkg.com/@primitivefi/hardhat-dodoc/-/hardhat-dodoc-0.2.3.tgz#76aebbfa70de2d6454af29e166b1430583b54c5c"
-  integrity sha512-ver9uHa79LTDTeebOKZ/eOVRL/FP1k0s0x/5Bo/8ZaDdLWFVClKqZyZYVjjW4CJqTPCt8uU9b9p71P2vzH4O9A==
-  dependencies:
-    squirrelly "^8.0.8"
-
 "@resolver-engine/core@^0.3.3":
   version "0.3.3"
   resolved "https://registry.yarnpkg.com/@resolver-engine/core/-/core-0.3.3.tgz#590f77d85d45bc7ecc4e06c654f41345db6ca967"
@@ -9728,7 +9721,7 @@ sprintf-js@~1.0.2:
   resolved "https://registry.yarnpkg.com/sprintf-js/-/sprintf-js-1.0.3.tgz#04e6926f662895354f3dd015203633b857297e2c"
   integrity sha1-BOaSb2YolTVPPdAVIDYzuFcpfiw=
 
-squirrelly@8.0.8, squirrelly@^8.0.8:
+squirrelly@8.0.8:
   version "8.0.8"
   resolved "https://registry.yarnpkg.com/squirrelly/-/squirrelly-8.0.8.tgz#d6704650b2170b8040d5de5bff9fa69cb62b5e0f"
   integrity sha512-7dyZJ9Gw86MmH0dYLiESsjGOTj6KG8IWToTaqBuB6LwPI+hyNb6mbQaZwrfnAQ4cMDnSWMUvX/zAYDLTSWLk/w==

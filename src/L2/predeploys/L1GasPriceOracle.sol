@@ -60,7 +60,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// commit_scalar = commit_gas_per_tx * fluctuation_multiplier * 1e9
     /// ```
     /// So, the value should not exceed 10^9 * 1e9 normally.
-    uint256 private constant MAX_COMMIT_SCALAR = 10 ** 9 * PRECISION;
+    uint256 private constant MAX_COMMIT_SCALAR = 10**9 * PRECISION;
 
     /// @dev The maximum possible l1 blob fee scalar after Curie.
     /// We derive the blob scalar by
@@ -68,7 +68,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// blob_scalar = fluctuation_multiplier / compression_ratio / blob_util_ratio * 1e9
     /// ```
     /// So, the value should not exceed 10^9 * 1e9 normally.
-    uint256 private constant MAX_BLOB_SCALAR = 10 ** 9 * PRECISION;
+    uint256 private constant MAX_BLOB_SCALAR = 10**9 * PRECISION;
 
     /*************
      * Variables *
@@ -150,10 +150,11 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     }
 
     /// @inheritdoc IL1GasPriceOracle
-    function setL1BaseFeeAndBlobBaseFee(
-        uint256 _l1BaseFee,
-        uint256 _l1BlobBaseFee
-    ) external override onlyWhitelistedSender {
+    function setL1BaseFeeAndBlobBaseFee(uint256 _l1BaseFee, uint256 _l1BlobBaseFee)
+        external
+        override
+        onlyWhitelistedSender
+    {
         l1BaseFee = _l1BaseFee;
         l1BlobBaseFee = _l1BlobBaseFee;
 
