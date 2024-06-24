@@ -1,4 +1,7 @@
 node_modules
 artifacts
+artifacts-hardhat
 cache
+cache-hardhat
 coverage
+typechain
