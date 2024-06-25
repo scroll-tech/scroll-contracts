@@ -270,16 +270,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes[] memory _chunks,
         bytes calldata _skippedL1MessageBitmap
     ) external override OnlySequencer whenNotPaused {
-        // check whether the batch is empty
-        if (_chunks.length == 0) revert ErrorBatchIsEmpty();
-
-        (, bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _loadBatchHeader(
-            _parentBatchHeader
+        (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
+            _parentBatchHeader,
+            _chunks
         );
-        unchecked {
-            _batchIndex += 1;
-        }
-        if (committedBatches[_batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
 
         bytes32 _batchHash;
         uint256 batchPtr;
@@ -308,7 +302,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 batchPtr,
                 BatchHeaderV0Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
             );
-        } else if (_version >= 1) {
+        } else if (_version <= 2) {
             // versions 1 and 2 both use ChunkCodecV1 and BatchHeaderV1Codec,
             // but they use different blob encoding and different verifiers.
 
@@ -336,6 +330,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 batchPtr,
                 BatchHeaderV1Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
             );
+        } else {
+            revert();
         }
 
         // check the length of bitmap
@@ -347,6 +343,30 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         committedBatches[_batchIndex] = _batchHash;
         emit CommitBatch(_batchIndex, _batchHash);
+    }
+
+    /// @inheritdoc IScrollChain
+    function commitBatchWithBlobProof(
+        uint8 _version,
+        bytes calldata _parentBatchHeader,
+        bytes[] memory _chunks,
+        bytes calldata _skippedL1MessageBitmap,
+        bytes calldata _blobDataProof
+    ) external override OnlySequencer whenNotPaused {
+        (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
+            _parentBatchHeader,
+            _chunks
+        );
+        if (_version <= 2) revert();
+
+        (bytes32 _blobVersionedHash, bytes32 _dataHash, uint256 _totalL1MessagesPoppedInBatch) = _commitChunksV1(
+            _totalL1MessagesPoppedOverall,
+            _chunks,
+            _skippedL1MessageBitmap
+        );
+
+        // verify blob versioned hash
+        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
     }
 
     /// @inheritdoc IScrollChain
@@ -450,17 +470,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _dataHash = BatchHeaderV1Codec.getDataHash(memPtr);
         bytes32 _blobVersionedHash = BatchHeaderV1Codec.getBlobVersionedHash(memPtr);
 
-        // Calls the point evaluation precompile and verifies the output
-        {
-            (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
-                abi.encodePacked(_blobVersionedHash, _blobDataProof)
-            );
-            // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
-            // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
-            if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
-            (, uint256 result) = abi.decode(data, (uint256, uint256));
-            if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
-        }
+        // verify blob versioned hash
+        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
 
         // verify previous state root.
         if (finalizedStateRoots[_batchIndex - 1] != _prevStateRoot) revert ErrorIncorrectPreviousStateRoot();
@@ -508,6 +519,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
+
+    /// @inheritdoc IScrollChain
+    function finalizeBundleWithProof(
+        bytes calldata batchHeader,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot,
+        bytes calldata aggrProof
+    ) external override OnlyProver whenNotPaused {}
 
     /************************
      * Restricted Functions *
@@ -575,12 +594,42 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      * Internal Functions *
      **********************/
 
+    function _beforeCommitBatch(bytes calldata _parentBatchHeader, bytes[] memory _chunks)
+        private
+        view
+        returns (
+            bytes32 _parentBatchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        )
+    {
+        // check whether the batch is empty
+        if (_chunks.length == 0) revert ErrorBatchIsEmpty();
+        (, _parentBatchHash, _batchIndex, _totalL1MessagesPoppedOverall) = _loadBatchHeader(_parentBatchHeader);
+        unchecked {
+            _batchIndex += 1;
+        }
+        if (committedBatches[_batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
+    }
+
+    function _checkBlobVersionedHash(bytes32 _blobVersionedHash, bytes calldata _blobDataProof) private view {
+        // Calls the point evaluation precompile and verifies the output
+        (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
+            abi.encodePacked(_blobVersionedHash, _blobDataProof)
+        );
+        // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
+        // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+        if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
+        (, uint256 result) = abi.decode(data, (uint256, uint256));
+        if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
+    }
+
     /// @dev Internal function to commit chunks with version 0
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped before the list of chunks.
     /// @param _chunks The list of chunks to commit.
     /// @param _skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
     /// @return _batchDataHash The computed data hash for the list of chunks.
-    /// @return _totalL1MessagesPoppedInBatch The total number of L1 messages poped in this batch, including skipped one.
+    /// @return _totalL1MessagesPoppedInBatch The total number of L1 messages popped in this batch, including skipped one.
     function _commitChunksV0(
         uint256 _totalL1MessagesPoppedOverall,
         bytes[] memory _chunks,
@@ -627,7 +676,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
     /// @return _blobVersionedHash The blob versioned hash for the blob carried in this transaction.
     /// @return _batchDataHash The computed data hash for the list of chunks.
-    /// @return _totalL1MessagesPoppedInBatch The total number of L1 messages poped in this batch, including skipped one.
+    /// @return _totalL1MessagesPoppedInBatch The total number of L1 messages popped in this batch, including skipped one.
     function _commitChunksV1(
         uint256 _totalL1MessagesPoppedOverall,
         bytes[] memory _chunks,
@@ -950,7 +999,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Internal function to pop finalized l1 messages.
     /// @param bitmapPtr The memory offset of `skippedL1MessageBitmap`.
-    /// @param totalL1MessagePopped The total number of L1 messages poped in all batches including current batch.
+    /// @param totalL1MessagePopped The total number of L1 messages popped in all batches including current batch.
     /// @param l1MessagePopped The number of L1 messages popped in current batch.
     function _popL1Messages(
         uint256 bitmapPtr,
