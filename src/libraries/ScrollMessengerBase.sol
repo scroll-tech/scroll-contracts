@@ -146,6 +146,30 @@ abstract contract ScrollMessengerBase is
             );
     }
 
+    /// @dev Internal function to generate the correct cross domain calldata for a message.
+    /// @dev This function is used for encoding L1 -> L2 messages on the L1 side of the bridge.
+    function _encodeL1L2XDomainCalldata(
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _messageNonce,
+        bytes calldata _message
+    ) internal view virtual returns (bytes memory) {
+        return _encodeXDomainCalldata(_sender, _target, _value, _messageNonce, _message);
+    }
+
+    /// @dev Internal function to generate the correct cross domain calldata for a message.
+    /// @dev This function is used for encoding L2 -> L1 messages on the L2 side of the bridge.
+    function _encodeL2L1XDomainCalldata(
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _messageNonce,
+        bytes calldata _message
+    ) internal view virtual returns (bytes memory) {
+        return _encodeXDomainCalldata(_sender, _target, _value, _messageNonce, _message);
+    }
+
     /// @dev Internal function to check whether the `_target` address is allowed to avoid attack.
     /// @param _target The address of target address to check.
     function _validateTargetAddress(address _target) internal view {

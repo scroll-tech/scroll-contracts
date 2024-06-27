@@ -70,7 +70,7 @@ contract L2ScrollMessenger is ScrollMessengerBase, IL2ScrollMessenger {
     function sendMessage(
         address _to,
         uint256 _value,
-        bytes memory _message,
+        bytes calldata _message,
         uint256 _gasLimit
     ) external payable override whenNotPaused {
         _sendMessage(_to, _value, _message, _gasLimit);
@@ -93,7 +93,7 @@ contract L2ScrollMessenger is ScrollMessengerBase, IL2ScrollMessenger {
         address _to,
         uint256 _value,
         uint256 _nonce,
-        bytes memory _message
+        bytes calldata _message
     ) external override whenNotPaused {
         // It is impossible to deploy a contract with the same address, reentrance is prevented in nature.
         require(AddressAliasHelper.undoL1ToL2Alias(_msgSender()) == counterpart, "Caller is not L1ScrollMessenger");
@@ -117,13 +117,15 @@ contract L2ScrollMessenger is ScrollMessengerBase, IL2ScrollMessenger {
     function _sendMessage(
         address _to,
         uint256 _value,
-        bytes memory _message,
+        bytes calldata _message,
         uint256 _gasLimit
     ) internal nonReentrant {
         require(msg.value == _value, "msg.value mismatch");
 
         uint256 _nonce = L2MessageQueue(messageQueue).nextMessageIndex();
-        bytes32 _xDomainCalldataHash = keccak256(_encodeXDomainCalldata(_msgSender(), _to, _value, _nonce, _message));
+        bytes32 _xDomainCalldataHash = keccak256(
+            _encodeL2L1XDomainCalldata(_msgSender(), _to, _value, _nonce, _message)
+        );
 
         // normally this won't happen, since each message has different nonce, but just in case.
         require(messageSendTimestamp[_xDomainCalldataHash] == 0, "Duplicated message");

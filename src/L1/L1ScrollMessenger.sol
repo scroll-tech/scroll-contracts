@@ -118,7 +118,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _feeVault,
         address _rollup,
         address _messageQueue
-    ) public initializer {
+    ) public virtual initializer {
         ScrollMessengerBase.__ScrollMessengerBase_init(_counterpart, _feeVault);
 
         __rollup = _rollup;
@@ -136,7 +136,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     function sendMessage(
         address _to,
         uint256 _value,
-        bytes memory _message,
+        bytes calldata _message,
         uint256 _gasLimit
     ) external payable override whenNotPaused {
         _sendMessage(_to, _value, _message, _gasLimit, _msgSender());
@@ -159,7 +159,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _to,
         uint256 _value,
         uint256 _nonce,
-        bytes memory _message,
+        bytes calldata _message,
         L2MessageProof memory _proof
     ) external override whenNotPaused notInExecution {
         bytes32 _xDomainCalldataHash = keccak256(_encodeXDomainCalldata(_from, _to, _value, _nonce, _message));
@@ -200,7 +200,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _to,
         uint256 _value,
         uint256 _messageNonce,
-        bytes memory _message,
+        bytes calldata _message,
         uint32 _newGasLimit,
         address _refundAddress
     ) external payable override whenNotPaused notInExecution {
@@ -208,7 +208,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         // is encoded in the `_message`. We will check the `xDomainCalldata` on layer 2 to avoid duplicated execution.
         // So, only one message will succeed on layer 2. If one of the message is executed successfully, the other one
         // will revert with "Message was already successfully executed".
-        bytes memory _xDomainCalldata = _encodeXDomainCalldata(_from, _to, _value, _messageNonce, _message);
+        bytes memory _xDomainCalldata = _encodeL1L2XDomainCalldata(_from, _to, _value, _messageNonce, _message);
         bytes32 _xDomainCalldataHash = keccak256(_xDomainCalldata);
 
         require(messageSendTimestamp[_xDomainCalldataHash] > 0, "Provided message has not been enqueued");
@@ -264,7 +264,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _to,
         uint256 _value,
         uint256 _messageNonce,
-        bytes memory _message
+        bytes calldata _message
     ) external override whenNotPaused notInExecution {
         // The criteria for dropping a message:
         // 1. The message is a L1 message.
@@ -279,7 +279,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         // We limit the number of `replayMessage` calls of each message, which may solve the above problem.
 
         // check message exists
-        bytes memory _xDomainCalldata = _encodeXDomainCalldata(_from, _to, _value, _messageNonce, _message);
+        bytes memory _xDomainCalldata = _encodeL1L2XDomainCalldata(_from, _to, _value, _messageNonce, _message);
         bytes32 _xDomainCalldataHash = keccak256(_xDomainCalldata);
         require(messageSendTimestamp[_xDomainCalldataHash] > 0, "Provided message has not been enqueued");
 
@@ -331,13 +331,13 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     function _sendMessage(
         address _to,
         uint256 _value,
-        bytes memory _message,
+        bytes calldata _message,
         uint256 _gasLimit,
         address _refundAddress
     ) internal nonReentrant {
         // compute the actual cross domain message calldata.
         uint256 _messageNonce = IL1MessageQueue(messageQueue).nextCrossDomainMessageIndex();
-        bytes memory _xDomainCalldata = _encodeXDomainCalldata(_msgSender(), _to, _value, _messageNonce, _message);
+        bytes memory _xDomainCalldata = _encodeL1L2XDomainCalldata(_msgSender(), _to, _value, _messageNonce, _message);
 
         // compute and deduct the messaging fee to fee vault.
         uint256 _fee = IL1MessageQueue(messageQueue).estimateCrossDomainMessageFee(_gasLimit);
