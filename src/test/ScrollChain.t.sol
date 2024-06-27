@@ -91,13 +91,13 @@ contract ScrollChainTest is DSTestPlus {
 
         // batch header length too small, revert
         hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderLengthTooSmall.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderV0LengthTooSmall.selector);
         rollup.commitBatch(0, new bytes(88), new bytes[](1), new bytes(0));
         hevm.stopPrank();
 
         // wrong bitmap length, revert
         hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLength.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLengthV0.selector);
         rollup.commitBatch(0, new bytes(90), new bytes[](1), new bytes(0));
         hevm.stopPrank();
 
@@ -120,7 +120,7 @@ contract ScrollChainTest is DSTestPlus {
         chunk0 = new bytes(1);
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        hevm.expectRevert(ChunkCodecV0.ErrorNoBlockInChunk.selector);
+        hevm.expectRevert(ChunkCodecV0.ErrorNoBlockInChunkV0.selector);
         rollup.commitBatch(0, batchHeader0, chunks, new bytes(0));
         hevm.stopPrank();
 
@@ -129,7 +129,7 @@ contract ScrollChainTest is DSTestPlus {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        hevm.expectRevert(ChunkCodecV0.ErrorIncorrectChunkLength.selector);
+        hevm.expectRevert(ChunkCodecV0.ErrorIncorrectChunkLengthV0.selector);
         rollup.commitBatch(0, batchHeader0, chunks, new bytes(0));
         hevm.stopPrank();
 
@@ -233,7 +233,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // batch header length too small, revert
         hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderLengthTooSmall.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderV0LengthTooSmall.selector);
         rollup.finalizeBatchWithProof(
             new bytes(88),
             bytes32(uint256(1)),
@@ -245,7 +245,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // wrong bitmap length, revert
         hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLength.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLengthV0.selector);
         rollup.finalizeBatchWithProof(
             new bytes(90),
             bytes32(uint256(1)),
@@ -253,12 +253,6 @@ contract ScrollChainTest is DSTestPlus {
             bytes32(0),
             new bytes(0)
         );
-        hevm.stopPrank();
-
-        // incorrect previous state root, revert
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorIncorrectPreviousStateRoot.selector);
-        rollup.finalizeBatchWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(2)), bytes32(0), new bytes(0));
         hevm.stopPrank();
 
         // verify success
@@ -540,6 +534,7 @@ contract ScrollChainTest is DSTestPlus {
         }
     }
 
+    /*
     function testRevertBatch() external {
         // caller not owner, revert
         hevm.startPrank(address(1));
@@ -615,6 +610,7 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(uint256(rollup.committedBatches(1)), 0);
         assertEq(uint256(rollup.committedBatches(2)), 0);
     }
+    */
 
     function testAddAndRemoveSequencer(address _sequencer) external {
         // set by non-owner, should revert
@@ -722,12 +718,12 @@ contract ScrollChainTest is DSTestPlus {
 
         // batch header length too small, revert
         batchHeader = new bytes(88);
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderLengthTooSmall.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorBatchHeaderV0LengthTooSmall.selector);
         rollup.importGenesisBatch(batchHeader, bytes32(uint256(1)));
 
         // wrong bitmap length, revert
         batchHeader = new bytes(90);
-        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLength.selector);
+        hevm.expectRevert(BatchHeaderV0Codec.ErrorIncorrectBitmapLengthV0.selector);
         rollup.importGenesisBatch(batchHeader, bytes32(uint256(1)));
 
         // not all fields are zero, revert

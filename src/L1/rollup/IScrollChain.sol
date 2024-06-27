@@ -101,11 +101,11 @@ interface IScrollChain {
         bytes calldata blobDataProof
     ) external;
 
-    /// @notice Revert a pending batch.
+    /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch`.
-    /// @param count The number of subsequent batches to revert, including current batch.
-    function revertBatch(bytes calldata batchHeader, uint256 count) external;
+    /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
+    /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
+    function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
 
     /// @notice Finalize a committed batch on layer 1.
     /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch.

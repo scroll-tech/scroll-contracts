@@ -30,92 +30,51 @@ contract ScrollChainMockFinalize is ScrollChain {
     /// @notice Finalize batch without proof, see the comments of {ScrollChain-finalizeBatchWithProof}.
     function finalizeBatch(
         bytes calldata _batchHeader,
-        bytes32 _prevStateRoot,
+        bytes32, /*_prevStateRoot*/
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot
     ) external OnlyProver whenNotPaused {
-        if (_prevStateRoot == bytes32(0)) revert ErrorPreviousStateRootIsZero();
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
-
-        // compute batch hash and verify
-        (uint256 memPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
-
-        // verify previous state root.
-        if (finalizedStateRoots[_batchIndex - 1] != _prevStateRoot) revert ErrorIncorrectPreviousStateRoot();
-
-        // avoid duplicated verification
-        if (finalizedStateRoots[_batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
-
-        // check and update lastFinalizedBatchIndex
-        unchecked {
-            if (lastFinalizedBatchIndex + 1 != _batchIndex) revert ErrorIncorrectBatchIndex();
-            lastFinalizedBatchIndex = _batchIndex;
-        }
-
-        // record state root and withdraw root
-        finalizedStateRoots[_batchIndex] = _postStateRoot;
-        withdrawRoots[_batchIndex] = _withdrawRoot;
-
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _popL1Messages(
-            BatchHeaderV0Codec.getSkippedBitmapPtr(memPtr),
-            BatchHeaderV0Codec.getTotalL1MessagePopped(memPtr),
-            BatchHeaderV0Codec.getL1MessagePopped(memPtr)
+        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) = _beforeFinalizeBatch(
+            _batchHeader,
+            _postStateRoot
         );
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        uint256 _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
+        _popL1MessagesMemory(
+            BatchHeaderV0Codec.getSkippedBitmapPtr(batchPtr),
+            _totalL1MessagesPoppedOverall,
+            BatchHeaderV0Codec.getL1MessagePopped(batchPtr)
+        );
+
+        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 
     /// @notice Finalize 4844 batch without proof, See the comments of {ScrollChain-finalizeBatchWithProof4844}.
     function finalizeBatch4844(
         bytes calldata _batchHeader,
-        bytes32 _prevStateRoot,
+        bytes32, /*_prevStateRoot*/
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _blobDataProof
     ) external OnlyProver whenNotPaused {
-        if (_prevStateRoot == bytes32(0)) revert ErrorPreviousStateRootIsZero();
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
-
-        // compute batch hash and verify
-        (uint256 memPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
-        bytes32 _blobVersionedHash = BatchHeaderV1Codec.getBlobVersionedHash(memPtr);
-
-        // Calls the point evaluation precompile and verifies the output
-        {
-            (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
-                abi.encodePacked(_blobVersionedHash, _blobDataProof)
-            );
-            // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
-            // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
-            if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
-            (, uint256 result) = abi.decode(data, (uint256, uint256));
-            if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
-        }
-
-        // verify previous state root.
-        if (finalizedStateRoots[_batchIndex - 1] != _prevStateRoot) revert ErrorIncorrectPreviousStateRoot();
-
-        // avoid duplicated verification
-        if (finalizedStateRoots[_batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
-
-        // check and update lastFinalizedBatchIndex
-        unchecked {
-            if (lastFinalizedBatchIndex + 1 != _batchIndex) revert ErrorIncorrectBatchIndex();
-            lastFinalizedBatchIndex = _batchIndex;
-        }
-
-        // record state root and withdraw root
-        finalizedStateRoots[_batchIndex] = _postStateRoot;
-        withdrawRoots[_batchIndex] = _withdrawRoot;
-
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _popL1Messages(
-            BatchHeaderV1Codec.getSkippedBitmapPtr(memPtr),
-            BatchHeaderV1Codec.getTotalL1MessagePopped(memPtr),
-            BatchHeaderV1Codec.getL1MessagePopped(memPtr)
+        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) = _beforeFinalizeBatch(
+            _batchHeader,
+            _postStateRoot
         );
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        // verify blob versioned hash
+        bytes32 _blobVersionedHash = BatchHeaderV1Codec.getBlobVersionedHash(batchPtr);
+        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
+
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        uint256 _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
+        _popL1MessagesMemory(
+            BatchHeaderV1Codec.getSkippedBitmapPtr(batchPtr),
+            _totalL1MessagesPoppedOverall,
+            BatchHeaderV0Codec.getL1MessagePopped(batchPtr)
+        );
+
+        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 }

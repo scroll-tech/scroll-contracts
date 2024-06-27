@@ -19,4 +19,12 @@ contract MockRollupVerifier is IRollupVerifier {
         bytes calldata,
         bytes32
     ) external view {}
+
+    /// @inheritdoc IRollupVerifier
+    function verifyAggregateProof(
+        uint256,
+        uint256,
+        bytes calldata,
+        bytes calldata
+    ) external view {}
 }
