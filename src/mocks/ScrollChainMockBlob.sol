@@ -4,7 +4,7 @@ pragma solidity =0.8.24;
 
 import {ScrollChain} from "../L1/rollup/ScrollChain.sol";
 
-contract ScrollChainMockFinalize is ScrollChain {
+contract ScrollChainMockBlob is ScrollChain {
     bytes32 blobVersionedHash;
 
     /***************

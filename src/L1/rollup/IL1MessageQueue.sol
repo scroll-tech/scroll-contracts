@@ -29,8 +29,12 @@ interface IL1MessageQueue {
     /// @param skippedBitmap A bitmap indicates whether a message is skipped.
     event DequeueTransaction(uint256 startIndex, uint256 count, uint256 skippedBitmap);
 
-    event ResetDequeuedTransaction(uint256 startIndex, uint256 count);
+    /// @notice Emitted when dequeued transactions are reset.
+    /// @param startIndex The start index of messages.
+    event ResetDequeuedTransaction(uint256 startIndex);
 
+    /// @notice Emitted when some L1 => L2 transactions are finalized in L1.
+    /// @param finalizedIndex The last index of messages finalized.
     event FinalizedDequeuedTransaction(uint256 finalizedIndex);
 
     /// @notice Emitted when a message is dropped from L1.
@@ -153,8 +157,7 @@ interface IL1MessageQueue {
     /// @dev We can only reset unfinalized popped messages.
     ///
     /// @param startIndex The start index to reset.
-    /// @param count The number of messages to reset.
-    function resetPoppedCrossDomainMessage(uint256 startIndex, uint256 count) external;
+    function resetPoppedCrossDomainMessage(uint256 startIndex) external;
 
     /// @notice Finalize status of popped messages.
     /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.

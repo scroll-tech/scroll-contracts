@@ -434,9 +434,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             uint256 _firstBatchIndex,
             uint256 _totalL1MessagesPoppedOverallFirstBatch
         ) = _loadBatchHeader(_firstBatchHeader);
-        (, , uint256 _lastBatchIndex, uint256 _totalL1MessagesPoppedOverallLastBatch) = _loadBatchHeader(
-            _lastBatchHeader
-        );
+        (, , uint256 _lastBatchIndex, ) = _loadBatchHeader(_lastBatchHeader);
         if (_firstBatchIndex > _lastBatchIndex) revert ErrorRevertZeroBatches();
 
         // make sure no gap is left when reverting from the ending to the beginning.
@@ -456,11 +454,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // `getL1MessagePopped` codes are the same in V0, V1, V2, V3
         uint256 l1MessagePoppedFirstBatch = BatchHeaderV0Codec.getL1MessagePopped(firstBatchPtr);
         unchecked {
-            uint256 startQueueIndex = _totalL1MessagesPoppedOverallFirstBatch - l1MessagePoppedFirstBatch;
-            uint256 numMessages = _totalL1MessagesPoppedOverallLastBatch - startQueueIndex;
-            if (numMessages > 0) {
-                IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(startQueueIndex, numMessages);
-            }
+            IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(
+                _totalL1MessagesPoppedOverallFirstBatch - l1MessagePoppedFirstBatch
+            );
         }
     }
 

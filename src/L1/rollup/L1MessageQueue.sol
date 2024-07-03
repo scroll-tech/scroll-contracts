@@ -374,18 +374,21 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     }
 
     /// @inheritdoc IL1MessageQueue
-    /// @dev Caller should make sure `_count > 0` to reduce unnecessary contract call.
-    function resetPoppedCrossDomainMessage(uint256 _startIndex, uint256 _count) external override onlyScrollChain {
-        if (_count == 0) return;
+    /// @dev Caller should make sure `_startIndex < pendingQueueIndex` to reduce unnecessary contract call.
+    function resetPoppedCrossDomainMessage(uint256 _startIndex) external override onlyScrollChain {
+        uint256 cachedPendingQueueIndex = pendingQueueIndex;
+        if (_startIndex == cachedPendingQueueIndex) return;
+
         require(_startIndex >= finalizedQueueIndexPlusOne, "reset finalized messages");
-        require(_startIndex + _count <= pendingQueueIndex, "reset non-popped messages");
+        require(_startIndex < cachedPendingQueueIndex, "reset pending messages");
 
         unchecked {
+            uint256 count = cachedPendingQueueIndex - _startIndex;
             uint256 bucket = _startIndex >> 8;
             uint256 offset = _startIndex & 0xff;
             skippedMessageBitmap[bucket] &= (1 << offset) - 1;
             uint256 numResetMessages = 256 - offset;
-            while (numResetMessages < _count) {
+            while (numResetMessages < count) {
                 bucket += 1;
                 uint256 bitmap = skippedMessageBitmap[bucket];
                 if (bitmap > 0) skippedMessageBitmap[bucket] = 0;
@@ -394,7 +397,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         }
 
         pendingQueueIndex = _startIndex;
-        emit ResetDequeuedTransaction(_startIndex, _count);
+        emit ResetDequeuedTransaction(_startIndex);
     }
 
     /// @inheritdoc IL1MessageQueue
