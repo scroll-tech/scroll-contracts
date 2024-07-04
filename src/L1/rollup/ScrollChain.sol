@@ -46,7 +46,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     error ErrorCallerIsNotSequencer();
 
     /// @dev Thrown when the transaction has multiple blobs.
-    error ErrorFoundMultipleBlob();
+    error ErrorFoundMultipleBlobs();
 
     /// @dev Thrown when some fields are not zero in genesis batch.
     error ErrorGenesisBatchHasNonZeroField();
@@ -329,7 +329,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 BatchHeaderV1Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
             );
         } else {
-            revert();
+            revert ErrorIncorrectBatchVersion();
         }
 
         // verify skippedL1MessageBitmap
@@ -569,7 +569,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _finalizedBatchHash = committedBatches[_finalizedBatchIndex];
 
         // compute pending batch hash and verify
-        (, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
+        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
         if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
 
         bytes memory _publicInput = abi.encodePacked(
@@ -582,19 +582,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
 
         // load version from batch header, it is always the first byte.
-        uint256 batchVersion;
-        assembly {
-            batchVersion := shr(248, calldataload(_batchHeader.offset))
-        }
+        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyAggregateProof(
-            batchVersion,
-            _finalizedBatchIndex + 1,
-            _aggrProof,
-            _publicInput
-        );
+        IRollupVerifier(verifier).verifyAggregateProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
 
         // store in state
         // @note we do not store intermediate finalized roots
@@ -671,6 +663,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      * Internal Functions *
      **********************/
 
+    /// @dev Internal function to do common checks before actual batch committing.
+    /// @param _parentBatchHeader The parent batch header in calldata.
+    /// @param _chunks The list of chunks in memory.
+    /// @return _parentBatchHash The batch hash of parent batch header.
+    /// @return _batchIndex The index of current batch.
+    /// @return _totalL1MessagesPoppedOverall The total number of L1 messages popped before current batch.
     function _beforeCommitBatch(bytes calldata _parentBatchHeader, bytes[] memory _chunks)
         private
         view
@@ -689,11 +687,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (committedBatches[_batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
     }
 
+    /// @dev Internal function to do common checks after actual batch committing.
+    /// @param _batchIndex The index of current batch.
+    /// @param _batchHash The hash of current batch.
     function _afterCommitBatch(uint256 _batchIndex, bytes32 _batchHash) private {
         committedBatches[_batchIndex] = _batchHash;
         emit CommitBatch(_batchIndex, _batchHash);
     }
 
+    /// @dev Internal function to do common checks before actual batch finalization.
+    /// @param _batchHeader The current batch header in calldata.
+    /// @param _postStateRoot The state root after current batch.
+    /// @return batchPtr The start memory offset of current batch in memory.
+    /// @return _batchHash The hash of current batch.
+    /// @return _batchIndex The index of current batch.
     function _beforeFinalizeBatch(bytes calldata _batchHeader, bytes32 _postStateRoot)
         internal
         view
@@ -712,6 +719,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (finalizedStateRoots[_batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
     }
 
+    /// @dev Internal function to do common checks after actual batch finalization.
+    /// @param _totalL1MessagesPoppedOverall The total number of L1 messages popped after current batch.
+    /// @param _batchIndex The index of current batch.
+    /// @param _batchHash The hash of current batch.
+    /// @param _postStateRoot The state root after current batch.
+    /// @param _withdrawRoot The withdraw trie root after current batch.
     function _afterFinalizeBatch(
         uint256 _totalL1MessagesPoppedOverall,
         uint256 _batchIndex,
@@ -735,6 +748,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 
+    /// @dev Internal function to check blob versioned hash.
+    /// @param _blobVersionedHash The blob versioned hash to check.
+    /// @param _blobDataProof The blob data proof used to verify the blob versioned hash.
     function _checkBlobVersionedHash(bytes32 _blobVersionedHash, bytes calldata _blobDataProof) internal view {
         // Calls the point evaluation precompile and verifies the output
         (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
@@ -747,6 +763,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
     }
 
+    /// @dev Internal function to check the `SkippedL1MessageBitmap`.
+    /// @param _totalL1MessagesPoppedOverall The total number of L1 messages popped after current batch.
+    /// @param _totalL1MessagesPoppedInBatch The total number of L1 messages popped in current batch.
+    /// @param _skippedL1MessageBitmap The skipped L1 message bitmap in calldata.
+    /// @param _doPopMessage Whether we actually pop the messages from message queue.
     function _checkSkippedL1MessageBitmap(
         uint256 _totalL1MessagesPoppedOverall,
         uint256 _totalL1MessagesPoppedInBatch,
@@ -768,6 +789,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
+    /// @dev Internal function to get the blob versioned hash.
+    /// @return _blobVersionedHash The retrieved blob versioned hash.
     function _getBlobVersionedHash() internal virtual returns (bytes32 _blobVersionedHash) {
         bytes32 _secondBlob;
         // Get blob's versioned hash
@@ -776,7 +799,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             _secondBlob := blobhash(1)
         }
         if (_blobVersionedHash == bytes32(0)) revert ErrorNoBlobFound();
-        if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlob();
+        if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
     /// @dev Internal function to commit chunks with version 0
