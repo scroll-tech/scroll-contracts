@@ -621,7 +621,7 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function deployL1GasPriceOracle() private {
-        bytes memory args = abi.encode(DEPLOYER_ADDR);
+        bytes memory args = abi.encode(DEPLOYER_ADDR, true);
         L1_GAS_PRICE_ORACLE_ADDR = deploy("L1_GAS_PRICE_ORACLE", type(L1GasPriceOracle).creationCode, args);
     }
 

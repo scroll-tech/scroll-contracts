@@ -34,7 +34,7 @@ contract L2ScrollMessengerTest is DSTestPlus {
         whitelist = new Whitelist(address(this));
         l1BlockContainer = new L1BlockContainer(address(this));
         l2MessageQueue = new L2MessageQueue(address(this));
-        l1GasOracle = new L1GasPriceOracle(address(this));
+        l1GasOracle = new L1GasPriceOracle(address(this), false);
         l2Messenger = L2ScrollMessenger(
             payable(
                 new ERC1967Proxy(

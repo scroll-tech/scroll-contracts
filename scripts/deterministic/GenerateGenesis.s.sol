@@ -85,7 +85,7 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        L1GasPriceOracle _oracle = new L1GasPriceOracle(OWNER_ADDR);
+        L1GasPriceOracle _oracle = new L1GasPriceOracle(OWNER_ADDR, true);
         vm.etch(predeployAddr, address(_oracle).code);
 
         // set storage

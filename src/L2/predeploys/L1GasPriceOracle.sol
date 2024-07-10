@@ -111,11 +111,10 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
      * Constructor *
      ***************/
 
-    constructor(address _owner) {
+    constructor(address _owner, bool _isCurie) {
         _transferOwnership(_owner);
 
-        // by default we enable Curie from genesis
-        isCurie = true;
+        isCurie = _isCurie;
     }
 
     /*************************
