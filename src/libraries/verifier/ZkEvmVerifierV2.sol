@@ -76,25 +76,25 @@ contract ZkEvmVerifierV2 is IZkEvmVerifierV2 {
             calldatacopy(p, bundleProof.offset, 0x180)
             // 2. insert the public input's 0x1a0 bytes
             mstore(add(p, 0x180), _verifierDigest) // verifierDigest
-            let prevStateRoot := calldataload(add(publicInput.offset, 0xc))
-            mstore(add(p, 0x1a0), shr(128, prevStateRoot)) // prevStateRoot_hi
-            mstore(add(p, 0x1c0), and(prevStateRoot, 0xffffffffffffffffffffffffffffffff)) // prevStateRoot_lo
-            let prevBatchHash := calldataload(add(publicInput.offset, 0x2c))
-            mstore(add(p, 0x1e0), shr(128, prevBatchHash)) // prevBatchHash_hi
-            mstore(add(p, 0x200), and(prevBatchHash, 0xffffffffffffffffffffffffffffffff)) // prevBatchHash_lo
-            let postStateRoot := calldataload(add(publicInput.offset, 0x4c))
-            mstore(add(p, 0x220), shr(128, postStateRoot)) // postStateRoot_hi
-            mstore(add(p, 0x240), and(postStateRoot, 0xffffffffffffffffffffffffffffffff)) // postStateRoot_lo
-            let batchHash := calldataload(add(publicInput.offset, 0x6c))
-            mstore(add(p, 0x260), shr(128, batchHash)) // batchHash_hi
-            mstore(add(p, 0x280), and(batchHash, 0xffffffffffffffffffffffffffffffff)) // batchHash_lo
-            let layer2ChainId := shr(192, calldataload(publicInput.offset))
-            mstore(add(p, 0x2a0), layer2ChainId) // layer2ChainId
-            let withdrawRoot := calldataload(add(publicInput.offset, 0x8c))
-            mstore(add(p, 0x2c0), shr(128, withdrawRoot)) // withdrawRoot_hi
-            mstore(add(p, 0x2e0), and(withdrawRoot, 0xffffffffffffffffffffffffffffffff)) // withdrawRoot_lo
-            let numBatches := shr(224, calldataload(add(publicInput.offset, 0x08)))
-            mstore(add(p, 0x300), numBatches) // numBatches
+            let value := calldataload(add(publicInput.offset, 0xc))
+            mstore(add(p, 0x1a0), shr(128, value)) // prevStateRoot_hi
+            mstore(add(p, 0x1c0), and(value, 0xffffffffffffffffffffffffffffffff)) // prevStateRoot_lo
+            value := calldataload(add(publicInput.offset, 0x2c))
+            mstore(add(p, 0x1e0), shr(128, value)) // prevBatchHash_hi
+            mstore(add(p, 0x200), and(value, 0xffffffffffffffffffffffffffffffff)) // prevBatchHash_lo
+            value := calldataload(add(publicInput.offset, 0x4c))
+            mstore(add(p, 0x220), shr(128, value)) // postStateRoot_hi
+            mstore(add(p, 0x240), and(value, 0xffffffffffffffffffffffffffffffff)) // postStateRoot_lo
+            value := calldataload(add(publicInput.offset, 0x6c))
+            mstore(add(p, 0x260), shr(128, value)) // batchHash_hi
+            mstore(add(p, 0x280), and(value, 0xffffffffffffffffffffffffffffffff)) // batchHash_lo
+            value := shr(192, calldataload(publicInput.offset))
+            mstore(add(p, 0x2a0), value) // layer2ChainId
+            value := calldataload(add(publicInput.offset, 0x8c))
+            mstore(add(p, 0x2c0), shr(128, value)) // withdrawRoot_hi
+            mstore(add(p, 0x2e0), and(value, 0xffffffffffffffffffffffffffffffff)) // withdrawRoot_lo
+            value := shr(224, calldataload(add(publicInput.offset, 0x08)))
+            mstore(add(p, 0x300), value) // numBatches
             // 3. copy all remaining bytes from bundleProof
             calldatacopy(add(p, 0x320), add(bundleProof.offset, 0x180), sub(bundleProof.length, 0x180))
             // 4. call plonk verifier
