@@ -21,7 +21,7 @@ import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gatew
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
-import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
+import {ScrollChainMockFinalize} from "../../src/mocks/ScrollChainMockFinalize.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
 
@@ -109,7 +109,7 @@ contract DeployL1BridgeContracts is Script {
     }
 
     function deployScrollChain() internal {
-        ScrollChain impl = new ScrollChain(CHAIN_ID_L2, L1_MESSAGE_QUEUE_PROXY_ADDR, address(rollupVerifier));
+        ScrollChainMockFinalize impl = new ScrollChainMockFinalize(CHAIN_ID_L2, L1_MESSAGE_QUEUE_PROXY_ADDR, address(rollupVerifier));
 
         logAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR", address(impl));
     }
