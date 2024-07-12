@@ -277,30 +277,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint256 batchPtr;
         bytes32 _dataHash;
         uint256 _totalL1MessagesPoppedInBatch;
-        if (_version == 0) {
-            (_dataHash, _totalL1MessagesPoppedInBatch) = _commitChunksV0(
-                _totalL1MessagesPoppedOverall,
-                _chunks,
-                _skippedL1MessageBitmap
-            );
-            assembly {
-                batchPtr := mload(0x40)
-                _totalL1MessagesPoppedOverall := add(_totalL1MessagesPoppedOverall, _totalL1MessagesPoppedInBatch)
-            }
-            // store entries, the order matters
-            BatchHeaderV0Codec.storeVersion(batchPtr, 0);
-            BatchHeaderV0Codec.storeBatchIndex(batchPtr, _batchIndex);
-            BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, _totalL1MessagesPoppedInBatch);
-            BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, _totalL1MessagesPoppedOverall);
-            BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
-            BatchHeaderV0Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
-            BatchHeaderV0Codec.storeSkippedBitmap(batchPtr, _skippedL1MessageBitmap);
-            // compute batch hash
-            _batchHash = BatchHeaderV0Codec.computeBatchHash(
-                batchPtr,
-                BatchHeaderV0Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
-            );
-        } else if (_version <= 2) {
+        if (1 <= _version && _version <= 2) {
             // versions 1 and 2 both use ChunkCodecV1 and BatchHeaderV1Codec,
             // but they use different blob encoding and different verifiers.
             (_dataHash, _totalL1MessagesPoppedInBatch) = _commitChunksV1(
@@ -329,6 +306,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 BatchHeaderV1Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
             );
         } else {
+            // we don't allow v0 and other versions
             revert ErrorIncorrectBatchVersion();
         }
 
@@ -906,6 +884,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     function _loadBatchHeader(bytes calldata _batchHeader)
         internal
         view
+        virtual
         returns (
             uint256 batchPtr,
             bytes32 _batchHash,
