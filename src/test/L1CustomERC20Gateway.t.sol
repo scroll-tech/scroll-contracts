@@ -197,7 +197,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
         messageQueue.finalizePoppedCrossDomainMessage(1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         hevm.stopPrank();
 
         // drop message 0

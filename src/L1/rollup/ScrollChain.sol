@@ -460,11 +460,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
+    /* This function will never be used since we already upgrade to 4844. We comment out the codes for reference.
     /// @inheritdoc IScrollChain
-    /// @dev We keep this function to upgrade to 4844 more smoothly.
     function finalizeBatchWithProof(
         bytes calldata _batchHeader,
-        bytes32, /*_prevStateRoot*/
+        bytes32 _prevStateRoot,
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _aggrProof
@@ -496,6 +496,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
+    */
 
     /// @inheritdoc IScrollChain
     /// @dev Memory layout of `_blobDataProof`:
@@ -566,7 +567,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // retrieve finalized state root and batch hash from storage
         uint256 _finalizedBatchIndex = lastFinalizedBatchIndex;
         bytes32 _prevStateRoot = finalizedStateRoots[_finalizedBatchIndex];
-        bytes32 _finalizedBatchHash = committedBatches[_finalizedBatchIndex];
+        bytes32 _prevBatchHash = committedBatches[_finalizedBatchIndex];
 
         // compute pending batch hash and verify
         (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
@@ -574,11 +575,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
+            uint32(_batchIndex - _finalizedBatchIndex),
             _prevStateRoot,
+            _prevBatchHash,
             _postStateRoot,
-            _withdrawRoot,
-            _finalizedBatchHash,
-            _batchHash
+            _batchHash,
+            _withdrawRoot
         );
 
         // load version from batch header, it is always the first byte.
@@ -586,7 +588,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyAggregateProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
+        IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
 
         // store in state
         // @note we do not store intermediate finalized roots

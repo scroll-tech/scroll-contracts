@@ -127,15 +127,15 @@ contract MultipleVersionRollupVerifier is IRollupVerifier, Ownable {
     }
 
     /// @inheritdoc IRollupVerifier
-    function verifyAggregateProof(
+    function verifyBundleProof(
         uint256 _version,
         uint256 _batchIndex,
-        bytes calldata _aggrProof,
+        bytes calldata _bundleProof,
         bytes calldata _publicInput
     ) external view override {
         address _verifier = getVerifier(_version, _batchIndex);
 
-        IZkEvmVerifierV2(_verifier).verify(_aggrProof, _publicInput);
+        IZkEvmVerifierV2(_verifier).verify(_bundleProof, _publicInput);
     }
 
     /************************

@@ -210,7 +210,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(0, 50, 0);
         queue.popCrossDomainMessage(0, 50, 0);
         assertEq(queue.pendingQueueIndex(), 50);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         for (uint256 i = 0; i < 50; i++) {
             assertBoolEq(queue.isMessageSkipped(i), false);
             assertBoolEq(queue.isMessageDropped(i), false);
@@ -221,7 +221,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(50, 10, 1023);
         queue.popCrossDomainMessage(50, 10, 1023);
         assertEq(queue.pendingQueueIndex(), 60);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         for (uint256 i = 50; i < 60; i++) {
             assertBoolEq(queue.isMessageSkipped(i), true);
             assertBoolEq(queue.isMessageDropped(i), false);
@@ -233,7 +233,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(60, 20, 31);
         queue.popCrossDomainMessage(60, 20, 31);
         assertEq(queue.pendingQueueIndex(), 80);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         for (uint256 i = 60; i < 65; i++) {
             assertBoolEq(queue.isMessageSkipped(i), true);
             assertBoolEq(queue.isMessageDropped(i), false);
@@ -342,7 +342,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(0, 256, 0);
         queue.popCrossDomainMessage(0, 256, 0);
         assertEq(queue.pendingQueueIndex(), 256);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
 
         // finalize 128 messages
@@ -350,7 +350,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.expectEmit(false, false, false, true);
         emit FinalizedDequeuedTransaction(127);
         queue.finalizePoppedCrossDomainMessage(128);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 128);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 128);
         hevm.stopPrank();
 
         // should revert, when reset finalized messages
@@ -374,7 +374,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         }
         queue.resetPoppedCrossDomainMessage(startIndex);
         assertEq(queue.pendingQueueIndex(), startIndex);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 128);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 128);
         hevm.stopPrank();
     }
 
@@ -497,7 +497,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(0, 5, 0);
         queue.popCrossDomainMessage(0, 5, 0);
         assertEq(queue.pendingQueueIndex(), 5);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
 
         // should revert, when finalized index too large
@@ -511,7 +511,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.expectEmit(false, false, false, true);
         emit FinalizedDequeuedTransaction(4);
         queue.finalizePoppedCrossDomainMessage(5);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 5);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 5);
         hevm.stopPrank();
 
         // should revert, finalized index too small
@@ -523,7 +523,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         // should do nothing
         hevm.startPrank(FakeScrollChain);
         queue.finalizePoppedCrossDomainMessage(5);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 5);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 5);
         hevm.stopPrank();
     }
 
@@ -546,7 +546,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(0, 5, 0);
         queue.popCrossDomainMessage(0, 5, 0);
         assertEq(queue.pendingQueueIndex(), 5);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
 
         // drop pending message
@@ -561,7 +561,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         queue.finalizePoppedCrossDomainMessage(5);
         hevm.stopPrank();
         assertEq(queue.pendingQueueIndex(), 5);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 5);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 5);
 
         // drop non-skipped message
         hevm.startPrank(FakeMessenger);
@@ -594,10 +594,10 @@ contract L1MessageQueueTest is ScrollTestBase {
         emit DequeueTransaction(0, 10, 0x3ff);
         queue.popCrossDomainMessage(0, 10, 0x3ff);
         assertEq(queue.pendingQueueIndex(), 10);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 0);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         queue.finalizePoppedCrossDomainMessage(5);
         assertEq(queue.pendingQueueIndex(), 10);
-        assertEq(queue.finalizedQueueIndexPlusOne(), 5);
+        assertEq(queue.nextUnfinalizedQueueIndex(), 5);
         hevm.stopPrank();
 
         for (uint256 i = 0; i < 5; i++) {

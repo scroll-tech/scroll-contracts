@@ -107,20 +107,6 @@ interface IScrollChain {
     /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
     function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
 
-    /// @notice Finalize a committed batch on layer 1.
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch.
-    /// @param prevStateRoot The state root of parent batch.
-    /// @param postStateRoot The state root of current batch.
-    /// @param withdrawRoot The withdraw trie root of current batch.
-    /// @param aggrProof The aggregation proof for current batch.
-    function finalizeBatchWithProof(
-        bytes calldata batchHeader,
-        bytes32 prevStateRoot,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot,
-        bytes calldata aggrProof
-    ) external;
-
     /// @notice Finalize a committed batch (with blob) on layer 1.
     ///
     /// @dev Memory layout of `blobDataProof`:

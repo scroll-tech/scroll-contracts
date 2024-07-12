@@ -10,8 +10,8 @@ interface IZkEvmVerifierV1 {
 }
 
 interface IZkEvmVerifierV2 {
-    /// @notice Verify aggregate zk proof.
-    /// @param aggrProof The aggregated proof.
+    /// @notice Verify bundle zk proof.
+    /// @param bundleProof The bundle recursion proof.
     /// @param publicInput The public input.
-    function verify(bytes calldata aggrProof, bytes calldata publicInput) external view;
+    function verify(bytes calldata bundleProof, bytes calldata publicInput) external view;
 }

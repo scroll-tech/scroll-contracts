@@ -1444,7 +1444,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 batchHash1 = rollup.committedBatches(1);
         assertEq(batchHash1, keccak256(batchHeader1));
         assertEq(1, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.finalizedQueueIndexPlusOne());
+        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
         assertBoolEq(messageQueue.isMessageSkipped(0), false);
 
         // commit batch2 with two chunks, correctly
@@ -1561,7 +1561,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 batchHash2 = rollup.committedBatches(2);
         assertEq(batchHash2, keccak256(batchHeader2));
         assertEq(265, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.finalizedQueueIndexPlusOne());
+        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
     }
 
     function testCommitAndFinalizeWithL1MessagesV3() external {
@@ -1646,7 +1646,7 @@ contract ScrollChainTest is DSTestPlus {
         // revert batch 1 and batch 2
         rollup.revertBatch(batchHeader1, batchHeader2);
         assertEq(0, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.finalizedQueueIndexPlusOne());
+        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
         for (uint256 i = 0; i < 265; i++) {
             assertBoolEq(messageQueue.isMessageSkipped(i), false);
         }
@@ -1857,7 +1857,7 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.lastFinalizedBatchIndex(), 1);
         assertBoolEq(messageQueue.isMessageSkipped(0), false);
         assertEq(messageQueue.pendingQueueIndex(), 1);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
 
         hevm.startPrank(address(0));
         hevm.expectEmit(true, true, false, true);
@@ -1867,7 +1867,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 batchHash2 = rollup.committedBatches(2);
         assertEq(batchHash2, keccak256(batchHeader2));
         assertEq(messageQueue.pendingQueueIndex(), 265);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
 
         // finalize batch2
         assertBoolEq(rollup.isBatchFinalized(2), false);

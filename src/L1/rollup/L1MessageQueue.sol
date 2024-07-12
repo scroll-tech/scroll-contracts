@@ -65,7 +65,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     mapping(uint256 => uint256) private skippedMessageBitmap;
 
     /// @inheritdoc IL1MessageQueue
-    uint256 public finalizedQueueIndexPlusOne;
+    uint256 public nextUnfinalizedQueueIndex;
 
     /// @dev The storage slots for future usage.
     uint256[40] private __gap;
@@ -379,7 +379,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         uint256 cachedPendingQueueIndex = pendingQueueIndex;
         if (_startIndex == cachedPendingQueueIndex) return;
 
-        require(_startIndex >= finalizedQueueIndexPlusOne, "reset finalized messages");
+        require(_startIndex >= nextUnfinalizedQueueIndex, "reset finalized messages");
         require(_startIndex < cachedPendingQueueIndex, "reset pending messages");
 
         unchecked {
@@ -406,12 +406,12 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         override
         onlyScrollChain
     {
-        uint256 cachedFinalizedQueueIndexPlusOne = finalizedQueueIndexPlusOne;
+        uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
         if (_newFinalizedQueueIndexPlusOne == cachedFinalizedQueueIndexPlusOne) return;
         require(_newFinalizedQueueIndexPlusOne > cachedFinalizedQueueIndexPlusOne, "finalized index too small");
         require(_newFinalizedQueueIndexPlusOne <= pendingQueueIndex, "finalized index too large");
 
-        finalizedQueueIndexPlusOne = _newFinalizedQueueIndexPlusOne;
+        nextUnfinalizedQueueIndex = _newFinalizedQueueIndexPlusOne;
         unchecked {
             emit FinalizedDequeuedTransaction(_newFinalizedQueueIndexPlusOne - 1);
         }
@@ -419,7 +419,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
 
     /// @inheritdoc IL1MessageQueue
     function dropCrossDomainMessage(uint256 _index) external onlyMessenger {
-        require(_index < finalizedQueueIndexPlusOne, "cannot drop pending message");
+        require(_index < nextUnfinalizedQueueIndex, "cannot drop pending message");
 
         require(_isMessageSkipped(_index), "drop non-skipped message");
         require(!droppedMessageBitmap.get(_index), "message already dropped");

@@ -211,7 +211,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
         messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
@@ -247,7 +247,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
         messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
         hevm.stopPrank();
 

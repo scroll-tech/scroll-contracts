@@ -52,7 +52,7 @@ contract L1MessageQueueWithGasPriceOracle is L1MessageQueue, IL1MessageQueueWith
     }
 
     function initializeV3() external reinitializer(3) {
-        finalizedQueueIndexPlusOne = pendingQueueIndex;
+        nextUnfinalizedQueueIndex = pendingQueueIndex;
     }
 
     /*************************

@@ -257,7 +257,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 2, 0x3);
         messageQueue.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 2);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
         assertEq(messageQueue.pendingQueueIndex(), 2);
         hevm.stopPrank();
         for (uint256 i = 0; i < 2; ++i) {
@@ -284,7 +284,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(2, 4, 0x7);
         messageQueue.finalizePoppedCrossDomainMessage(6);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 6);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 6);
         assertEq(messageQueue.pendingQueueIndex(), 6);
         hevm.stopPrank();
         for (uint256 i = 2; i < 6; i++) {
@@ -307,7 +307,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(6, 5, 0x1f);
         messageQueue.finalizePoppedCrossDomainMessage(11);
-        assertEq(messageQueue.finalizedQueueIndexPlusOne(), 11);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
         assertEq(messageQueue.pendingQueueIndex(), 11);
         hevm.stopPrank();
         for (uint256 i = 6; i < 11; ++i) {

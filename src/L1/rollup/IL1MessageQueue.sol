@@ -65,9 +65,9 @@ interface IL1MessageQueue {
     /// @notice The start index of all pending inclusion messages.
     function pendingQueueIndex() external view returns (uint256);
 
-    /// @notice The last index of all finalized messages plus one.
-    /// @dev All messages from `finalizedQueueIndexPlusOne` to `pendingQueueIndex-1` are committed but not finalized.
-    function finalizedQueueIndexPlusOne() external view returns (uint256);
+    /// @notice The start index of all unfinalized messages.
+    /// @dev All messages from `nextUnfinalizedQueueIndex` to `pendingQueueIndex-1` are committed but not finalized.
+    function nextUnfinalizedQueueIndex() external view returns (uint256);
 
     /// @notice Return the index of next appended message.
     /// @dev Also the total number of appended messages.
