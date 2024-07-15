@@ -542,20 +542,23 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     ) external override OnlyProver whenNotPaused {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
-        // retrieve finalized state root and batch hash from storage
-        uint256 _finalizedBatchIndex = lastFinalizedBatchIndex;
-        bytes32 _prevStateRoot = finalizedStateRoots[_finalizedBatchIndex];
-        bytes32 _prevBatchHash = committedBatches[_finalizedBatchIndex];
-
         // compute pending batch hash and verify
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
+        (
+            uint256 batchPtr,
+            bytes32 _batchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        ) = _loadBatchHeader(_batchHeader);
+
+        // retrieve finalized state root and batch hash from storage to construct the public input
+        uint256 _finalizedBatchIndex = lastFinalizedBatchIndex;
         if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
 
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
-            uint32(_batchIndex - _finalizedBatchIndex),
-            _prevStateRoot,
-            _prevBatchHash,
+            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
+            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
+            committedBatches[_finalizedBatchIndex], // _prevBatchHash
             _postStateRoot,
             _batchHash,
             _withdrawRoot
@@ -573,6 +576,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         lastFinalizedBatchIndex = _batchIndex;
         finalizedStateRoots[_batchIndex] = _postStateRoot;
         withdrawRoots[_batchIndex] = _withdrawRoot;
+
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }

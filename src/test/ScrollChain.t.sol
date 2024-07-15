@@ -1138,6 +1138,7 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.finalizedStateRoots(2), bytes32(uint256(2)));
         assertEq(rollup.withdrawRoots(2), bytes32(uint256(3)));
         assertEq(rollup.lastFinalizedBatchIndex(), 2);
+        assertEq(265, messageQueue.nextUnfinalizedQueueIndex());
     }
 
     function testRevertBatchWithL1Messages() external {
