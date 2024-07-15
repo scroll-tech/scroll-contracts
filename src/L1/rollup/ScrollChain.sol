@@ -183,11 +183,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _chainId The chain id of L2.
     /// @param _messageQueue The address of `L1MessageQueue` contract.
     /// @param _verifier The address of zkevm verifier contract.
-    constructor(
-        uint64 _chainId,
-        address _messageQueue,
-        address _verifier
-    ) {
+    constructor(uint64 _chainId, address _messageQueue, address _verifier) {
         if (_messageQueue == address(0) || _verifier == address(0)) {
             revert ErrorZeroAddress();
         }
@@ -206,11 +202,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _messageQueue The address of `L1MessageQueue` contract.
     /// @param _verifier The address of zkevm verifier contract.
     /// @param _maxNumTxInChunk The maximum number of transactions allowed in each chunk.
-    function initialize(
-        address _messageQueue,
-        address _verifier,
-        uint256 _maxNumTxInChunk
-    ) public initializer {
+    function initialize(address _messageQueue, address _verifier, uint256 _maxNumTxInChunk) public initializer {
         OwnableUpgradeable.__Ownable_init();
 
         maxNumTxInChunk = _maxNumTxInChunk;
@@ -238,29 +230,29 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _stateRoot The state root of the genesis block.
     function importGenesisBatch(bytes calldata _batchHeader, bytes32 _stateRoot) external {
         // check genesis batch header length
-        if (_stateRoot == bytes32(0)) revert ErrorStateRootIsZero();
+        // if (_stateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // check whether the genesis batch is imported
-        if (finalizedStateRoots[0] != bytes32(0)) revert ErrorGenesisBatchImported();
+        // if (finalizedStateRoots[0] != bytes32(0)) revert ErrorGenesisBatchImported();
 
-        (uint256 memPtr, bytes32 _batchHash, , ) = _loadBatchHeader(_batchHeader);
+        (uint256 memPtr, bytes32 _batchHash, uint256 batchIndex, ) = _loadBatchHeader(_batchHeader);
 
         // check all fields except `dataHash` and `lastBlockHash` are zero
-        unchecked {
-            uint256 sum = BatchHeaderV0Codec.getVersion(memPtr) +
-                BatchHeaderV0Codec.getBatchIndex(memPtr) +
-                BatchHeaderV0Codec.getL1MessagePopped(memPtr) +
-                BatchHeaderV0Codec.getTotalL1MessagePopped(memPtr);
-            if (sum != 0) revert ErrorGenesisBatchHasNonZeroField();
-        }
-        if (BatchHeaderV0Codec.getDataHash(memPtr) == bytes32(0)) revert ErrorGenesisDataHashIsZero();
-        if (BatchHeaderV0Codec.getParentBatchHash(memPtr) != bytes32(0)) revert ErrorGenesisParentBatchHashIsNonZero();
+        // unchecked {
+        //     uint256 sum = BatchHeaderV0Codec.getVersion(memPtr) +
+        //         BatchHeaderV0Codec.getBatchIndex(memPtr) +
+        //         BatchHeaderV0Codec.getL1MessagePopped(memPtr) +
+        //         BatchHeaderV0Codec.getTotalL1MessagePopped(memPtr);
+        //     // if (sum != 0) revert ErrorGenesisBatchHasNonZeroField();
+        // }
+        // if (BatchHeaderV0Codec.getDataHash(memPtr) == bytes32(0)) revert ErrorGenesisDataHashIsZero();
+        // if (BatchHeaderV0Codec.getParentBatchHash(memPtr) != bytes32(0)) revert ErrorGenesisParentBatchHashIsNonZero();
 
-        committedBatches[0] = _batchHash;
-        finalizedStateRoots[0] = _stateRoot;
+        committedBatches[batchIndex] = _batchHash;
+        finalizedStateRoots[batchIndex] = _stateRoot;
 
-        emit CommitBatch(0, _batchHash);
-        emit FinalizeBatch(0, _batchHash, _stateRoot, bytes32(0));
+        emit CommitBatch(batchIndex, _batchHash);
+        emit FinalizeBatch(batchIndex, _batchHash, _stateRoot, bytes32(0));
     }
 
     /// @inheritdoc IScrollChain
@@ -635,11 +627,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     )
         internal
         view
-        returns (
-            bytes32 _blobVersionedHash,
-            bytes32 _batchDataHash,
-            uint256 _totalL1MessagesPoppedInBatch
-        )
+        returns (bytes32 _blobVersionedHash, bytes32 _batchDataHash, uint256 _totalL1MessagesPoppedInBatch)
     {
         {
             bytes32 _secondBlob;
@@ -694,15 +682,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
-    function _loadBatchHeader(bytes calldata _batchHeader)
+    function _loadBatchHeader(
+        bytes calldata _batchHeader
+    )
         internal
         view
-        returns (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex,
-            uint256 _totalL1MessagesPoppedOverall
-        )
+        returns (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall)
     {
         // load version from batch header, it is always the first byte.
         uint256 version;
@@ -952,11 +937,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param bitmapPtr The memory offset of `skippedL1MessageBitmap`.
     /// @param totalL1MessagePopped The total number of L1 messages poped in all batches including current batch.
     /// @param l1MessagePopped The number of L1 messages popped in current batch.
-    function _popL1Messages(
-        uint256 bitmapPtr,
-        uint256 totalL1MessagePopped,
-        uint256 l1MessagePopped
-    ) internal {
+    function _popL1Messages(uint256 bitmapPtr, uint256 totalL1MessagePopped, uint256 l1MessagePopped) internal {
         if (l1MessagePopped == 0) return;
 
         unchecked {
