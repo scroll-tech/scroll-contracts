@@ -17,10 +17,10 @@ pragma solidity ^0.8.24;
 /// ```
 library BatchHeaderV0Codec {
     /// @dev Thrown when the length of batch header is smaller than 89
-    error ErrorBatchHeaderLengthTooSmall();
+    error ErrorBatchHeaderV0LengthTooSmall();
 
     /// @dev Thrown when the length of skippedL1MessageBitmap is incorrect.
-    error ErrorIncorrectBitmapLength();
+    error ErrorIncorrectBitmapLengthV0();
 
     /// @dev The length of fixed parts of the batch header.
     uint256 internal constant BATCH_HEADER_FIXED_LENGTH = 89;
@@ -31,7 +31,7 @@ library BatchHeaderV0Codec {
     /// @return length The length in bytes of the batch header.
     function loadAndValidate(bytes calldata _batchHeader) internal pure returns (uint256 batchPtr, uint256 length) {
         length = _batchHeader.length;
-        if (length < BATCH_HEADER_FIXED_LENGTH) revert ErrorBatchHeaderLengthTooSmall();
+        if (length < BATCH_HEADER_FIXED_LENGTH) revert ErrorBatchHeaderV0LengthTooSmall();
 
         // copy batch header to memory.
         assembly {
@@ -45,7 +45,7 @@ library BatchHeaderV0Codec {
 
         unchecked {
             if (length != BATCH_HEADER_FIXED_LENGTH + ((_l1MessagePopped + 255) / 256) * 32) {
-                revert ErrorIncorrectBitmapLength();
+                revert ErrorIncorrectBitmapLengthV0();
             }
         }
     }

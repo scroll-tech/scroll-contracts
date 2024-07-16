@@ -28,10 +28,10 @@ import {ChunkCodecV0} from "./ChunkCodecV0.sol";
 /// ```
 library ChunkCodecV1 {
     /// @dev Thrown when no blocks in chunk.
-    error ErrorNoBlockInChunk();
+    error ErrorNoBlockInChunkV1();
 
     /// @dev Thrown when the length of chunk is incorrect.
-    error ErrorIncorrectChunkLength();
+    error ErrorIncorrectChunkLengthV1();
 
     /// @dev The length of one block context.
     uint256 internal constant BLOCK_CONTEXT_LENGTH = 60;
@@ -44,10 +44,10 @@ library ChunkCodecV1 {
         _numBlocks = getNumBlocks(chunkPtr);
 
         // should contain at least one block
-        if (_numBlocks == 0) revert ErrorNoBlockInChunk();
+        if (_numBlocks == 0) revert ErrorNoBlockInChunkV1();
 
         // should contain the number of the blocks and block contexts
-        if (_length != 1 + _numBlocks * BLOCK_CONTEXT_LENGTH) revert ErrorIncorrectChunkLength();
+        if (_length != 1 + _numBlocks * BLOCK_CONTEXT_LENGTH) revert ErrorIncorrectChunkLengthV1();
     }
 
     /// @notice Return the number of blocks in current chunk.
@@ -82,5 +82,18 @@ library ChunkCodecV1 {
     /// @return _numL1Messages The number of L1 messages in current block.
     function getNumL1Messages(uint256 blockPtr) internal pure returns (uint256 _numL1Messages) {
         return ChunkCodecV0.getNumL1Messages(blockPtr);
+    }
+
+    /// @notice Return the block timestamp of last block in current chunk
+    /// @param chunk Current chunk in memory.
+    /// @return _timestamp The number of L1 messages in current block.
+    function getLastBlockTimestamp(bytes memory chunk) internal pure returns (uint256 _timestamp) {
+        assembly {
+            let chunkPtr := add(chunk, 0x20)
+            let numBlocks := shr(248, mload(chunkPtr))
+            // blockPtr is chunkPtr + 1 + (numBlocks - 1) * BLOCK_CONTEXT_LENGTH
+            let blockPtr := sub(add(chunkPtr, mul(numBlocks, 60)), 59)
+            _timestamp := shr(192, mload(add(blockPtr, 8)))
+        }
     }
 }

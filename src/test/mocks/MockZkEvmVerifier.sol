@@ -2,13 +2,18 @@
 
 pragma solidity =0.8.24;
 
-import {IZkEvmVerifier} from "../../libraries/verifier/IZkEvmVerifier.sol";
+import {IZkEvmVerifierV1, IZkEvmVerifierV2} from "../../libraries/verifier/IZkEvmVerifier.sol";
 
-contract MockZkEvmVerifier is IZkEvmVerifier {
+contract MockZkEvmVerifier is IZkEvmVerifierV1, IZkEvmVerifierV2 {
     event Called(address);
 
-    /// @inheritdoc IZkEvmVerifier
+    /// @inheritdoc IZkEvmVerifierV1
     function verify(bytes calldata, bytes32) external view {
+        revert(string(abi.encode(address(this))));
+    }
+
+    /// @inheritdoc IZkEvmVerifierV2
+    function verify(bytes calldata, bytes calldata) external view {
         revert(string(abi.encode(address(this))));
     }
 }

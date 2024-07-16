@@ -2,11 +2,11 @@
 
 pragma solidity =0.8.24;
 
-import {IZkEvmVerifier} from "./IZkEvmVerifier.sol";
+import {IZkEvmVerifierV1} from "./IZkEvmVerifier.sol";
 
 // solhint-disable no-inline-assembly
 
-contract ZkEvmVerifierV1 is IZkEvmVerifier {
+contract ZkEvmVerifierV1 is IZkEvmVerifierV1 {
     /**********
      * Errors *
      **********/
@@ -33,7 +33,7 @@ contract ZkEvmVerifierV1 is IZkEvmVerifier {
      * Public View Functions *
      *************************/
 
-    /// @inheritdoc IZkEvmVerifier
+    /// @inheritdoc IZkEvmVerifierV1
     function verify(bytes calldata aggrProof, bytes32 publicInputHash) external view override {
         address _verifier = plonkVerifier;
         bool success;
