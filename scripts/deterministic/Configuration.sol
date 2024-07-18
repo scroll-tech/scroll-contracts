@@ -75,12 +75,12 @@ abstract contract Configuration is Script {
     string internal COORDINATOR_JWT_SECRET_KEY;
 
     // frontend
-    string internal REACT_APP_EXTERNAL_RPC_URI_L1;
-    string internal REACT_APP_EXTERNAL_RPC_URI_L2;
-    string internal REACT_APP_BRIDGE_API_URI;
-    string internal REACT_APP_ROLLUPSCAN_API_URI;
-    string internal REACT_APP_EXTERNAL_EXPLORER_URI_L1;
-    string internal REACT_APP_EXTERNAL_EXPLORER_URI_L2;
+    string internal EXTERNAL_RPC_URI_L1;
+    string internal EXTERNAL_RPC_URI_L2;
+    string internal BRIDGE_API_URI;
+    string internal ROLLUPSCAN_API_URI;
+    string internal EXTERNAL_EXPLORER_URI_L1;
+    string internal EXTERNAL_EXPLORER_URI_L2;
 
     /***************
      * Constructor *
@@ -141,12 +141,12 @@ abstract contract Configuration is Script {
 
         COORDINATOR_JWT_SECRET_KEY = cfg.readString(".coordinator.COORDINATOR_JWT_SECRET_KEY");
 
-        REACT_APP_EXTERNAL_RPC_URI_L1 = cfg.readString(".frontend.REACT_APP_EXTERNAL_RPC_URI_L1");
-        REACT_APP_EXTERNAL_RPC_URI_L2 = cfg.readString(".frontend.REACT_APP_EXTERNAL_RPC_URI_L2");
-        REACT_APP_BRIDGE_API_URI = cfg.readString(".frontend.REACT_APP_BRIDGE_API_URI");
-        REACT_APP_ROLLUPSCAN_API_URI = cfg.readString(".frontend.REACT_APP_ROLLUPSCAN_API_URI");
-        REACT_APP_EXTERNAL_EXPLORER_URI_L1 = cfg.readString(".frontend.REACT_APP_EXTERNAL_EXPLORER_URI_L1");
-        REACT_APP_EXTERNAL_EXPLORER_URI_L2 = cfg.readString(".frontend.REACT_APP_EXTERNAL_EXPLORER_URI_L2");
+        EXTERNAL_RPC_URI_L1 = cfg.readString(".frontend.EXTERNAL_RPC_URI_L1");
+        EXTERNAL_RPC_URI_L2 = cfg.readString(".frontend.EXTERNAL_RPC_URI_L2");
+        BRIDGE_API_URI = cfg.readString(".frontend.BRIDGE_API_URI");
+        ROLLUPSCAN_API_URI = cfg.readString(".frontend.ROLLUPSCAN_API_URI");
+        EXTERNAL_EXPLORER_URI_L1 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L1");
+        EXTERNAL_EXPLORER_URI_L2 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L2");
 
         runSanityCheck();
     }
