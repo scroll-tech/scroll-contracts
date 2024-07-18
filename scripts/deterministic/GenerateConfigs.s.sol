@@ -279,12 +279,12 @@ contract GenerateFrontendConfig is DeployScroll {
 
         // API endpoints
         vm.writeLine(FRONTEND_ENV_PATH, "");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_EXTERNAL_RPC_URI_L1 = \"http://l1-devnet.scrollsdk\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_EXTERNAL_RPC_URI_L2 = \"http://l2-rpc.scrollsdk\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_BRIDGE_API_URI = \"http://bridge-history-api.scrollsdk/api\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_ROLLUPSCAN_API_URI = \"https://rollup-explorer-backend.scrollsdk/api\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_EXTERNAL_EXPLORER_URI_L1 = \"http://l1-explorer.scrollsdk\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_EXTERNAL_EXPLORER_URI_L2 = \"http://blockscout.scrollsdk\"");
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_RPC_URI_L1 = \"", REACT_APP_EXTERNAL_RPC_URI_L1, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_RPC_URI_L2 = \"", REACT_APP_EXTERNAL_RPC_URI_L2, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_BRIDGE_API_URI = \"", REACT_APP_BRIDGE_API_URI, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_ROLLUPSCAN_API_URI = \"", REACT_APP_ROLLUPSCAN_API_URI, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_EXPLORER_URI_L1 = \"", REACT_APP_EXTERNAL_EXPLORER_URI_L1, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_EXPLORER_URI_L2 = \"", REACT_APP_EXTERNAL_EXPLORER_URI_L2, "\""));
 
         // L1 contracts
         vm.writeLine(FRONTEND_ENV_PATH, "");

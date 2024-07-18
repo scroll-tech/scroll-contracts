@@ -74,6 +74,14 @@ abstract contract Configuration is Script {
     // coordinator
     string internal COORDINATOR_JWT_SECRET_KEY;
 
+    // frontend
+    string internal REACT_APP_EXTERNAL_RPC_URI_L1;
+    string internal REACT_APP_EXTERNAL_RPC_URI_L2;
+    string internal REACT_APP_BRIDGE_API_URI;
+    string internal REACT_APP_ROLLUPSCAN_API_URI;
+    string internal REACT_APP_EXTERNAL_EXPLORER_URI_L1;
+    string internal REACT_APP_EXTERNAL_EXPLORER_URI_L2;
+
     /***************
      * Constructor *
      ***************/
@@ -132,6 +140,13 @@ abstract contract Configuration is Script {
         L1_PLONK_VERIFIER_ADDR = cfg.readAddress(".contracts.L1_PLONK_VERIFIER_ADDR");
 
         COORDINATOR_JWT_SECRET_KEY = cfg.readString(".coordinator.COORDINATOR_JWT_SECRET_KEY");
+
+        REACT_APP_EXTERNAL_RPC_URI_L1 = cfg.readString(".frontend.REACT_APP_EXTERNAL_RPC_URI_L1");
+        REACT_APP_EXTERNAL_RPC_URI_L2 = cfg.readString(".frontend.REACT_APP_EXTERNAL_RPC_URI_L2");
+        REACT_APP_BRIDGE_API_URI = cfg.readString(".frontend.REACT_APP_BRIDGE_API_URI");
+        REACT_APP_ROLLUPSCAN_API_URI = cfg.readString(".frontend.REACT_APP_ROLLUPSCAN_API_URI");
+        REACT_APP_EXTERNAL_EXPLORER_URI_L1 = cfg.readString(".frontend.REACT_APP_EXTERNAL_EXPLORER_URI_L1");
+        REACT_APP_EXTERNAL_EXPLORER_URI_L2 = cfg.readString(".frontend.REACT_APP_EXTERNAL_EXPLORER_URI_L2");
 
         runSanityCheck();
     }
