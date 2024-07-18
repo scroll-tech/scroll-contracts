@@ -74,6 +74,14 @@ abstract contract Configuration is Script {
     // coordinator
     string internal COORDINATOR_JWT_SECRET_KEY;
 
+    // frontend
+    string internal EXTERNAL_RPC_URI_L1;
+    string internal EXTERNAL_RPC_URI_L2;
+    string internal BRIDGE_API_URI;
+    string internal ROLLUPSCAN_API_URI;
+    string internal EXTERNAL_EXPLORER_URI_L1;
+    string internal EXTERNAL_EXPLORER_URI_L2;
+
     /***************
      * Constructor *
      ***************/
@@ -132,6 +140,13 @@ abstract contract Configuration is Script {
         L1_PLONK_VERIFIER_ADDR = cfg.readAddress(".contracts.L1_PLONK_VERIFIER_ADDR");
 
         COORDINATOR_JWT_SECRET_KEY = cfg.readString(".coordinator.COORDINATOR_JWT_SECRET_KEY");
+
+        EXTERNAL_RPC_URI_L1 = cfg.readString(".frontend.EXTERNAL_RPC_URI_L1");
+        EXTERNAL_RPC_URI_L2 = cfg.readString(".frontend.EXTERNAL_RPC_URI_L2");
+        BRIDGE_API_URI = cfg.readString(".frontend.BRIDGE_API_URI");
+        ROLLUPSCAN_API_URI = cfg.readString(".frontend.ROLLUPSCAN_API_URI");
+        EXTERNAL_EXPLORER_URI_L1 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L1");
+        EXTERNAL_EXPLORER_URI_L2 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L2");
 
         runSanityCheck();
     }

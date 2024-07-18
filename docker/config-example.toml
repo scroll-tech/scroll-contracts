@@ -73,3 +73,12 @@ L2_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"
 [coordinator]
 
 COORDINATOR_JWT_SECRET_KEY = "e788b62d39254928a821ac1c76b274a8c835aa1e20ecfb6f50eb10e87847de44"
+
+[frontend]
+
+EXTERNAL_RPC_URI_L1 ="http://l1-devnet.scrollsdk"
+EXTERNAL_RPC_URI_L2 = "http://l2-rpc.scrollsdk"
+BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
+ROLLUPSCAN_API_URI = "https://rollup-explorer-backend.scrollsdk/api"
+EXTERNAL_EXPLORER_URI_L1 = "http://l1-explorer.scrollsdk"
+EXTERNAL_EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
