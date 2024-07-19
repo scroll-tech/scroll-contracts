@@ -68,7 +68,7 @@ contract ZkEvmVerifierV2 is IZkEvmVerifierV2 {
         //    | 0x180 + 0x120 | 0x180 + 0x140 | layer2ChainId           |
         //    | 0x180 + 0x140 | 0x180 + 0x160 | withdrawRoot_hi         |
         //    | 0x180 + 0x160 | 0x180 + 0x180 | withdrawRoot_lo         |
-        //    | 0x180 + 0x180 | 0x180 + 0x1a0 | numBatches              |
+        //    | 0x180 + 0x180 | 0x180 + 0x1a0 | numRound                |
         //    | 0x180 + 0x1a0 | dynamic       | bundleProof[0x180:]     |
         assembly {
             let p := mload(0x40)
@@ -94,7 +94,7 @@ contract ZkEvmVerifierV2 is IZkEvmVerifierV2 {
             mstore(add(p, 0x2c0), shr(128, value)) // withdrawRoot_hi
             mstore(add(p, 0x2e0), and(value, 0xffffffffffffffffffffffffffffffff)) // withdrawRoot_lo
             value := shr(224, calldataload(add(publicInput.offset, 0x08)))
-            mstore(add(p, 0x300), value) // numBatches
+            mstore(add(p, 0x300), sub(value, 1)) // numRound, which is numBatches - 1
             // 3. copy all remaining bytes from bundleProof
             calldatacopy(add(p, 0x320), add(bundleProof.offset, 0x180), sub(bundleProof.length, 0x180))
             // 4. call plonk verifier
