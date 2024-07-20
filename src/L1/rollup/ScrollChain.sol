@@ -181,7 +181,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _chainId The chain id of L2.
     /// @param _messageQueue The address of `L1MessageQueue` contract.
     /// @param _verifier The address of zkevm verifier contract.
-    constructor(uint64 _chainId, address _messageQueue, address _verifier) {
+    constructor(
+        uint64 _chainId,
+        address _messageQueue,
+        address _verifier
+    ) {
         if (_messageQueue == address(0) || _verifier == address(0)) {
             revert ErrorZeroAddress();
         }
@@ -200,7 +204,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _messageQueue The address of `L1MessageQueue` contract.
     /// @param _verifier The address of zkevm verifier contract.
     /// @param _maxNumTxInChunk The maximum number of transactions allowed in each chunk.
-    function initialize(address _messageQueue, address _verifier, uint256 _maxNumTxInChunk) public initializer {
+    function initialize(
+        address _messageQueue,
+        address _verifier,
+        uint256 _maxNumTxInChunk
+    ) public initializer {
         OwnableUpgradeable.__Ownable_init();
 
         maxNumTxInChunk = _maxNumTxInChunk;
@@ -248,6 +256,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         committedBatches[batchIndex] = _batchHash;
         finalizedStateRoots[batchIndex] = _stateRoot;
+        lastFinalizedBatchIndex = batchIndex;
 
         emit CommitBatch(batchIndex, _batchHash);
         emit FinalizeBatch(batchIndex, _batchHash, _stateRoot, bytes32(0));
@@ -477,7 +486,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// ```
     function finalizeBatchWithProof4844(
         bytes calldata _batchHeader,
-        bytes32 /*_prevStateRoot*/,
+        bytes32, /*_prevStateRoot*/
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _blobDataProof,
@@ -647,10 +656,15 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @return _parentBatchHash The batch hash of parent batch header.
     /// @return _batchIndex The index of current batch.
     /// @return _totalL1MessagesPoppedOverall The total number of L1 messages popped before current batch.
-    function _beforeCommitBatch(
-        bytes calldata _parentBatchHeader,
-        bytes[] memory _chunks
-    ) private view returns (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) {
+    function _beforeCommitBatch(bytes calldata _parentBatchHeader, bytes[] memory _chunks)
+        private
+        view
+        returns (
+            bytes32 _parentBatchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        )
+    {
         // check whether the batch is empty
         if (_chunks.length == 0) revert ErrorBatchIsEmpty();
         (, _parentBatchHash, _batchIndex, _totalL1MessagesPoppedOverall) = _loadBatchHeader(_parentBatchHeader);
@@ -674,10 +688,15 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @return batchPtr The start memory offset of current batch in memory.
     /// @return _batchHash The hash of current batch.
     /// @return _batchIndex The index of current batch.
-    function _beforeFinalizeBatch(
-        bytes calldata _batchHeader,
-        bytes32 _postStateRoot
-    ) internal view returns (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) {
+    function _beforeFinalizeBatch(bytes calldata _batchHeader, bytes32 _postStateRoot)
+        internal
+        view
+        returns (
+            uint256 batchPtr,
+            bytes32 _batchHash,
+            uint256 _batchIndex
+        )
+    {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute batch hash and verify
@@ -869,13 +888,16 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
-    function _loadBatchHeader(
-        bytes calldata _batchHeader
-    )
+    function _loadBatchHeader(bytes calldata _batchHeader)
         internal
         view
         virtual
-        returns (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall)
+        returns (
+            uint256 batchPtr,
+            bytes32 _batchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        )
     {
         // load version from batch header, it is always the first byte.
         uint256 version;
