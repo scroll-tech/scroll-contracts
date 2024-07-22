@@ -17,7 +17,7 @@ import {ScrollGatewayBase} from "../libraries/gateway/ScrollGatewayBase.sol";
 /// @title L1GasTokenGateway
 /// @notice The `L1GasTokenGateway` is used to deposit gas token on layer 1 and
 /// finalize withdraw gas token from layer 2.
-/// @dev The deposited gas tokens are held in `L1ScrollMessenger`. On finalizing withdraw, the corresponding
+/// @dev The deposited gas tokens are held in this gateway. On finalizing withdraw, the corresponding
 /// gas token will be transfer to the recipient directly.
 contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback {
     using SafeERC20Upgradeable for IERC20Upgradeable;
