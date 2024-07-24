@@ -6,6 +6,7 @@ import {stdToml} from "forge-std/StdToml.sol";
 
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Upgrade} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
 import {CONFIG_CONTRACTS_PATH, DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
 import {Configuration} from "./Configuration.sol";
@@ -115,7 +116,9 @@ abstract contract DeterminsticDeployment is Configuration {
         address proxyAddr,
         address implAddr
     ) internal {
-        if (!skipDeploy) {
+        address addr = _getImplementation(proxyAddr);
+
+        if (!skipDeploy && addr != implAddr) {
             ProxyAdmin(notnull(proxyAdminAddr)).upgrade(
                 ITransparentUpgradeableProxy(notnull(proxyAddr)),
                 notnull(implAddr)
@@ -123,11 +126,16 @@ abstract contract DeterminsticDeployment is Configuration {
         }
     }
 
+    function getInitializeCount(address contractAddr) internal view returns (uint8) {
+        bytes32 slotValue = vm.load(address(contractAddr), bytes32(uint256(0)));
+        return uint8(uint256(slotValue));
+    }
+
     /*********************
      * Private functions *
      *********************/
 
-    function _getSalt(string memory name) internal view returns (bytes32) {
+    function _getSalt(string memory name) private view returns (bytes32) {
         return keccak256(abi.encodePacked(saltPrefix, name));
     }
 
@@ -148,11 +156,9 @@ abstract contract DeterminsticDeployment is Configuration {
             return addr;
         }
 
-        // revert if the contract is already deployed
+        // skip if the contract is already deployed
         if (addr.code.length > 0) {
-            revert(
-                string(abi.encodePacked("[ERROR] contract ", name, " (", vm.toString(addr), ") is already deployed"))
-            );
+            return addr;
         }
 
         // deploy contract
@@ -222,5 +228,12 @@ abstract contract DeterminsticDeployment is Configuration {
                 );
             }
         }
+    }
+
+    function _getImplementation(address proxyAddr) private view returns (address) {
+        // ERC1967Upgrade implementation slot
+        bytes32 _IMPLEMENTATION_SLOT = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+        // get implementation address
+        return address(uint160(uint256(vm.load(address(proxyAddr), _IMPLEMENTATION_SLOT))));
     }
 }
