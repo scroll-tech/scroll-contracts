@@ -2,8 +2,9 @@
 
 pragma solidity =0.8.24;
 
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20MetadataUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 import {IL1ETHGateway} from "../L1/gateways/IL1ETHGateway.sol";
 import {IL1ScrollMessenger} from "../L1/IL1ScrollMessenger.sol";
@@ -26,7 +27,11 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
      * Constants *
      *************/
 
+    /// @dev The address of gas token.
     address public immutable gasToken;
+
+    /// @dev The scalar to scale the gas token decimals to 18.
+    uint256 public immutable scale;
 
     /***************
      * Constructor *
@@ -49,6 +54,7 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
         _disableInitializers();
 
         gasToken = _gasToken;
+        scale = 10**(18 - IERC20MetadataUpgradeable(_gasToken).decimals());
     }
 
     /// @notice Initialize the storage of L1GasTokenGateway.
@@ -93,10 +99,11 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
     ) external payable override onlyCallByCounterpart nonReentrant {
         require(msg.value == 0, "msg.value mismatch");
 
-        IERC20Upgradeable(gasToken).safeTransfer(_to, _amount);
+        uint256 downScaledAmount = _amount / scale;
+        IERC20Upgradeable(gasToken).safeTransfer(_to, downScaledAmount);
         _doCallback(_to, _data);
 
-        emit FinalizeWithdrawETH(_from, _to, _amount, _data);
+        emit FinalizeWithdrawETH(_from, _to, downScaledAmount, _data);
     }
 
     /// @inheritdoc IMessageDropCallback
@@ -106,10 +113,11 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
 
         // decode (receiver, amount)
         (address _receiver, , uint256 _amount, ) = abi.decode(_message[4:], (address, address, uint256, bytes));
+        uint256 downScaledAmount = _amount / scale;
 
-        IERC20Upgradeable(gasToken).safeTransfer(_receiver, _amount);
+        IERC20Upgradeable(gasToken).safeTransfer(_receiver, downScaledAmount);
 
-        emit RefundETH(_receiver, _amount);
+        emit RefundETH(_receiver, downScaledAmount);
     }
 
     /**********************
@@ -138,13 +146,21 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
         uint256 _before = IERC20Upgradeable(gasToken).balanceOf(address(this));
         IERC20Upgradeable(gasToken).safeTransferFrom(_from, address(this), _amount);
         uint256 _after = IERC20Upgradeable(gasToken).balanceOf(address(this));
-        _amount = _after - _before;
+        _amount = (_after - _before);
         require(_amount > 0, "deposit zero gas token");
 
-        // 3. Generate message passed to L1ScrollMessenger.
-        bytes memory _message = abi.encodeCall(IL2ETHGateway.finalizeDepositETH, (_from, _to, _amount, _data));
+        uint256 upScaledAmount = _amount * scale;
 
-        IL1ScrollMessenger(messenger).sendMessage{value: msg.value}(counterpart, _amount, _message, _gasLimit, _from);
+        // 3. Generate message passed to L1ScrollMessenger.
+        bytes memory _message = abi.encodeCall(IL2ETHGateway.finalizeDepositETH, (_from, _to, upScaledAmount, _data));
+
+        IL1ScrollMessenger(messenger).sendMessage{value: msg.value}(
+            counterpart,
+            upScaledAmount,
+            _message,
+            _gasLimit,
+            _from
+        );
 
         emit DepositETH(_from, _to, _amount, _data);
     }
