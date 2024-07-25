@@ -43,6 +43,7 @@ L2GETH_SIGNER_0_ADDRESS = "0x756EA06BDEe36de11F22DCca45a31d8a178eF3c6"
 SCROLL_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/scroll?sslmode=disable"
 CHAIN_MONITOR_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/chain_monitor?sslmode=disable"
 BRIDGE_HISTORY_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/bridge_history?sslmode=disable"
+ROLLUP_EXPLORER_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/rollup_explorer?sslmode=disable"
 
 
 [genesis]
