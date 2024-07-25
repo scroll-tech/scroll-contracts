@@ -1172,10 +1172,6 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function transferL1ContractOwnership() private {
-        if (DEPLOYER_ADDR == OWNER_ADDR) {
-            return;
-        }
-
         if (Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
@@ -1228,73 +1224,97 @@ contract DeployScroll is DeterminsticDeployment {
      **********************/
 
     function initializeL2MessageQueue() private {
-        L2MessageQueue(L2_MESSAGE_QUEUE_ADDR).initialize(notnull(L2_SCROLL_MESSENGER_PROXY_ADDR));
+        if (L2MessageQueue(L2_MESSAGE_QUEUE_ADDR).messenger() != notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)) {
+            L2MessageQueue(L2_MESSAGE_QUEUE_ADDR).initialize(L2_SCROLL_MESSENGER_PROXY_ADDR);
+        }
     }
 
     function initializeL2TxFeeVault() private {
-        L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).updateMessenger(notnull(L2_SCROLL_MESSENGER_PROXY_ADDR));
+        if (L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).messenger() != notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)) {
+            L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).updateMessenger(L2_SCROLL_MESSENGER_PROXY_ADDR);
+        }
     }
 
     function initializeL1GasPriceOracle() private {
-        L1GasPriceOracle(L1_GAS_PRICE_ORACLE_ADDR).updateWhitelist(notnull(L2_WHITELIST_ADDR));
+        if (address(L1GasPriceOracle(L1_GAS_PRICE_ORACLE_ADDR).whitelist()) != notnull(L2_WHITELIST_ADDR)) {
+            L1GasPriceOracle(L1_GAS_PRICE_ORACLE_ADDR).updateWhitelist(L2_WHITELIST_ADDR);
+        }
     }
 
     function initializeL2ScrollMessenger() private {
-        L2ScrollMessenger(payable(L2_SCROLL_MESSENGER_PROXY_ADDR)).initialize(notnull(L1_SCROLL_MESSENGER_PROXY_ADDR));
+        if (getInitializeCount(L2_SCROLL_MESSENGER_PROXY_ADDR) == 0) {
+            L2ScrollMessenger(payable(L2_SCROLL_MESSENGER_PROXY_ADDR)).initialize(
+                notnull(L1_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2GatewayRouter() private {
-        L2GatewayRouter(L2_GATEWAY_ROUTER_PROXY_ADDR).initialize(
-            notnull(L2_ETH_GATEWAY_PROXY_ADDR),
-            notnull(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_GATEWAY_ROUTER_PROXY_ADDR) == 0) {
+            L2GatewayRouter(L2_GATEWAY_ROUTER_PROXY_ADDR).initialize(
+                notnull(L2_ETH_GATEWAY_PROXY_ADDR),
+                notnull(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2CustomERC20Gateway() private {
-        L2CustomERC20Gateway(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR).initialize(
-            notnull(L1_CUSTOM_ERC20_GATEWAY_PROXY_ADDR),
-            notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR) == 0) {
+            L2CustomERC20Gateway(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR).initialize(
+                notnull(L1_CUSTOM_ERC20_GATEWAY_PROXY_ADDR),
+                notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2ERC1155Gateway() private {
-        L2ERC1155Gateway(L2_ERC1155_GATEWAY_PROXY_ADDR).initialize(
-            notnull(L1_ERC1155_GATEWAY_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_ERC1155_GATEWAY_PROXY_ADDR) == 0) {
+            L2ERC1155Gateway(L2_ERC1155_GATEWAY_PROXY_ADDR).initialize(
+                notnull(L1_ERC1155_GATEWAY_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2ERC721Gateway() private {
-        L2ERC721Gateway(L2_ERC721_GATEWAY_PROXY_ADDR).initialize(
-            notnull(L1_ERC721_GATEWAY_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_ERC721_GATEWAY_PROXY_ADDR) == 0) {
+            L2ERC721Gateway(L2_ERC721_GATEWAY_PROXY_ADDR).initialize(
+                notnull(L1_ERC721_GATEWAY_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2ETHGateway() private {
-        L2ETHGateway(L2_ETH_GATEWAY_PROXY_ADDR).initialize(
-            notnull(L1_ETH_GATEWAY_PROXY_ADDR),
-            notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_ETH_GATEWAY_PROXY_ADDR) == 0) {
+            L2ETHGateway(L2_ETH_GATEWAY_PROXY_ADDR).initialize(
+                notnull(L1_ETH_GATEWAY_PROXY_ADDR),
+                notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
     }
 
     function initializeL2StandardERC20Gateway() private {
-        L2StandardERC20Gateway(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR).initialize(
-            notnull(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR),
-            notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
-            notnull(L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR)
-        );
+        if (getInitializeCount(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR) == 0) {
+            L2StandardERC20Gateway(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR).initialize(
+                notnull(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR),
+                notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
+                notnull(L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR)
+            );
+        }
     }
 
     function initializeL2WETHGateway() private {
-        L2WETHGateway(payable(L2_WETH_GATEWAY_PROXY_ADDR)).initialize(
-            notnull(L1_WETH_GATEWAY_PROXY_ADDR),
-            notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
-        );
+        if (getInitializeCount(L2_WETH_GATEWAY_PROXY_ADDR) == 0) {
+            L2WETHGateway(payable(L2_WETH_GATEWAY_PROXY_ADDR)).initialize(
+                notnull(L1_WETH_GATEWAY_PROXY_ADDR),
+                notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+            );
+        }
 
         // set WETH gateway in router
         {
@@ -1302,39 +1322,70 @@ contract DeployScroll is DeterminsticDeployment {
             _tokens[0] = notnull(L2_WETH_ADDR);
             address[] memory _gateways = new address[](1);
             _gateways[0] = notnull(L2_WETH_GATEWAY_PROXY_ADDR);
-            L2GatewayRouter(L2_GATEWAY_ROUTER_PROXY_ADDR).setERC20Gateway(_tokens, _gateways);
+            if (L2GatewayRouter(L2_GATEWAY_ROUTER_PROXY_ADDR).ERC20Gateway(_tokens[0]) != _gateways[0]) {
+                L2GatewayRouter(L2_GATEWAY_ROUTER_PROXY_ADDR).setERC20Gateway(_tokens, _gateways);
+            }
         }
     }
 
     function initializeScrollStandardERC20Factory() private {
-        ScrollStandardERC20Factory(L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR).transferOwnership(
+        if (
+            ScrollStandardERC20Factory(L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR).owner() !=
             notnull(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR)
-        );
+        ) {
+            ScrollStandardERC20Factory(L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR).transferOwnership(
+                L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR
+            );
+        }
     }
 
     function initializeL2Whitelist() private {
         address[] memory accounts = new address[](1);
         accounts[0] = L2_GAS_ORACLE_SENDER_ADDR;
-        Whitelist(L2_WHITELIST_ADDR).updateWhitelistStatus(accounts, true);
+        if (!Whitelist(L2_WHITELIST_ADDR).isSenderAllowed(accounts[0])) {
+            Whitelist(L2_WHITELIST_ADDR).updateWhitelistStatus(accounts, true);
+        }
     }
 
     function transferL2ContractOwnership() private {
-        if (DEPLOYER_ADDR == OWNER_ADDR) {
-            return;
+        if (Ownable(L1_GAS_PRICE_ORACLE_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L1_GAS_PRICE_ORACLE_ADDR).transferOwnership(OWNER_ADDR);
         }
-
-        Ownable(L1_GAS_PRICE_ORACLE_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_ERC1155_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_ERC721_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_ETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_GATEWAY_ROUTER_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_MESSAGE_QUEUE_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_SCROLL_MESSENGER_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_TX_FEE_VAULT_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_WETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_PROXY_ADMIN_ADDR).transferOwnership(OWNER_ADDR);
-        Ownable(L2_WHITELIST_ADDR).transferOwnership(OWNER_ADDR);
+        if (Ownable(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_ERC1155_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_ERC1155_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_ERC721_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_ERC721_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_ETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_ETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_GATEWAY_ROUTER_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_GATEWAY_ROUTER_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_MESSAGE_QUEUE_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_MESSAGE_QUEUE_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_SCROLL_MESSENGER_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_SCROLL_MESSENGER_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_TX_FEE_VAULT_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_TX_FEE_VAULT_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_WETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_PROXY_ADMIN_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_PROXY_ADMIN_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (Ownable(L2_WHITELIST_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L2_WHITELIST_ADDR).transferOwnership(OWNER_ADDR);
+        }
     }
 }
