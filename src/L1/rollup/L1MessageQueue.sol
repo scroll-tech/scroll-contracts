@@ -93,11 +93,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @param _messenger The address of `L1ScrollMessenger` contract.
     /// @param _scrollChain The address of `ScrollChain` contract.
     /// @param _enforcedTxGateway The address of `EnforcedTxGateway` contract.
-    constructor(
-        address _messenger,
-        address _scrollChain,
-        address _enforcedTxGateway
-    ) {
+    constructor(address _messenger, address _scrollChain, address _enforcedTxGateway) {
         if (_messenger == address(0) || _scrollChain == address(0) || _enforcedTxGateway == address(0)) {
             revert ErrorZeroAddress();
         }
@@ -401,11 +397,9 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     }
 
     /// @inheritdoc IL1MessageQueue
-    function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne)
-        external
-        override
-        onlyScrollChain
-    {
+    function finalizePoppedCrossDomainMessage(
+        uint256 _newFinalizedQueueIndexPlusOne
+    ) external override onlyScrollChain {
         uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
         if (_newFinalizedQueueIndexPlusOne == cachedFinalizedQueueIndexPlusOne) return;
         require(_newFinalizedQueueIndexPlusOne > cachedFinalizedQueueIndexPlusOne, "finalized index too small");
@@ -450,6 +444,17 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         maxGasLimit = _newMaxGasLimit;
 
         emit UpdateMaxGasLimit(_oldMaxGasLimit, _newMaxGasLimit);
+    }
+
+    function appendHashes(uint256 _fromQueueIndex, bytes32[] memory _hashes) external {
+        require(_fromQueueIndex == messageQueue.length, "messageQueue index mismatch");
+        for (uint256 i = 0; i < _hashes.length; i++) {
+            messageQueue.push(_hashes[i]);
+        }
+    }
+
+    function setPendingQueueIndex(uint256 index) external {
+        pendingQueueIndex = index;
     }
 
     /**********************
