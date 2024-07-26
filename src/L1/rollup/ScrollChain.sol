@@ -256,7 +256,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         committedBatches[batchIndex] = _batchHash;
         finalizedStateRoots[batchIndex] = _stateRoot;
-        lastFinalizedBatchIndex = batchIndex;
+        lastFinalizedBatchIndex = 274314;
 
         emit CommitBatch(batchIndex, _batchHash);
         emit FinalizeBatch(batchIndex, _batchHash, _stateRoot, bytes32(0));
