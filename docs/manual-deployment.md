@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document will guide you through manually deploying Scroll contracts to both Layer 1 and Layer 2 networks.
+This document will guide you through manually deploying Scroll contracts to both layer 1 and layer 2 networks.
 
 ### Requirements
 
@@ -33,23 +33,24 @@ Details about the some important variables you may want to change:
 
 | Configuration Variable           | Description                                                                              |
 | -------------------------------- | ---------------------------------------------------------------------------------------- |
-| L1_RPC_ENDPOINT                  | The RPC endpoint for the Layer 1 network                                                 |
-| L2_RPC_ENDPOINT                  | The RPC endpoint for the Layer 2 network                                                 |
-| CHAIN_ID_L1                      | The chain ID of the Layer 1 network                                                      |
-| CHAIN_ID_L2                      | The chain ID of the Layer 2 network                                                      |
-| DEPLOYER_PRIVATE_KEY             | The private key of the deployer on both Layer 1 and Layer 2                              |
-| OWNER_PRIVATE_KEY                | The private key of the owner of Scroll contracts on both Layer 1 and Layer 2             |
-| L1_COMMIT_SENDER_PRIVATE_KEY     | The private key of the commit sender (sequencer) on Layer 1                              |
-| L1_FINALIZE_SENDER_PRIVATE_KEY   | The private key of the finalize sender (prover) on Layer 1                               |
-| L1_GAS_ORACLE_SENDER_PRIVATE_KEY | The private key of the gas oracle sender on Layer 1                                      |
-| L2_GAS_ORACLE_SENDER_PRIVATE_KEY | The private key of the gas oracle sender on Layer 2                                      |
-| DEPLOYER_ADDR                    | The address of the deployer on both Layer 1 and Layer 2                                  |
-| OWNER_ADDR                       | The address of the owner of Scroll contracts on both Layer 1 and Layer 2                 |
-| L1_COMMIT_SENDER_ADDR            | The address of the commit sender (sequencer) on Layer 1                                  |
-| L1_FINALIZE_SENDER_ADDR          | The address of the finalize sender (prover) on Layer 1                                   |
-| L1_GAS_ORACLE_SENDER_ADDR        | The address of the gas oracle sender on Layer 1                                          |
-| L2_GAS_ORACLE_SENDER_ADDR        | The address of the gas oracle sender on Layer 2                                          |
+| L1_RPC_ENDPOINT                  | The RPC endpoint for the layer 1 network                                                 |
+| L2_RPC_ENDPOINT                  | The RPC endpoint for the layer 2 network                                                 |
+| CHAIN_ID_L1                      | The chain ID of the layer 1 network                                                      |
+| CHAIN_ID_L2                      | The chain ID of the layer 2 network                                                      |
+| DEPLOYER_PRIVATE_KEY             | The private key of the deployer on both layer 1 and layer 2                              |
+| OWNER_PRIVATE_KEY                | The private key of the owner of Scroll contracts on both layer 1 and layer 2             |
+| L1_COMMIT_SENDER_PRIVATE_KEY     | The private key of the commit sender (sequencer) on layer 1                              |
+| L1_FINALIZE_SENDER_PRIVATE_KEY   | The private key of the finalize sender (prover) on layer 1                               |
+| L1_GAS_ORACLE_SENDER_PRIVATE_KEY | The private key of the gas oracle sender on layer 1                                      |
+| L2_GAS_ORACLE_SENDER_PRIVATE_KEY | The private key of the gas oracle sender on layer 2                                      |
+| DEPLOYER_ADDR                    | The address of the deployer on both layer 1 and layer 2                                  |
+| OWNER_ADDR                       | The address of the owner of Scroll contracts on both layer 1 and layer 2                 |
+| L1_COMMIT_SENDER_ADDR            | The address of the commit sender (sequencer) on layer 1                                  |
+| L1_FINALIZE_SENDER_ADDR          | The address of the finalize sender (prover) on layer 1                                   |
+| L1_GAS_ORACLE_SENDER_ADDR        | The address of the gas oracle sender on layer 1                                          |
+| L2_GAS_ORACLE_SENDER_ADDR        | The address of the gas oracle sender on layer 2                                          |
 | DEPLOYMENT_SALT                  | The salt used to deploy contracts, make it unique to prevent contract address collisions |
+| L1_CONTRACT_DEPLOYMENT_BLOCK     | The block that l2-sequencer and bridge-history-fetcher start to sync contracts event     |
 
 ### Deploy
 
