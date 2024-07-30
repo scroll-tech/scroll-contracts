@@ -64,7 +64,9 @@ contract ScrollChainMockFinalize is ScrollChain {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
-        (, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
+        (, bytes32 _batchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _loadBatchHeader(
+            _batchHeader
+        );
         if (_batchIndex <= lastFinalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
 
         // store in state
@@ -72,6 +74,9 @@ contract ScrollChainMockFinalize is ScrollChain {
         lastFinalizedBatchIndex = _batchIndex;
         finalizedStateRoots[_batchIndex] = _postStateRoot;
         withdrawRoots[_batchIndex] = _withdrawRoot;
+
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
