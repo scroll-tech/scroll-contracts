@@ -23,6 +23,19 @@ import {ScrollGatewayBase} from "../libraries/gateway/ScrollGatewayBase.sol";
 contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
+    /**********
+     * Errors *
+     **********/
+
+    /// @dev Thrown when `msg.value` is not zero.
+    error ErrorNonZeroMsgValue();
+
+    /// @dev Thrown when the selector is invalid during `onDropMessage`.
+    error ErrorInvalidSelector();
+
+    /// @dev Thrown when the deposit amount is zero.
+    error ErrorDepositZeroGasToken();
+
     /*************
      * Constants *
      *************/
@@ -97,7 +110,9 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
         uint256 _amount,
         bytes calldata _data
     ) external payable override onlyCallByCounterpart nonReentrant {
-        require(msg.value == 0, "msg.value mismatch");
+        if (msg.value > 0) {
+            revert ErrorNonZeroMsgValue();
+        }
 
         uint256 downScaledAmount = _amount / scale;
         IERC20Upgradeable(gasToken).safeTransfer(_to, downScaledAmount);
@@ -109,7 +124,9 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
     /// @inheritdoc IMessageDropCallback
     function onDropMessage(bytes calldata _message) external payable virtual onlyInDropContext nonReentrant {
         // _message should start with 0x232e8748  =>  finalizeDepositETH(address,address,uint256,bytes)
-        require(bytes4(_message[0:4]) == IL2ETHGateway.finalizeDepositETH.selector, "invalid selector");
+        if (bytes4(_message[0:4]) != IL2ETHGateway.finalizeDepositETH.selector) {
+            revert ErrorInvalidSelector();
+        }
 
         // decode (receiver, amount)
         (address _receiver, , uint256 _amount, ) = abi.decode(_message[4:], (address, address, uint256, bytes));
@@ -146,8 +163,10 @@ contract L1GasTokenGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCall
         uint256 _before = IERC20Upgradeable(gasToken).balanceOf(address(this));
         IERC20Upgradeable(gasToken).safeTransferFrom(_from, address(this), _amount);
         uint256 _after = IERC20Upgradeable(gasToken).balanceOf(address(this));
-        _amount = (_after - _before);
-        require(_amount > 0, "deposit zero gas token");
+        _amount = _after - _before;
+        if (_amount == 0) {
+            revert ErrorDepositZeroGasToken();
+        }
 
         uint256 upScaledAmount = _amount * scale;
 
