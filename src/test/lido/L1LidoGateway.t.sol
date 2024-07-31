@@ -394,6 +394,8 @@ contract L1LidoGatewayTest is L1GatewayTestBase {
         // skip message 0
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
+        messageQueue.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
         hevm.stopPrank();
 

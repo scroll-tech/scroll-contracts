@@ -288,6 +288,8 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         // skip message 0 and 1
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 2, 0x3);
+        messageQueue.finalizePoppedCrossDomainMessage(2);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
         assertEq(messageQueue.pendingQueueIndex(), 2);
         hevm.stopPrank();
 

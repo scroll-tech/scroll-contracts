@@ -26,10 +26,10 @@ pragma solidity ^0.8.24;
 /// ```
 library ChunkCodecV0 {
     /// @dev Thrown when no blocks in chunk.
-    error ErrorNoBlockInChunk();
+    error ErrorNoBlockInChunkV0();
 
     /// @dev Thrown when the length of chunk is incorrect.
-    error ErrorIncorrectChunkLength();
+    error ErrorIncorrectChunkLengthV0();
 
     /// @dev The length of one block context.
     uint256 internal constant BLOCK_CONTEXT_LENGTH = 60;
@@ -42,10 +42,10 @@ library ChunkCodecV0 {
         _numBlocks = getNumBlocks(chunkPtr);
 
         // should contain at least one block
-        if (_numBlocks == 0) revert ErrorNoBlockInChunk();
+        if (_numBlocks == 0) revert ErrorNoBlockInChunkV0();
 
         // should contain at least the number of the blocks and block contexts
-        if (_length < 1 + _numBlocks * BLOCK_CONTEXT_LENGTH) revert ErrorIncorrectChunkLength();
+        if (_length < 1 + _numBlocks * BLOCK_CONTEXT_LENGTH) revert ErrorIncorrectChunkLengthV0();
     }
 
     /// @notice Return the start memory offset of `l2Transactions`.
@@ -81,12 +81,7 @@ library ChunkCodecV0 {
         // only first 58 bytes is needed.
         assembly {
             chunkPtr := add(chunkPtr, add(1, mul(BLOCK_CONTEXT_LENGTH, index)))
-            mstore(dstPtr, mload(chunkPtr)) // first 32 bytes
-            mstore(
-                add(dstPtr, 0x20),
-                and(mload(add(chunkPtr, 0x20)), 0xffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000)
-            ) // next 26 bytes
-
+            mcopy(dstPtr, chunkPtr, 58)
             dstPtr := add(dstPtr, 58)
         }
 
