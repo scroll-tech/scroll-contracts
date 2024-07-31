@@ -21,7 +21,7 @@ import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
-import {ScrollStandardERC20} from "../../src/libraries/token/ScrollStandardERC20.sol";
+import {GasTokenExample} from "../../src/alternative-gas-token/GasTokenExample.sol";
 import {L1ScrollMessengerNonETH} from "../../src/alternative-gas-token/L1ScrollMessengerNonETH.sol";
 import {L1GasTokenGateway} from "../../src/alternative-gas-token/L1GasTokenGateway.sol";
 import {L1WrappedTokenGateway} from "../../src/alternative-gas-token/L1WrappedTokenGateway.sol";
@@ -639,7 +639,15 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function deployGasToken() private {
-        L1_GAS_TOKEN_ADDR = deploy("L1_GAS_TOKEN", type(ScrollStandardERC20).creationCode);
+        bytes memory args = abi.encode(
+            "ScrollGasToken", // _name
+            "GasToken", // _symbol
+            18, // _decimals
+            DEPLOYER_ADDR, // _recipient
+            10**28 // _amount
+        );
+
+        L1_GAS_TOKEN_ADDR = deploy("L1_GAS_TOKEN", type(GasTokenExample).creationCode, args);
     }
 
     function deployL1GasTokenGatewayProxy() private {
