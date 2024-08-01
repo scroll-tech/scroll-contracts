@@ -56,6 +56,7 @@ contract GenerateRollupConfig is DeployScroll {
 
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
+        vm.writeJson(vm.toString(MAX_CHUNK_IN_BATCH), ROLLUP_CONFIG_PATH, ".l2_config.batch_proposer_config.max_chunk_num_per_batch");
 
         vm.writeJson(SCROLL_DB_CONNECTION_STRING, ROLLUP_CONFIG_PATH, ".db_config.dsn");
     }

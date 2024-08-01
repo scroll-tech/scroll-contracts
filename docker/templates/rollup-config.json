@@ -49,7 +49,7 @@
         "gas_price_diff": 50000
       },
       "chain_monitor": {
-        "enabled": true,
+        "enabled": false,
         "timeout": 3,
         "try_times": 5,
         "base_url": "http://chain-monitor:8080"
@@ -72,7 +72,7 @@
       "max_uncompressed_batch_bytes_size": 634880
     },
     "batch_proposer_config": {
-      "max_chunk_num_per_batch": 15,
+      "max_chunk_num_per_batch": null,
       "max_l1_commit_gas_per_batch": 5000000,
       "max_l1_commit_calldata_size_per_batch": 110000,
       "batch_timeout_sec": 2700,
