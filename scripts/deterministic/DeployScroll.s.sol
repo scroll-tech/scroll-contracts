@@ -1500,7 +1500,7 @@ contract DeployScroll is DeterminsticDeployment {
         if (Ownable(L2_TX_FEE_VAULT_ADDR).owner() != OWNER_ADDR) {
             Ownable(L2_TX_FEE_VAULT_ADDR).transferOwnership(OWNER_ADDR);
         }
-        if (Ownable(L2_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED && Ownable(L2_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L2_WETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
         if (Ownable(L2_PROXY_ADMIN_ADDR).owner() != OWNER_ADDR) {
