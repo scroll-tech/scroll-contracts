@@ -44,3 +44,14 @@ forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L
 echo ""
 echo "deploying on L2"
 forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT"  --batch-size "$BATCH_SIZE" --sig "run(string,string)" "L2" "verify-config" --broadcast --legacy || exit 1
+
+# log broadcast files
+echo "" 
+echo "Broadcast files:"
+for file in broadcast/DeployScroll.s.sol/*/*; do
+  if [ -f "$file" ]; then
+    echo "$file:"
+    cat "$file"
+    echo ""
+  fi
+done

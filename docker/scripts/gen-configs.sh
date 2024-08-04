@@ -31,3 +31,7 @@ forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBalanceCheckerC
 echo ""
 echo "generating .env.frontend"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateFrontendConfig || exit 1
+
+echo ""
+echo "generating rollup-explorer-backend-config.json"
+forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateRollupExplorerBackendConfig || exit 1

@@ -73,7 +73,7 @@ abstract contract DeterminsticDeployment is Configuration {
 
     function setScriptMode(string memory scriptMode) internal {
         if (keccak256(bytes(scriptMode)) == keccak256(bytes("log-addresses"))) {
-            mode = ScriptMode.WriteConfig;
+            mode = ScriptMode.LogAddresses;
         } else if (keccak256(bytes(scriptMode)) == keccak256(bytes("write-config"))) {
             mode = ScriptMode.WriteConfig;
         } else if (keccak256(bytes(scriptMode)) == keccak256(bytes("verify-config"))) {
