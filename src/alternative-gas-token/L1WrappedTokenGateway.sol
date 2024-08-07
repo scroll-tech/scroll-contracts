@@ -24,7 +24,7 @@ contract L1WrappedTokenGateway {
      *************/
 
     /// @dev The safe gas limit used to bridge WETH to L2.
-    uint256 private constant SAFE_GAS_LIMIT = 200000;
+    uint256 private constant SAFE_GAS_LIMIT = 450000;
 
     /// @dev The default value of `sender`.
     address private constant DEFAULT_SENDER = address(1);
