@@ -19,7 +19,7 @@ contract L1GasPriceOracleTest is DSTestPlus {
 
     function setUp() public {
         whitelist = new Whitelist(address(this));
-        oracle = new L1GasPriceOracle(address(this));
+        oracle = new L1GasPriceOracle(address(this), false);
         oracle.updateWhitelist(address(whitelist));
 
         address[] memory _accounts = new address[](1);
