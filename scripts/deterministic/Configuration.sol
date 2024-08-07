@@ -31,6 +31,7 @@ abstract contract Configuration is Script {
 
     uint256 internal MAX_TX_IN_CHUNK;
     uint256 internal MAX_BLOCK_IN_CHUNK;
+    uint256 internal MAX_CHUNK_IN_BATCH;
     uint256 internal MAX_L1_MESSAGE_GAS_LIMIT;
 
     uint256 internal L1_CONTRACT_DEPLOYMENT_BLOCK;
@@ -61,6 +62,7 @@ abstract contract Configuration is Script {
     string internal SCROLL_DB_CONNECTION_STRING;
     string internal CHAIN_MONITOR_DB_CONNECTION_STRING;
     string internal BRIDGE_HISTORY_DB_CONNECTION_STRING;
+    string internal ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING;
 
     // genesis
     uint256 internal L2_MAX_ETH_SUPPLY;
@@ -105,6 +107,7 @@ abstract contract Configuration is Script {
 
         MAX_TX_IN_CHUNK = cfg.readUint(".general.MAX_TX_IN_CHUNK");
         MAX_BLOCK_IN_CHUNK = cfg.readUint(".general.MAX_BLOCK_IN_CHUNK");
+        MAX_CHUNK_IN_BATCH = cfg.readUint(".general.MAX_CHUNK_IN_BATCH");
         MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".general.MAX_L1_MESSAGE_GAS_LIMIT");
 
         L1_CONTRACT_DEPLOYMENT_BLOCK = cfg.readUint(".general.L1_CONTRACT_DEPLOYMENT_BLOCK");
@@ -133,6 +136,7 @@ abstract contract Configuration is Script {
         SCROLL_DB_CONNECTION_STRING = cfg.readString(".db.SCROLL_DB_CONNECTION_STRING");
         CHAIN_MONITOR_DB_CONNECTION_STRING = cfg.readString(".db.CHAIN_MONITOR_DB_CONNECTION_STRING");
         BRIDGE_HISTORY_DB_CONNECTION_STRING = cfg.readString(".db.BRIDGE_HISTORY_DB_CONNECTION_STRING");
+        ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_EXPLORER_DB_CONNECTION_STRING");
 
         L2_MAX_ETH_SUPPLY = cfg.readUint(".genesis.L2_MAX_ETH_SUPPLY");
         L2_DEPLOYER_INITIAL_BALANCE = cfg.readUint(".genesis.L2_DEPLOYER_INITIAL_BALANCE");

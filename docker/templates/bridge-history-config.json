@@ -2,7 +2,7 @@
   "L1": {
     "confirmation": 0,
     "endpoint": null,
-    "startHeight": 0,
+    "startHeight": null,
     "blockTime": 12,
     "fetchLimit": 16,
     "MessageQueueAddr": null,
