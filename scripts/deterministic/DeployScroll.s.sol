@@ -80,6 +80,8 @@ contract ScrollStandardERC20FactorySetOwner is ScrollStandardERC20Factory {
 }
 
 contract DeployScroll is DeterminsticDeployment {
+    using stdToml for string;
+
     /*********
      * Types *
      *********/
@@ -639,10 +641,16 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function deployGasToken() private gasToken(true) {
+        uint8 decimal = 18;
+        string memory key = ".general.EXAMPLE_GAS_TOKEN_DECIMAL";
+        if (vm.keyExistsToml(cfg, key)) {
+            decimal = uint8(cfg.readUint(key));
+        }
+
         bytes memory args = abi.encode(
             "ScrollGasToken", // _name
             "GasToken", // _symbol
-            18, // _decimals
+            decimal, // _decimals
             DEPLOYER_ADDR, // _recipient
             10**28 // _amount
         );
