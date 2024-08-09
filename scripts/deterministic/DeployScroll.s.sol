@@ -638,7 +638,7 @@ contract DeployScroll is DeterminsticDeployment {
         );
     }
 
-    function deployGasToken() private {
+    function deployGasToken() private gasToken(true) {
         bytes memory args = abi.encode(
             "ScrollGasToken", // _name
             "GasToken", // _symbol
@@ -650,7 +650,7 @@ contract DeployScroll is DeterminsticDeployment {
         L1_GAS_TOKEN_ADDR = deploy("L1_GAS_TOKEN", type(GasTokenExample).creationCode, args);
     }
 
-    function deployL1GasTokenGatewayProxy() private {
+    function deployL1GasTokenGatewayProxy() private gasToken(true) {
         bytes memory args = abi.encode(
             notnull(L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
             notnull(L1_PROXY_ADMIN_ADDR),
