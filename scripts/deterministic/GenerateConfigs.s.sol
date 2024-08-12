@@ -306,6 +306,7 @@ contract GenerateFrontendConfig is DeployScroll {
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_GAS_TOKEN_ADDR = \"", vm.toString(L1_GAS_TOKEN_ADDR), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_WETH_ADDR = \"", vm.toString(L1_WETH_ADDR), "\""));
 
+
         // L2 contracts
         vm.writeLine(FRONTEND_ENV_PATH, "");
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR = \"", vm.toString(L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR), "\""));
@@ -314,6 +315,10 @@ contract GenerateFrontendConfig is DeployScroll {
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L2_SCROLL_MESSENGER = \"", vm.toString(L2_SCROLL_MESSENGER_PROXY_ADDR), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR = \"", vm.toString(L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L2_WETH_GATEWAY_PROXY_ADDR = \"", vm.toString(L2_WETH_GATEWAY_PROXY_ADDR), "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_GAS_TOKEN_GATEWAY = \"", vm.toString(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR), "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_WRAPPED_TOKEN_GATEWAY = \"", vm.toString(L1_WRAPPED_TOKEN_GATEWAY_ADDR), "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_GAS_TOKEN_ADDR = \"", vm.toString(L1_GAS_TOKEN_ADDR), "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_L1_WETH_ADDR = \"", vm.toString(L1_WETH_ADDR), "\""));
 
         // custom token gateways (currently not set)
         vm.writeLine(FRONTEND_ENV_PATH, "");
