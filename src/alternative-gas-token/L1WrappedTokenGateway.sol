@@ -12,6 +12,16 @@ import {IWETH} from "../interfaces/IWETH.sol";
 contract L1WrappedTokenGateway {
     using SafeERC20 for IERC20;
 
+    /**********
+     * Events *
+     **********/
+
+    /// @notice Emitted when someone wrap ETH to WETH and then deposit WETH from L1 to L2.
+    /// @param from The address of sender in L1.
+    /// @param to The address of recipient in L2.
+    /// @param amount The amount of ETH will be deposited from L1 to L2.
+    event DepositWrappedToken(address indexed from, address indexed to, uint256 amount);
+
     /*********
      * Error *
      *********/
@@ -78,6 +88,8 @@ contract L1WrappedTokenGateway {
         sender = msg.sender;
         IL1ERC20Gateway(gateway).depositERC20{value: msg.value - _amount}(WETH, _to, _amount, SAFE_GAS_LIMIT);
         sender = DEFAULT_SENDER;
+
+        emit DepositWrappedToken(msg.sender, _to, _amount);
 
         // refund exceed fee
         uint256 balance = address(this).balance;
