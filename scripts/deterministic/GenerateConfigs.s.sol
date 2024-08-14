@@ -188,6 +188,7 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
         vm.writeJson(vm.toString(L1_ERC721_GATEWAY_PROXY_ADDR), BRIDGE_HISTORY_CONFIG_PATH, ".L1.ERC721GatewayAddr");
         vm.writeJson(vm.toString(L1_ERC1155_GATEWAY_PROXY_ADDR), BRIDGE_HISTORY_CONFIG_PATH, ".L1.ERC1155GatewayAddr");
         vm.writeJson(vm.toString(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR), BRIDGE_HISTORY_CONFIG_PATH, ".L1.GasTokenGatewayAddr");
+        vm.writeJson(vm.toString(L1_WRAPPED_TOKEN_GATEWAY_ADDR), BRIDGE_HISTORY_CONFIG_PATH, ".L1.WrappedTokenGatewayAddr");
 
         // L2 contracts
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), BRIDGE_HISTORY_CONFIG_PATH, ".L2.MessageQueueAddr");
