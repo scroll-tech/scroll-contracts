@@ -49,7 +49,7 @@
         "gas_price_diff": 50000
       },
       "chain_monitor": {
-        "enabled": false,
+        "enabled": true,
         "timeout": 3,
         "try_times": 5,
         "base_url": "http://chain-monitor:8080"

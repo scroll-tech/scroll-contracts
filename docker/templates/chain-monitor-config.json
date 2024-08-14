@@ -1,7 +1,7 @@
 {
   "l1_config": {
     "l1_url": null,
-    "confirm": "0x20",
+    "confirm": "0x0",
     "start_number": null,
     "l1_contracts": {
         "l1_gateways": {
@@ -14,17 +14,19 @@
           "dai_gateway": "0x0000000000000000000000000000000000000000",
           "usdc_gateway": "0x0000000000000000000000000000000000000000",
           "lido_gateway": "0x0000000000000000000000000000000000000000",
-          "puffer_gateway": "0x0000000000000000000000000000000000000000"
+          "puffer_gateway": "0x0000000000000000000000000000000000000000",
+          "gas_token_gateway": null
         },
         "scroll_messenger": null,
         "message_queue": null,
-        "scroll_chain": null
+        "scroll_chain": null,
+        "gas_token": null
     },
-    "start_messenger_balance": null
+    "start_messenger_balance": 0
   },
   "l2_config": {
     "l2_url": null,
-    "confirm": "0x80",
+    "confirm": "0x0",
     "l2_contracts": {
         "l2_gateways": {
           "eth_gateway": null,
