@@ -128,7 +128,7 @@ contract GenerateChainMonitorConfig is DeployScroll {
         vm.writeJson(vm.toString(L1_CUSTOM_ERC20_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.l1_gateways.custom_erc20_gateway");
         vm.writeJson(vm.toString(L1_ERC721_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.l1_gateways.erc721_gateway");
         vm.writeJson(vm.toString(L1_ERC1155_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.l1_gateways.erc1155_gateway");
-        vm.writeJson(vm.toString(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.gas_token_gateway");
+        vm.writeJson(vm.toString(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.l1_gateways.gas_token_gateway");
         vm.writeJson(vm.toString(L1_SCROLL_MESSENGER_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.scroll_messenger");
         vm.writeJson(vm.toString(L1_MESSAGE_QUEUE_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.message_queue");
         vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.scroll_chain");
