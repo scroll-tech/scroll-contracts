@@ -1368,7 +1368,7 @@ contract DeployScroll is DeterminsticDeployment {
 
             if (l1MessengerBalance < amountToLock) {
                 uint256 amountToSend = amountToLock - l1MessengerBalance;
-                payable(L1_SCROLL_MESSENGER_PROXY_ADDR).send(amountToSend);
+                payable(L1_SCROLL_MESSENGER_PROXY_ADDR).transfer(amountToSend);
             }
         } else {
             uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
