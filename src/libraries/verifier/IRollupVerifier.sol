@@ -26,4 +26,16 @@ interface IRollupVerifier {
         bytes calldata aggrProof,
         bytes32 publicInputHash
     ) external view;
+
+    /// @notice Verify bundle zk proof.
+    /// @param version The version of verifier to use.
+    /// @param batchIndex The batch index used to select verifier.
+    /// @param bundleProof The aggregated proof.
+    /// @param publicInput The public input.
+    function verifyBundleProof(
+        uint256 version,
+        uint256 batchIndex,
+        bytes calldata bundleProof,
+        bytes calldata publicInput
+    ) external view;
 }

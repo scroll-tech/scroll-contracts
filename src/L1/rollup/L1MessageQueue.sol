@@ -64,8 +64,11 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @dev The bitmap for skipped messages, where `skippedMessageBitmap[i]` keeps the bits from `[i*256, (i+1)*256)`.
     mapping(uint256 => uint256) private skippedMessageBitmap;
 
+    /// @inheritdoc IL1MessageQueue
+    uint256 public nextUnfinalizedQueueIndex;
+
     /// @dev The storage slots for future usage.
-    uint256[41] private __gap;
+    uint256[40] private __gap;
 
     /**********************
      * Function Modifiers *
@@ -73,6 +76,11 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
 
     modifier onlyMessenger() {
         require(_msgSender() == messenger, "Only callable by the L1ScrollMessenger");
+        _;
+    }
+
+    modifier onlyScrollChain() {
+        require(_msgSender() == scrollChain, "Only callable by the ScrollChain");
         _;
     }
 
@@ -343,9 +351,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         uint256 _startIndex,
         uint256 _count,
         uint256 _skippedBitmap
-    ) external {
-        require(_msgSender() == scrollChain, "Only callable by the ScrollChain");
-
+    ) external override onlyScrollChain {
         require(_count <= 256, "pop too many messages");
         require(pendingQueueIndex == _startIndex, "start index mismatch");
 
@@ -368,8 +374,52 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     }
 
     /// @inheritdoc IL1MessageQueue
+    /// @dev Caller should make sure `_startIndex < pendingQueueIndex` to reduce unnecessary contract call.
+    function resetPoppedCrossDomainMessage(uint256 _startIndex) external override onlyScrollChain {
+        uint256 cachedPendingQueueIndex = pendingQueueIndex;
+        if (_startIndex == cachedPendingQueueIndex) return;
+
+        require(_startIndex >= nextUnfinalizedQueueIndex, "reset finalized messages");
+        require(_startIndex < cachedPendingQueueIndex, "reset pending messages");
+
+        unchecked {
+            uint256 count = cachedPendingQueueIndex - _startIndex;
+            uint256 bucket = _startIndex >> 8;
+            uint256 offset = _startIndex & 0xff;
+            skippedMessageBitmap[bucket] &= (1 << offset) - 1;
+            uint256 numResetMessages = 256 - offset;
+            while (numResetMessages < count) {
+                bucket += 1;
+                uint256 bitmap = skippedMessageBitmap[bucket];
+                if (bitmap > 0) skippedMessageBitmap[bucket] = 0;
+                numResetMessages += 256;
+            }
+        }
+
+        pendingQueueIndex = _startIndex;
+        emit ResetDequeuedTransaction(_startIndex);
+    }
+
+    /// @inheritdoc IL1MessageQueue
+    function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne)
+        external
+        override
+        onlyScrollChain
+    {
+        uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
+        if (_newFinalizedQueueIndexPlusOne == cachedFinalizedQueueIndexPlusOne) return;
+        require(_newFinalizedQueueIndexPlusOne > cachedFinalizedQueueIndexPlusOne, "finalized index too small");
+        require(_newFinalizedQueueIndexPlusOne <= pendingQueueIndex, "finalized index too large");
+
+        nextUnfinalizedQueueIndex = _newFinalizedQueueIndexPlusOne;
+        unchecked {
+            emit FinalizedDequeuedTransaction(_newFinalizedQueueIndexPlusOne - 1);
+        }
+    }
+
+    /// @inheritdoc IL1MessageQueue
     function dropCrossDomainMessage(uint256 _index) external onlyMessenger {
-        require(_index < pendingQueueIndex, "cannot drop pending message");
+        require(_index < nextUnfinalizedQueueIndex, "cannot drop pending message");
 
         require(_isMessageSkipped(_index), "drop non-skipped message");
         require(!droppedMessageBitmap.get(_index), "message already dropped");
