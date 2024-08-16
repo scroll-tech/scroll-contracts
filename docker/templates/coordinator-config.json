@@ -4,11 +4,13 @@
     "session_attempts": 100,
     "chunk_collection_time_sec": 3600,
     "batch_collection_time_sec": 600,
+    "bundle_collection_time_sec": 600,
     "verifier": {
-      "fork_name": "bernoulli",
+      "fork_name": "darwin",
       "mock_mode": false,
       "params_path": "/verifier/params",
-      "assets_path": "/verifier/assets"
+      "assets_path_lo": "/verifier/assets/lo",
+      "assets_path_hi": "/verifier/assets/hi"
     },
     "max_verifier_workers": 4,
     "min_prover_version": "v4.3.41"

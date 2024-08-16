@@ -32,6 +32,7 @@ abstract contract Configuration is Script {
     uint256 internal MAX_TX_IN_CHUNK;
     uint256 internal MAX_BLOCK_IN_CHUNK;
     uint256 internal MAX_CHUNK_IN_BATCH;
+    uint256 internal MAX_BATCH_IN_BUNDLE;
     uint256 internal MAX_L1_MESSAGE_GAS_LIMIT;
 
     uint256 internal L1_CONTRACT_DEPLOYMENT_BLOCK;
@@ -106,6 +107,7 @@ abstract contract Configuration is Script {
         MAX_TX_IN_CHUNK = cfg.readUint(".general.MAX_TX_IN_CHUNK");
         MAX_BLOCK_IN_CHUNK = cfg.readUint(".general.MAX_BLOCK_IN_CHUNK");
         MAX_CHUNK_IN_BATCH = cfg.readUint(".general.MAX_CHUNK_IN_BATCH");
+        MAX_BATCH_IN_BUNDLE = cfg.readUint(".general.MAX_BATCH_IN_BUNDLE");
         MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".general.MAX_L1_MESSAGE_GAS_LIMIT");
 
         L1_CONTRACT_DEPLOYMENT_BLOCK = cfg.readUint(".general.L1_CONTRACT_DEPLOYMENT_BLOCK");

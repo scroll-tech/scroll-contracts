@@ -1051,10 +1051,13 @@ contract DeployScroll is DeterminsticDeployment {
                 MAX_L1_MESSAGE_GAS_LIMIT
             );
         }
-        if (
-            getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) == 0 || getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) == 1
-        ) {
+
+        if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 2) {
             L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
+        }
+
+        if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 3) {
+            L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV3();
         }
     }
 

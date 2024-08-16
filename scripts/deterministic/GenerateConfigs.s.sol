@@ -37,8 +37,6 @@ contract GenerateRollupConfig is DeployScroll {
         vm.writeJson(L1_RPC_ENDPOINT, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.sender_config.endpoint");
 
         // contracts
-        vm.writeJson(vm.toString(L1_MESSAGE_QUEUE_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l1_config.l1_message_queue_address");
-        vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l1_config.scroll_chain_address");
         vm.writeJson(vm.toString(L1_GAS_PRICE_ORACLE_ADDR), ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_price_oracle_contract_address");
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.l2_message_queue_address");
         vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.rollup_contract_address");
@@ -53,10 +51,12 @@ contract GenerateRollupConfig is DeployScroll {
         // other
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_ENABLED), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.enable_test_env_bypass_features");
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_batch_without_proof_timeout_sec");
+        vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_bundle_without_proof_timeout_sec");
 
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
         vm.writeJson(vm.toString(MAX_CHUNK_IN_BATCH), ROLLUP_CONFIG_PATH, ".l2_config.batch_proposer_config.max_chunk_num_per_batch");
+        vm.writeJson(vm.toString(MAX_BATCH_IN_BUNDLE), ROLLUP_CONFIG_PATH, ".l2_config.bundle_proposer_config.max_batch_num_per_bundle");
 
         vm.writeJson(SCROLL_DB_CONNECTION_STRING, ROLLUP_CONFIG_PATH, ".db_config.dsn");
     }
