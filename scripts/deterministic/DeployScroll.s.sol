@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -241,22 +242,87 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function checkDeployerBalance() private view {
+    function checkDeployerBalance() private {
         // ignore balance during simulation
         if (broadcastLayer == Layer.None) {
             return;
         }
 
+        // check funds for deployment (L1 & L2)
         if (DEPLOYER_ADDR.balance < MINIMUM_DEPLOYER_BALANCE) {
             revert(
                 string(
                     abi.encodePacked(
-                        "[ERROR] insufficient funds on deployer account (",
+                        "[ERROR] insufficient funds on deployer account for contract deployment (",
                         vm.toString(DEPLOYER_ADDR),
-                        ")"
+                        ") minimum ETH balance (in wei): ",
+                        vm.toString(MINIMUM_DEPLOYER_BALANCE)
                     )
                 )
             );
+        }
+
+        // check funds for initial deposit (L1, ETH as gas token)
+        if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
+
+            uint256 amountToSend = 0;
+            if (l1MessengerBalance < amountToLock) {
+                amountToSend = amountToLock - l1MessengerBalance;
+            }
+
+            uint256 minBalance = MINIMUM_DEPLOYER_BALANCE + amountToSend;
+
+            if (DEPLOYER_ADDR.balance < minBalance) {
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "[ERROR] insufficient funds on deployer account for initial deposit (",
+                            vm.toString(DEPLOYER_ADDR),
+                            ") minimum ETH balance (in wei): ",
+                            vm.toString(minBalance)
+                        )
+                    )
+                );
+            }
+        }
+
+        // check funds for initial deposit (L1, alternative gas token)
+        // skip it if L1_GAS_TOKEN is not configured in the config file
+        address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
+        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
+                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
+            );
+
+            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
+            if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
+                amountToLock += 1;
+            }
+
+            uint256 amountToSend = 0;
+            if (l1GasTokenGatewayBalance < amountToLock) {
+                amountToSend = amountToLock - l1GasTokenGatewayBalance;
+            }
+
+            uint256 minBalance = amountToSend;
+
+            if (IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(DEPLOYER_ADDR) < minBalance) {
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "[ERROR] insufficient funds on deployer account for initial deposit (",
+                            vm.toString(DEPLOYER_ADDR),
+                            ") minimum ",
+                            IERC20Metadata(L1_GAS_TOKEN_ADDR).symbol(),
+                            " balance (in min token unit): ",
+                            vm.toString(minBalance)
+                        )
+                    )
+                );
+            }
         }
     }
 
@@ -359,6 +425,11 @@ contract DeployScroll is DeterminsticDeployment {
 
         // alternative gas token contracts
         initializeL1GasTokenGateway();
+
+        // lock tokens on L1 to ensure bridge parity,
+        // we lock ETH in L1ScrollMessenger or GAS_TOKEN in L1GasTokenGateway
+        // note: this can only be done before transferring ownership
+        lockTokensOnL1();
 
         transferL1ContractOwnership();
     }
@@ -1289,6 +1360,33 @@ contract DeployScroll is DeterminsticDeployment {
     function initializeL1GasTokenGateway() private gasToken(true) {
         if (getInitializeCount(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR) == 0) {
             L1GasTokenGateway(payable(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR)).initialize();
+        }
+    }
+
+    function lockTokensOnL1() private {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
+
+            if (l1MessengerBalance < amountToLock) {
+                uint256 amountToSend = amountToLock - l1MessengerBalance;
+                payable(L1_SCROLL_MESSENGER_PROXY_ADDR).transfer(amountToSend);
+            }
+        } else {
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
+                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
+            );
+
+            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
+            if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
+                amountToLock += 1;
+            }
+
+            if (l1GasTokenGatewayBalance < amountToLock) {
+                uint256 amountTosend = amountToLock - l1GasTokenGatewayBalance;
+                IERC20Metadata(L1_GAS_TOKEN_ADDR).transfer(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR, amountTosend);
+            }
         }
     }
 
