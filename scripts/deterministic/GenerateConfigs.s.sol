@@ -133,6 +133,7 @@ contract GenerateChainMonitorConfig is DeployScroll {
         vm.writeJson(vm.toString(L1_MESSAGE_QUEUE_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.message_queue");
         vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.scroll_chain");
         vm.writeJson(vm.toString(L1_GAS_TOKEN_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.l1_contracts.gas_token");
+        vm.writeJson(vm.toString(L2_DEPLOYER_INITIAL_BALANCE), CHAIN_MONITOR_CONFIG_PATH, ".l1_config.start_messenger_balance");
 
         // L2
         vm.writeJson(L2_RPC_ENDPOINT, CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_url");

@@ -242,7 +242,7 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function checkDeployerBalance() private view {
+    function checkDeployerBalance() private {
         // ignore balance during simulation
         if (broadcastLayer == Layer.None) {
             return;
@@ -289,7 +289,9 @@ contract DeployScroll is DeterminsticDeployment {
         }
 
         // check funds for initial deposit (L1, alternative gas token)
-        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED) {
+        // skip it if L1_GAS_TOKEN is not configured in the config file
+        address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
+        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
             uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
                 L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
             );
