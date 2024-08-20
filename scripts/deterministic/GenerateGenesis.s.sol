@@ -186,7 +186,7 @@ contract GenerateGenesis is DeployScroll {
     }
 
     function setL2Deployer() internal {
-        vm.deal(OWNER_ADDR, L2_DEPLOYER_INITIAL_BALANCE);
+        vm.deal(DEPLOYER_ADDR, L2_DEPLOYER_INITIAL_BALANCE);
     }
 
     function generateGenesisJson() private {
