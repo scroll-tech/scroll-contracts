@@ -14,7 +14,7 @@ import {ScrollGatewayBase} from "../../libraries/gateway/ScrollGatewayBase.sol";
 /// @title L1ETHGateway
 /// @notice The `L1ETHGateway` is used to deposit ETH on layer 1 and
 /// finalize withdraw ETH from layer 2.
-/// @dev The deposited ETH tokens are held in this gateway. On finalizing withdraw, the corresponding
+/// @dev The deposited ETH tokens are held in `L1ScrollMessenger`. On finalizing withdraw, the corresponding
 /// ETH will be transfer to the recipient directly.
 contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback {
     /***************

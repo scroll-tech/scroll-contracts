@@ -14,13 +14,15 @@
           "dai_gateway": "0x0000000000000000000000000000000000000000",
           "usdc_gateway": "0x0000000000000000000000000000000000000000",
           "lido_gateway": "0x0000000000000000000000000000000000000000",
-          "puffer_gateway": "0x0000000000000000000000000000000000000000"
+          "puffer_gateway": "0x0000000000000000000000000000000000000000",
+          "gas_token_gateway": null
         },
         "scroll_messenger": null,
         "message_queue": null,
-        "scroll_chain": null
+        "scroll_chain": null,
+        "gas_token": null
     },
-    "start_messenger_balance": null
+    "start_messenger_balance": 0
   },
   "l2_config": {
     "l2_url": null,
