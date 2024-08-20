@@ -65,7 +65,7 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        L2MessageQueue _queue = new L2MessageQueue(OWNER_ADDR);
+        L2MessageQueue _queue = new L2MessageQueue(DEPLOYER_ADDR);
         vm.etch(predeployAddr, address(_queue).code);
 
         // set storage
@@ -85,7 +85,7 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        L1GasPriceOracle _oracle = new L1GasPriceOracle(OWNER_ADDR, true);
+        L1GasPriceOracle _oracle = new L1GasPriceOracle(DEPLOYER_ADDR, true);
         vm.etch(predeployAddr, address(_oracle).code);
 
         // set storage
@@ -108,7 +108,7 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        Whitelist _whitelist = new Whitelist(OWNER_ADDR);
+        Whitelist _whitelist = new Whitelist(DEPLOYER_ADDR);
         vm.etch(predeployAddr, address(_whitelist).code);
 
         // set storage
@@ -151,10 +151,10 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        L2TxFeeVault _vault = new L2TxFeeVault(OWNER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
+        L2TxFeeVault _vault = new L2TxFeeVault(DEPLOYER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
         vm.etch(predeployAddr, address(_vault).code);
 
-        vm.prank(OWNER_ADDR);
+        vm.prank(DEPLOYER_ADDR);
         _vault.updateMessenger(L2_SCROLL_MESSENGER_PROXY_ADDR);
 
         // set storage
