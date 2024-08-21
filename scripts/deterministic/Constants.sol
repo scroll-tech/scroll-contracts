@@ -33,5 +33,5 @@ string constant COORDINATOR_CONFIG_PATH = "./volume/coordinator-config.json";
 string constant CHAIN_MONITOR_CONFIG_PATH = "./volume/chain-monitor-config.json";
 string constant BRIDGE_HISTORY_CONFIG_PATH = "./volume/bridge-history-config.json";
 string constant BALANCE_CHECKER_CONFIG_PATH = "./volume/balance-checker-config.json";
-string constant FRONTEND_ENV_PATH = "./volume/.env.frontend";
+string constant FRONTEND_ENV_PATH = "./volume/frontend-config";
 string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "./volume/rollup-explorer-backend-config.json";
