@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
-import {BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
+import {BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
 
 contract GenerateRollupConfig is DeployScroll {
@@ -364,5 +364,37 @@ contract GenerateRollupExplorerBackendConfig is DeployScroll {
         vm.writeFile(ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, template);
 
         vm.writeJson(ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ".db_url");
+    }
+}
+
+contract GenerateAdminSystemBackendConfig is DeployScroll {
+    /***************
+     * Entry point *
+     ***************/
+
+    function run() public {
+        setScriptMode(ScriptMode.VerifyConfig);
+        predictAllContracts();
+
+        generateAdminSystemBackendConfig();
+    }
+
+    /*********************
+     * Private functions *
+     *********************/
+
+    // prettier-ignore
+    function generateAdminSystemBackendConfig() private {
+        // initialize template file
+        if (vm.exists(ADMIN_SYSTEM_BACKEND_CONFIG_PATH)) {
+            vm.removeFile(ADMIN_SYSTEM_BACKEND_CONFIG_PATH);
+        }
+
+        string memory template = vm.readFile(ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(ADMIN_SYSTEM_BACKEND_CONFIG_PATH, template);
+
+        vm.writeJson(SCROLL_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".db_config.dsn");
+        vm.writeJson(SCROLL_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".read_only_db_config.dsn");
+        vm.writeJson(ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".auth_db_config.dsn");
     }
 }

@@ -63,6 +63,7 @@ abstract contract Configuration is Script {
     string internal CHAIN_MONITOR_DB_CONNECTION_STRING;
     string internal BRIDGE_HISTORY_DB_CONNECTION_STRING;
     string internal ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING;
+    string internal ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING;
 
     // genesis
     uint256 internal L2_MAX_ETH_SUPPLY;
@@ -137,6 +138,7 @@ abstract contract Configuration is Script {
         CHAIN_MONITOR_DB_CONNECTION_STRING = cfg.readString(".db.CHAIN_MONITOR_DB_CONNECTION_STRING");
         BRIDGE_HISTORY_DB_CONNECTION_STRING = cfg.readString(".db.BRIDGE_HISTORY_DB_CONNECTION_STRING");
         ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_EXPLORER_DB_CONNECTION_STRING");
+        ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING = cfg.readString(".db.ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING");
 
         L2_MAX_ETH_SUPPLY = cfg.readUint(".genesis.L2_MAX_ETH_SUPPLY");
         L2_DEPLOYER_INITIAL_BALANCE = cfg.readUint(".genesis.L2_DEPLOYER_INITIAL_BALANCE");

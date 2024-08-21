@@ -48,6 +48,7 @@ SCROLL_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/scroll?ssl
 CHAIN_MONITOR_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/chain_monitor?sslmode=disable"
 BRIDGE_HISTORY_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/bridge_history?sslmode=disable"
 ROLLUP_EXPLORER_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/rollup_explorer?sslmode=disable"
+ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING = "postgresql://postgres:qwerty12345@postgresql:5432/scroll_admin_system?sslmode=disable"
 
 
 [genesis]
