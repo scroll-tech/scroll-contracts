@@ -22,9 +22,11 @@ describe("ZkEvmVerifierV2", async () => {
     for (let i = 0; i < 8; ++i) {
       publicInputs[i] = instances[0x140 - (8 - i)];
     }
-    // numBatches, last 4 bytes of instances[0x180:0x1a0]
-    for (let i = 0; i < 4; ++i) {
-      publicInputs[8 + i] = instances[0x1a0 - (4 - i)];
+    // numBatches, last 4 bytes of instances[0x180:0x1a0] + 1
+    let numBatches = Number(hexlify(instances.subarray(0x180, 0x1a0))) + 1;
+    for (let i = 3; i >= 0; --i) {
+      publicInputs[8 + i] = numBatches % 256;
+      numBatches = Math.floor(numBatches / 256);
     }
     // prevStateRoot, concat(last 16 bytes of instances[0x20:0x40], last 16 bytes of instances[0x40:0x60])
     for (let i = 0; i < 16; ++i) {
@@ -147,7 +149,11 @@ describe("ZkEvmVerifierV2", async () => {
     });
   };
 
+<<<<<<< HEAD
   for (const version of ["v0.12.0-rc.2"]) {
+=======
+  for (const version of ["v0.12.0-rc.2", "v0.12.0-rc.3"]) {
+>>>>>>> main
     await doTest(version);
   }
 });

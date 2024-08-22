@@ -12,7 +12,7 @@ pragma solidity ^0.8.24;
 ///   * l1MessagePopped         8           uint64      9       Number of L1 messages popped in the batch
 ///   * totalL1MessagePopped    8           uint64      17      Number of total L1 messages popped after the batch
 ///   * dataHash                32          bytes32     25      The data hash of the batch
-///   * blobVersionedHash       32          bytes32     57      The versioned hash of the blob with this batch’s data
+///   * blobVersionedHash       32          bytes32     57      The versioned hash of the blob with this batch’s datacommit
 ///   * parentBatchHash         32          bytes32     89      The parent batch hash
 ///   * lastBlockTimestamp      8           uint64      121     A bitmap to indicate which L1 messages are skipped in the batch
 ///   * blobDataProof           64          bytes64     129     The blob data proof: z (32), y (32)
