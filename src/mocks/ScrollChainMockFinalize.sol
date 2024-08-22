@@ -78,6 +78,6 @@ contract ScrollChainMockFinalize is ScrollChain {
         // Pop finalized and non-skipped message from L1MessageQueue.
         _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
-        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 }

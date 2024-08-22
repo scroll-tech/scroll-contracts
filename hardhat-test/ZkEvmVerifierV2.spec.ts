@@ -149,11 +149,7 @@ describe("ZkEvmVerifierV2", async () => {
     });
   };
 
-<<<<<<< HEAD
-  for (const version of ["v0.12.0-rc.2"]) {
-=======
   for (const version of ["v0.12.0-rc.2", "v0.12.0-rc.3"]) {
->>>>>>> main
     await doTest(version);
   }
 });
