@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -21,6 +22,10 @@ import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
+import {GasTokenExample} from "../../src/alternative-gas-token/GasTokenExample.sol";
+import {L1ScrollMessengerNonETH} from "../../src/alternative-gas-token/L1ScrollMessengerNonETH.sol";
+import {L1GasTokenGateway} from "../../src/alternative-gas-token/L1GasTokenGateway.sol";
+import {L1WrappedTokenGateway} from "../../src/alternative-gas-token/L1WrappedTokenGateway.sol";
 
 import {L2CustomERC20Gateway} from "../../src/L2/gateways/L2CustomERC20Gateway.sol";
 import {L2ERC1155Gateway} from "../../src/L2/gateways/L2ERC1155Gateway.sol";
@@ -76,6 +81,8 @@ contract ScrollStandardERC20FactorySetOwner is ScrollStandardERC20Factory {
 }
 
 contract DeployScroll is DeterminsticDeployment {
+    using stdToml for string;
+
     /*********
      * Types *
      *********/
@@ -128,6 +135,10 @@ contract DeployScroll is DeterminsticDeployment {
     address internal L1_ZKEVM_VERIFIER_V1_ADDR;
     address internal L2_GAS_PRICE_ORACLE_IMPLEMENTATION_ADDR;
     address internal L2_GAS_PRICE_ORACLE_PROXY_ADDR;
+    address internal L1_GAS_TOKEN_ADDR;
+    address internal L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR;
+    address internal L1_GAS_TOKEN_GATEWAY_PROXY_ADDR;
+    address internal L1_WRAPPED_TOKEN_GATEWAY_ADDR;
 
     // L2 addresses
     address internal L1_GAS_PRICE_ORACLE_ADDR;
@@ -186,6 +197,14 @@ contract DeployScroll is DeterminsticDeployment {
         _;
     }
 
+    /// @dev Only execute block if it's requied by alternative gas token mode.
+    modifier gasToken(bool gasTokenRequire) {
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED != gasTokenRequire) {
+            return;
+        }
+        _;
+    }
+
     /***************
      * Entry point *
      ***************/
@@ -223,22 +242,87 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function checkDeployerBalance() private view {
+    function checkDeployerBalance() private {
         // ignore balance during simulation
         if (broadcastLayer == Layer.None) {
             return;
         }
 
+        // check funds for deployment (L1 & L2)
         if (DEPLOYER_ADDR.balance < MINIMUM_DEPLOYER_BALANCE) {
             revert(
                 string(
                     abi.encodePacked(
-                        "[ERROR] insufficient funds on deployer account (",
+                        "[ERROR] insufficient funds on deployer account for contract deployment (",
                         vm.toString(DEPLOYER_ADDR),
-                        ")"
+                        ") minimum ETH balance (in wei): ",
+                        vm.toString(MINIMUM_DEPLOYER_BALANCE)
                     )
                 )
             );
+        }
+
+        // check funds for initial deposit (L1, ETH as gas token)
+        if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
+
+            uint256 amountToSend = 0;
+            if (l1MessengerBalance < amountToLock) {
+                amountToSend = amountToLock - l1MessengerBalance;
+            }
+
+            uint256 minBalance = MINIMUM_DEPLOYER_BALANCE + amountToSend;
+
+            if (DEPLOYER_ADDR.balance < minBalance) {
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "[ERROR] insufficient funds on deployer account for initial deposit (",
+                            vm.toString(DEPLOYER_ADDR),
+                            ") minimum ETH balance (in wei): ",
+                            vm.toString(minBalance)
+                        )
+                    )
+                );
+            }
+        }
+
+        // check funds for initial deposit (L1, alternative gas token)
+        // skip it if L1_GAS_TOKEN is not configured in the config file
+        address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
+        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
+                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
+            );
+
+            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
+            if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
+                amountToLock += 1;
+            }
+
+            uint256 amountToSend = 0;
+            if (l1GasTokenGatewayBalance < amountToLock) {
+                amountToSend = amountToLock - l1GasTokenGatewayBalance;
+            }
+
+            uint256 minBalance = amountToSend;
+
+            if (IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(DEPLOYER_ADDR) < minBalance) {
+                revert(
+                    string(
+                        abi.encodePacked(
+                            "[ERROR] insufficient funds on deployer account for initial deposit (",
+                            vm.toString(DEPLOYER_ADDR),
+                            ") minimum ",
+                            IERC20Metadata(L1_GAS_TOKEN_ADDR).symbol(),
+                            " balance (in min token unit): ",
+                            vm.toString(minBalance)
+                        )
+                    )
+                );
+            }
         }
     }
 
@@ -270,6 +354,10 @@ contract DeployScroll is DeterminsticDeployment {
         deployL1CustomERC20GatewayProxy();
         deployL1ERC721GatewayProxy();
         deployL1ERC1155GatewayProxy();
+
+        // alternative gas token contracts
+        deployGasToken();
+        deployL1GasTokenGatewayProxy();
     }
 
     // @notice deployL2Contracts1stPass deploys L2 contracts whose initialization does not depend on any L1 addresses.
@@ -300,6 +388,10 @@ contract DeployScroll is DeterminsticDeployment {
         deployL1CustomERC20Gateway();
         deployL1ERC721Gateway();
         deployL1ERC1155Gateway();
+
+        // alternative gas token contracts
+        deployL1GasTokenGateway();
+        deployL1WrappedTokenGateway();
     }
 
     // @notice deployL2Contracts2ndPass deploys L2 contracts whose initialization depends on some L1 addresses.
@@ -330,6 +422,14 @@ contract DeployScroll is DeterminsticDeployment {
         initializeL1StandardERC20Gateway();
         initializeL1WETHGateway();
         initializeL1Whitelist();
+
+        // alternative gas token contracts
+        initializeL1GasTokenGateway();
+
+        // lock tokens on L1 to ensure bridge parity,
+        // we lock ETH in L1ScrollMessenger or GAS_TOKEN in L1GasTokenGateway
+        // note: this can only be done before transferring ownership
+        lockTokensOnL1();
 
         transferL1ContractOwnership();
     }
@@ -527,7 +627,7 @@ contract DeployScroll is DeterminsticDeployment {
         );
     }
 
-    function deployL1ETHGatewayProxy() private {
+    function deployL1ETHGatewayProxy() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
             notnull(L1_PROXY_ADMIN_ADDR),
@@ -541,7 +641,7 @@ contract DeployScroll is DeterminsticDeployment {
         );
     }
 
-    function deployL1WETHGatewayProxy() private {
+    function deployL1WETHGatewayProxy() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
             notnull(L1_PROXY_ADMIN_ADDR),
@@ -606,6 +706,38 @@ contract DeployScroll is DeterminsticDeployment {
 
         L1_ERC1155_GATEWAY_PROXY_ADDR = deploy(
             "L1_ERC1155_GATEWAY_PROXY",
+            type(TransparentUpgradeableProxy).creationCode,
+            args
+        );
+    }
+
+    function deployGasToken() private gasToken(true) {
+        uint8 decimal = 18;
+        string memory key = ".general.EXAMPLE_GAS_TOKEN_DECIMAL";
+        if (vm.keyExistsToml(cfg, key)) {
+            decimal = uint8(cfg.readUint(key));
+        }
+
+        bytes memory args = abi.encode(
+            "ScrollGasToken", // _name
+            "GasToken", // _symbol
+            decimal, // _decimals
+            DEPLOYER_ADDR, // _recipient
+            10**28 // _amount
+        );
+
+        L1_GAS_TOKEN_ADDR = deploy("L1_GAS_TOKEN", type(GasTokenExample).creationCode, args);
+    }
+
+    function deployL1GasTokenGatewayProxy() private gasToken(true) {
+        bytes memory args = abi.encode(
+            notnull(L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
+            notnull(L1_PROXY_ADMIN_ADDR),
+            new bytes(0)
+        );
+
+        L1_GAS_TOKEN_GATEWAY_PROXY_ADDR = deploy(
+            "L1_GAS_TOKEN_GATEWAY_PROXY",
             type(TransparentUpgradeableProxy).creationCode,
             args
         );
@@ -693,7 +825,7 @@ contract DeployScroll is DeterminsticDeployment {
         );
     }
 
-    function deployL2WETHGatewayProxy() private {
+    function deployL2WETHGatewayProxy() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L2_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
             notnull(L2_PROXY_ADMIN_ADDR),
@@ -765,22 +897,37 @@ contract DeployScroll is DeterminsticDeployment {
      ***************************/
 
     function deployL1ScrollMessenger() private {
-        bytes memory args = abi.encode(
-            notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
-            notnull(L1_SCROLL_CHAIN_PROXY_ADDR),
-            notnull(L1_MESSAGE_QUEUE_PROXY_ADDR)
-        );
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            bytes memory args = abi.encode(
+                notnull(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR),
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
+                notnull(L1_SCROLL_CHAIN_PROXY_ADDR),
+                notnull(L1_MESSAGE_QUEUE_PROXY_ADDR)
+            );
 
-        L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR = deploy(
-            "L1_SCROLL_MESSENGER_IMPLEMENTATION",
-            type(L1ScrollMessenger).creationCode,
-            args
-        );
+            L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR = deploy(
+                "L1_SCROLL_MESSENGER_IMPLEMENTATION",
+                type(L1ScrollMessengerNonETH).creationCode,
+                args
+            );
+        } else {
+            bytes memory args = abi.encode(
+                notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
+                notnull(L1_SCROLL_CHAIN_PROXY_ADDR),
+                notnull(L1_MESSAGE_QUEUE_PROXY_ADDR)
+            );
+
+            L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR = deploy(
+                "L1_SCROLL_MESSENGER_IMPLEMENTATION",
+                type(L1ScrollMessenger).creationCode,
+                args
+            );
+        }
 
         upgrade(L1_PROXY_ADMIN_ADDR, L1_SCROLL_MESSENGER_PROXY_ADDR, L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR);
     }
 
-    function deployL1ETHGateway() private {
+    function deployL1ETHGateway() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L2_ETH_GATEWAY_PROXY_ADDR),
             notnull(L1_GATEWAY_ROUTER_PROXY_ADDR),
@@ -796,7 +943,7 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L1_PROXY_ADMIN_ADDR, L1_ETH_GATEWAY_PROXY_ADDR, L1_ETH_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
-    function deployL1WETHGateway() private {
+    function deployL1WETHGateway() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L1_WETH_ADDR),
             notnull(L2_WETH_ADDR),
@@ -876,6 +1023,33 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L1_PROXY_ADMIN_ADDR, L1_ERC1155_GATEWAY_PROXY_ADDR, L1_ERC1155_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
+    function deployL1GasTokenGateway() private gasToken(true) {
+        bytes memory args = abi.encode(
+            notnull(L1_GAS_TOKEN_ADDR),
+            notnull(L2_ETH_GATEWAY_PROXY_ADDR),
+            notnull(L1_GATEWAY_ROUTER_PROXY_ADDR),
+            notnull(L1_SCROLL_MESSENGER_PROXY_ADDR)
+        );
+
+        L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR = deploy(
+            "L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION",
+            type(L1GasTokenGateway).creationCode,
+            args
+        );
+
+        upgrade(L1_PROXY_ADMIN_ADDR, L1_GAS_TOKEN_GATEWAY_PROXY_ADDR, L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR);
+    }
+
+    function deployL1WrappedTokenGateway() private gasToken(true) {
+        bytes memory args = abi.encode(notnull(L1_WETH_ADDR), notnull(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR));
+
+        L1_WRAPPED_TOKEN_GATEWAY_ADDR = deploy(
+            "L1_WRAPPED_TOKEN_GATEWAY",
+            type(L1WrappedTokenGateway).creationCode,
+            args
+        );
+    }
+
     /***************************
      * L2: 2nd pass deployment *
      ***************************/
@@ -933,8 +1107,14 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function deployL2ETHGateway() private {
+        address COUNTERPART;
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            COUNTERPART = L1_GAS_TOKEN_GATEWAY_PROXY_ADDR;
+        } else {
+            COUNTERPART = L1_ETH_GATEWAY_PROXY_ADDR;
+        }
         bytes memory args = abi.encode(
-            notnull(L1_ETH_GATEWAY_PROXY_ADDR),
+            notnull(COUNTERPART),
             notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
             notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
         );
@@ -948,7 +1128,7 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L2_PROXY_ADMIN_ADDR, L2_ETH_GATEWAY_PROXY_ADDR, L2_ETH_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
-    function deployL2WETHGateway() private {
+    function deployL2WETHGateway() private gasToken(false) {
         bytes memory args = abi.encode(
             notnull(L2_WETH_ADDR),
             notnull(L1_WETH_ADDR),
@@ -1087,9 +1267,15 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function initializeL1GatewayRouter() private {
+        address L2_ETH_GATEWAY_COUNTERPART;
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            L2_ETH_GATEWAY_COUNTERPART = L1_GAS_TOKEN_GATEWAY_PROXY_ADDR;
+        } else {
+            L2_ETH_GATEWAY_COUNTERPART = L1_ETH_GATEWAY_PROXY_ADDR;
+        }
         if (getInitializeCount(L1_GATEWAY_ROUTER_PROXY_ADDR) == 0) {
             L1GatewayRouter(L1_GATEWAY_ROUTER_PROXY_ADDR).initialize(
-                notnull(L1_ETH_GATEWAY_PROXY_ADDR),
+                notnull(L2_ETH_GATEWAY_COUNTERPART),
                 notnull(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR)
             );
         }
@@ -1123,7 +1309,7 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function initializeL1ETHGateway() private {
+    function initializeL1ETHGateway() private gasToken(false) {
         if (getInitializeCount(L1_ETH_GATEWAY_PROXY_ADDR) == 0) {
             L1ETHGateway(L1_ETH_GATEWAY_PROXY_ADDR).initialize(
                 notnull(L2_ETH_GATEWAY_PROXY_ADDR),
@@ -1145,7 +1331,7 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function initializeL1WETHGateway() private {
+    function initializeL1WETHGateway() private gasToken(false) {
         if (getInitializeCount(L1_WETH_GATEWAY_PROXY_ADDR) == 0) {
             L1WETHGateway(payable(L1_WETH_GATEWAY_PROXY_ADDR)).initialize(
                 notnull(L2_WETH_GATEWAY_PROXY_ADDR),
@@ -1174,6 +1360,39 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
+    function initializeL1GasTokenGateway() private gasToken(true) {
+        if (getInitializeCount(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR) == 0) {
+            L1GasTokenGateway(payable(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR)).initialize();
+        }
+    }
+
+    function lockTokensOnL1() private {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
+
+            if (l1MessengerBalance < amountToLock) {
+                uint256 amountToSend = amountToLock - l1MessengerBalance;
+                payable(L1_SCROLL_MESSENGER_PROXY_ADDR).transfer(amountToSend);
+            }
+        } else {
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
+                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
+            );
+
+            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+            uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
+            if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
+                amountToLock += 1;
+            }
+
+            if (l1GasTokenGatewayBalance < amountToLock) {
+                uint256 amountTosend = amountToLock - l1GasTokenGatewayBalance;
+                IERC20Metadata(L1_GAS_TOKEN_ADDR).transfer(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR, amountTosend);
+            }
+        }
+    }
+
     function transferL1ContractOwnership() private {
         if (Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
@@ -1187,7 +1406,7 @@ contract DeployScroll is DeterminsticDeployment {
         if (Ownable(L1_ERC721_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_ERC721_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
-        if (Ownable(L1_ETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED && Ownable(L1_ETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_ETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
         if (Ownable(L1_GATEWAY_ROUTER_PROXY_ADDR).owner() != OWNER_ADDR) {
@@ -1202,7 +1421,7 @@ contract DeployScroll is DeterminsticDeployment {
         if (Ownable(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
-        if (Ownable(L1_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED && Ownable(L1_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_WETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
         if (Ownable(L2_GAS_PRICE_ORACLE_PROXY_ADDR).owner() != OWNER_ADDR) {
@@ -1219,6 +1438,9 @@ contract DeployScroll is DeterminsticDeployment {
         }
         if (Ownable(L1_WHITELIST_ADDR).owner() != OWNER_ADDR) {
             Ownable(L1_WHITELIST_ADDR).transferOwnership(OWNER_ADDR);
+        }
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED && Ownable(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+            Ownable(L1_GAS_TOKEN_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
     }
 
@@ -1290,9 +1512,15 @@ contract DeployScroll is DeterminsticDeployment {
     }
 
     function initializeL2ETHGateway() private {
+        address COUNTERPART;
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            COUNTERPART = L1_GAS_TOKEN_GATEWAY_PROXY_ADDR;
+        } else {
+            COUNTERPART = L1_ETH_GATEWAY_PROXY_ADDR;
+        }
         if (getInitializeCount(L2_ETH_GATEWAY_PROXY_ADDR) == 0) {
             L2ETHGateway(L2_ETH_GATEWAY_PROXY_ADDR).initialize(
-                notnull(L1_ETH_GATEWAY_PROXY_ADDR),
+                notnull(COUNTERPART),
                 notnull(L2_GATEWAY_ROUTER_PROXY_ADDR),
                 notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
             );
@@ -1310,7 +1538,7 @@ contract DeployScroll is DeterminsticDeployment {
         }
     }
 
-    function initializeL2WETHGateway() private {
+    function initializeL2WETHGateway() private gasToken(false) {
         if (getInitializeCount(L2_WETH_GATEWAY_PROXY_ADDR) == 0) {
             L2WETHGateway(payable(L2_WETH_GATEWAY_PROXY_ADDR)).initialize(
                 notnull(L1_WETH_GATEWAY_PROXY_ADDR),
@@ -1381,7 +1609,7 @@ contract DeployScroll is DeterminsticDeployment {
         if (Ownable(L2_TX_FEE_VAULT_ADDR).owner() != OWNER_ADDR) {
             Ownable(L2_TX_FEE_VAULT_ADDR).transferOwnership(OWNER_ADDR);
         }
-        if (Ownable(L2_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED && Ownable(L2_WETH_GATEWAY_PROXY_ADDR).owner() != OWNER_ADDR) {
             Ownable(L2_WETH_GATEWAY_PROXY_ADDR).transferOwnership(OWNER_ADDR);
         }
         if (Ownable(L2_PROXY_ADMIN_ADDR).owner() != OWNER_ADDR) {

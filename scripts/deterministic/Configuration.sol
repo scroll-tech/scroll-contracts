@@ -37,6 +37,8 @@ abstract contract Configuration is Script {
 
     uint256 internal L1_CONTRACT_DEPLOYMENT_BLOCK;
 
+    bool internal ALTERNATIVE_GAS_TOKEN_ENABLED;
+
     bool internal TEST_ENV_MOCK_FINALIZE_ENABLED;
     uint256 internal TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC;
 
@@ -111,6 +113,8 @@ abstract contract Configuration is Script {
         MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".general.MAX_L1_MESSAGE_GAS_LIMIT");
 
         L1_CONTRACT_DEPLOYMENT_BLOCK = cfg.readUint(".general.L1_CONTRACT_DEPLOYMENT_BLOCK");
+
+        ALTERNATIVE_GAS_TOKEN_ENABLED = cfg.readBool(".general.ALTERNATIVE_GAS_TOKEN_ENABLED");
 
         TEST_ENV_MOCK_FINALIZE_ENABLED = cfg.readBool(".general.TEST_ENV_MOCK_FINALIZE_ENABLED");
         TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = cfg.readUint(".general.TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC");

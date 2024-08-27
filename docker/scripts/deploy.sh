@@ -13,11 +13,6 @@ if [ "$L2_RPC_ENDPOINT" = "" ]; then
     L2_RPC_ENDPOINT="http://host.docker.internal:8545"
 fi
 
-if [ "${L1_RPC_ENDPOINT}" = "" ]; then
-    echo "L1_RPC_ENDPOINT is not set"
-    L1_RPC_ENDPOINT="http://host.docker.internal:8543"
-fi
-
 if [ "${BATCH_SIZE}" = "" ]; then
     BATCH_SIZE="100"
 fi
