@@ -211,6 +211,7 @@ contract L1ScrollMessengerNonETHTest is AlternativeGasTokenTestBase {
     ) external {
         vm.assume(target.code.length == 0); // only refund to EOA to avoid revert
         vm.assume(uint256(uint160(target)) > 2**152); // ignore some precompile contracts
+        vm.assume(uint256(uint160(sender)) > 2**152); // ignore some precompile contracts
 
         prepareFinalizedBatch(keccak256(encodeXDomainCalldata(sender, target, 0, nonce, message)));
         IL1ScrollMessenger.L2MessageProof memory proof;
