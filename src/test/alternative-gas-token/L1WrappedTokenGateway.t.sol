@@ -95,7 +95,7 @@ contract L1WrappedTokenGatewayTest is AlternativeGasTokenTestBase {
         exceedValue = bound(exceedValue, 0, 1 ether);
 
         l1MessageQueue.setL2BaseFee(l2BaseFee);
-        uint256 fee = l2BaseFee * 200000;
+        uint256 fee = l2BaseFee * 450000;
 
         uint256 ethBalance = address(this).balance;
         uint256 wethBalance = weth.balanceOf(address(l1ERC20Gateway));

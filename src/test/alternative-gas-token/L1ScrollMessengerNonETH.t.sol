@@ -411,6 +411,8 @@ contract L1ScrollMessengerNonETHTest is AlternativeGasTokenTestBase {
         // skip all 2 messages
         vm.startPrank(address(rollup));
         l1MessageQueue.popCrossDomainMessage(0, 2, 0x3);
+        l1MessageQueue.finalizePoppedCrossDomainMessage(2);
+        assertEq(l1MessageQueue.nextUnfinalizedQueueIndex(), 2);
         assertEq(l1MessageQueue.pendingQueueIndex(), 2);
         vm.stopPrank();
         for (uint256 i = 0; i < 2; ++i) {
@@ -436,6 +438,8 @@ contract L1ScrollMessengerNonETHTest is AlternativeGasTokenTestBase {
         // only first 3 are skipped
         vm.startPrank(address(rollup));
         l1MessageQueue.popCrossDomainMessage(2, 4, 0x7);
+        l1MessageQueue.finalizePoppedCrossDomainMessage(6);
+        assertEq(l1MessageQueue.nextUnfinalizedQueueIndex(), 6);
         assertEq(l1MessageQueue.pendingQueueIndex(), 6);
         vm.stopPrank();
         for (uint256 i = 2; i < 6; i++) {
@@ -457,6 +461,8 @@ contract L1ScrollMessengerNonETHTest is AlternativeGasTokenTestBase {
         // skip all 5 messages
         vm.startPrank(address(rollup));
         l1MessageQueue.popCrossDomainMessage(6, 5, 0x1f);
+        l1MessageQueue.finalizePoppedCrossDomainMessage(11);
+        assertEq(l1MessageQueue.nextUnfinalizedQueueIndex(), 11);
         assertEq(l1MessageQueue.pendingQueueIndex(), 11);
         vm.stopPrank();
         for (uint256 i = 6; i < 11; ++i) {
