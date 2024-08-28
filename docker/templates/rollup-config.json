@@ -1,9 +1,6 @@
 {
   "l1_config": {
-    "confirmations": "0x0",
     "endpoint": null,
-    "l1_message_queue_address": null,
-    "scroll_chain_address": null,
     "start_height": 0,
     "relayer_config": {
       "gas_price_oracle_contract_address": null,
@@ -12,8 +9,9 @@
         "escalate_blocks": 100,
         "escalate_multiple_num": 11,
         "escalate_multiple_den": 10,
+        "min_gas_tip": 1,
         "max_gas_price": 10000000000000,
-        "tx_type": "LegacyTx",
+        "tx_type": "DynamicFeeTx",
         "check_pending_time": 3,
         "confirmations": "0x0"
       },
@@ -21,7 +19,10 @@
         "min_gas_price": 0,
         "gas_price_diff": 50000,
         "l1_base_fee_weight": 0.086,
-        "l1_blob_base_fee_weight": 0.030
+        "l1_blob_base_fee_weight": 0.030,
+        "check_committed_batches_window_minutes": 5,
+        "l1_base_fee_default": 15000000000,
+        "l1_blob_base_fee_default": 1
       },
       "gas_oracle_sender_private_key": null
     }
@@ -38,11 +39,13 @@
         "escalate_blocks": 4,
         "escalate_multiple_num": 12,
         "escalate_multiple_den": 10,
+        "min_gas_tip": 100000000,
         "max_gas_price": 200000000000,
         "max_blob_gas_price": 200000000000,
         "tx_type": "DynamicFeeTx",
         "check_pending_time": 10,
-        "confirmations": "0x0"
+        "confirmations": "0x0",
+        "max_pending_blob_txs": 3
       },
       "gas_oracle_config": {
         "min_gas_price": 0,
@@ -56,12 +59,14 @@
       },
       "enable_test_env_bypass_features": null,
       "finalize_batch_without_proof_timeout_sec": null,
+      "finalize_bundle_without_proof_timeout_sec": null,
       "gas_oracle_sender_private_key": null,
       "commit_sender_private_key": null,
       "finalize_sender_private_key": null,
       "l1_commit_gas_limit_multiplier": 1.2
     },
     "chunk_proposer_config": {
+      "propose_interval_milliseconds": 100,
       "max_block_num_per_chunk": null,
       "max_tx_num_per_chunk": null,
       "max_l1_commit_gas_per_chunk": 5000000,
@@ -72,12 +77,17 @@
       "max_uncompressed_batch_bytes_size": 634880
     },
     "batch_proposer_config": {
+      "propose_interval_milliseconds": 1000,
       "max_chunk_num_per_batch": null,
       "max_l1_commit_gas_per_batch": 5000000,
       "max_l1_commit_calldata_size_per_batch": 110000,
       "batch_timeout_sec": 2700,
       "gas_cost_increase_multiplier": 1.2,
       "max_uncompressed_batch_bytes_size": 634880
+    },
+    "bundle_proposer_config": {
+      "max_batch_num_per_bundle": 20,
+      "bundle_timeout_sec": 36000
     }
   },
   "db_config": {

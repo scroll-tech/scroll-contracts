@@ -81,25 +81,31 @@ interface IScrollChain {
         bytes calldata skippedL1MessageBitmap
     ) external;
 
-    /// @notice Revert a pending batch.
-    /// @dev one can only revert unfinalized batches.
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch`.
-    /// @param count The number of subsequent batches to revert, including current batch.
-    function revertBatch(bytes calldata batchHeader, uint256 count) external;
-
-    /// @notice Finalize a committed batch on layer 1.
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch.
-    /// @param prevStateRoot The state root of parent batch.
-    /// @param postStateRoot The state root of current batch.
-    /// @param withdrawRoot The withdraw trie root of current batch.
-    /// @param aggrProof The aggregation proof for current batch.
-    function finalizeBatchWithProof(
-        bytes calldata batchHeader,
-        bytes32 prevStateRoot,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot,
-        bytes calldata aggrProof
+    /// @notice Commit a batch of transactions on layer 1 with blob data proof.
+    ///
+    /// @dev Memory layout of `blobDataProof`:
+    /// |    z    |    y    | kzg_commitment | kzg_proof |
+    /// |---------|---------|----------------|-----------|
+    /// | bytes32 | bytes32 |    bytes48     |  bytes48  |
+    ///
+    /// @param version The version of current batch.
+    /// @param parentBatchHeader The header of parent batch, see the comments of `BatchHeaderV0Codec`.
+    /// @param chunks The list of encoded chunks, see the comments of `ChunkCodec`.
+    /// @param skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
+    /// @param blobDataProof The proof for blob data.
+    function commitBatchWithBlobProof(
+        uint8 version,
+        bytes calldata parentBatchHeader,
+        bytes[] memory chunks,
+        bytes calldata skippedL1MessageBitmap,
+        bytes calldata blobDataProof
     ) external;
+
+    /// @notice Revert pending batches.
+    /// @dev one can only revert unfinalized batches.
+    /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
+    /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
+    function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
 
     /// @notice Finalize a committed batch (with blob) on layer 1.
     ///
@@ -120,6 +126,18 @@ interface IScrollChain {
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata blobDataProof,
+        bytes calldata aggrProof
+    ) external;
+
+    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
+    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
+    /// @param postStateRoot The state root after current bundle.
+    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param aggrProof The aggregation proof for current bundle.
+    function finalizeBundleWithProof(
+        bytes calldata batchHeader,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot,
         bytes calldata aggrProof
     ) external;
 }

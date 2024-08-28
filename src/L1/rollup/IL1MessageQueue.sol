@@ -29,6 +29,14 @@ interface IL1MessageQueue {
     /// @param skippedBitmap A bitmap indicates whether a message is skipped.
     event DequeueTransaction(uint256 startIndex, uint256 count, uint256 skippedBitmap);
 
+    /// @notice Emitted when dequeued transactions are reset.
+    /// @param startIndex The start index of messages.
+    event ResetDequeuedTransaction(uint256 startIndex);
+
+    /// @notice Emitted when some L1 => L2 transactions are finalized in L1.
+    /// @param finalizedIndex The last index of messages finalized.
+    event FinalizedDequeuedTransaction(uint256 finalizedIndex);
+
     /// @notice Emitted when a message is dropped from L1.
     /// @param index The index of message dropped.
     event DropTransaction(uint256 index);
@@ -56,6 +64,10 @@ interface IL1MessageQueue {
 
     /// @notice The start index of all pending inclusion messages.
     function pendingQueueIndex() external view returns (uint256);
+
+    /// @notice The start index of all unfinalized messages.
+    /// @dev All messages from `nextUnfinalizedQueueIndex` to `pendingQueueIndex-1` are committed but not finalized.
+    function nextUnfinalizedQueueIndex() external view returns (uint256);
 
     /// @notice Return the index of next appended message.
     /// @dev Also the total number of appended messages.
@@ -126,7 +138,7 @@ interface IL1MessageQueue {
         bytes calldata data
     ) external;
 
-    /// @notice Pop finalized messages from queue.
+    /// @notice Pop messages from queue.
     ///
     /// @dev We can pop at most 256 messages each time. And if the message is not skipped,
     ///      the corresponding entry will be cleared.
@@ -139,6 +151,17 @@ interface IL1MessageQueue {
         uint256 count,
         uint256 skippedBitmap
     ) external;
+
+    /// @notice Reset status of popped messages.
+    ///
+    /// @dev We can only reset unfinalized popped messages.
+    ///
+    /// @param startIndex The start index to reset.
+    function resetPoppedCrossDomainMessage(uint256 startIndex) external;
+
+    /// @notice Finalize status of popped messages.
+    /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.
+    function finalizePoppedCrossDomainMessage(uint256 newFinalizedQueueIndexPlusOne) external;
 
     /// @notice Drop a skipped message from the queue.
     function dropCrossDomainMessage(uint256 index) external;

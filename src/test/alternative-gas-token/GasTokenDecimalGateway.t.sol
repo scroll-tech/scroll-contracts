@@ -285,6 +285,8 @@ abstract contract GasTokenGatewayTest is AlternativeGasTokenTestBase {
         // skip message 0
         vm.startPrank(address(rollup));
         l1MessageQueue.popCrossDomainMessage(0, 1, 0x1);
+        l1MessageQueue.finalizePoppedCrossDomainMessage(1);
+        assertEq(l1MessageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(l1MessageQueue.pendingQueueIndex(), 1);
         vm.stopPrank();
 
@@ -300,7 +302,7 @@ abstract contract GasTokenGatewayTest is AlternativeGasTokenTestBase {
     }
 
     function testRelayFromL1ToL2(uint256 l1Amount, address recipient) external {
-        vm.assume(recipient.code.length == 0); // only refund to EOA to avoid revert
+        vm.assume(recipient.code.length == 0); // only send to EOA to avoid revert
         vm.assume(uint256(uint160(recipient)) > 2**152); // ignore some precompile contracts
         vm.recordLogs();
 
@@ -317,7 +319,8 @@ abstract contract GasTokenGatewayTest is AlternativeGasTokenTestBase {
     }
 
     function testRelayFromL2ToL1(uint256 l2Amount, address recipient) external {
-        vm.assume(recipient != address(0));
+        vm.assume(recipient.code.length == 0); // only send to EOA to avoid revert
+        vm.assume(uint256(uint160(recipient)) > 2**152); // ignore some precompile contracts
         vm.recordLogs();
 
         l2Amount = bound(l2Amount, 1, address(this).balance);

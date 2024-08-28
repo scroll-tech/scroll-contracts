@@ -51,6 +51,10 @@ contract L1MessageQueueWithGasPriceOracle is L1MessageQueue, IL1MessageQueueWith
         whitelistChecker = IL2GasPriceOracle(gasOracle).whitelist();
     }
 
+    function initializeV3() external reinitializer(3) {
+        nextUnfinalizedQueueIndex = pendingQueueIndex;
+    }
+
     /*************************
      * Public View Functions *
      *************************/

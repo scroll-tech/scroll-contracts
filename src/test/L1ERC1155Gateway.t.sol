@@ -222,6 +222,8 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         // skip message 0
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
+        messageQueue.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
@@ -260,6 +262,8 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         // skip message 0
         hevm.startPrank(address(rollup));
         messageQueue.popCrossDomainMessage(0, 1, 0x1);
+        messageQueue.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
         assertEq(messageQueue.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
