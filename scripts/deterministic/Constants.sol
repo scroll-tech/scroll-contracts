@@ -35,3 +35,6 @@ string constant BRIDGE_HISTORY_CONFIG_PATH = "./volume/bridge-history-config.jso
 string constant BALANCE_CHECKER_CONFIG_PATH = "./volume/balance-checker-config.json";
 string constant FRONTEND_ENV_PATH = "./volume/frontend-config";
 string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "./volume/rollup-explorer-backend-config.json";
+
+// plonk verifier configs
+bytes32 constant V4_VERIFIER_DIGEST = 0x0a1904dbfff4614fb090b4b3864af4874f12680c32f07889e9ede8665097e5ec;
