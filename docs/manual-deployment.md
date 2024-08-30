@@ -14,7 +14,7 @@ This repository requires `node` version>=20.12.2, `yarn` and `foundry` to be pre
 
 ### Config
 
-1. Create directory `volume` on the root directory of the repo (all config file will be put or generated under this directory)
+1. Create directory `volume` on the root directory of the repo (all config files will be put or generated under this directory)
 
 ```bash
 mkdir volume
@@ -26,8 +26,8 @@ mkdir volume
 cp ./docker/config-example.toml ./volume/config.toml
 ```
 
-If you've previously launched Scroll chain cocomponents using Scroll-SDK, you may already have a config.toml file. If so directly copy it to `./volume/config.toml`.
-**Important Note: If you are launching a scroll chain through scroll-sdk, make sure this config.toml file stay same as the one used in scroll-sdk.**
+If you've previously launched Scroll chain components using Scroll-SDK, you may already have a `config.toml` file. If so directly copy it to `./volume/config.toml`.
+**Important Note: If you are launching a scroll chain through scroll-sdk, make sure this config.toml file is the same as the one used in scroll-sdk.**
 
 Details about the some important variables you may want to change:
 
@@ -73,7 +73,7 @@ export L1_RPC_ENDPOINT=http://l1-devnet.scrollsdk
 export L2_RPC_ENDPOINT=http://l2-rpc.scrollsdk
 ```
 
-4. Generate predicted contract addresses (This step required mainly because we are checking if every contracts deployed as we expected)
+1. Generate predicted contract addresses (This step is required mainly because we check if each contract is deployed as we expected)
 
 ```bash
 forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --sig "run(string,string)" "none" "write-config"
