@@ -1,25 +1,24 @@
 [general]
 
-L1_RPC_ENDPOINT = "http://l1geth:8545"
-L2_RPC_ENDPOINT = "http://l2geth:8545"
+L1_RPC_ENDPOINT = "http://l1-devnet:8545"
+L1_RPC_ENDPOINT_WEBSOCKET = "ws://l1-devnet:8546"
+L2_RPC_ENDPOINT = "http://l2-sequencer:8545"
 
 CHAIN_ID_L1 = 111111
-CHAIN_ID_L2 = 222222
+CHAIN_ID_L2 = 221122
 
 MAX_TX_IN_CHUNK = 100
 MAX_BLOCK_IN_CHUNK = 100
-MAX_CHUNK_IN_BATCH = 15
-MAX_BATCH_IN_BUNDLE = 30
 MAX_L1_MESSAGE_GAS_LIMIT = 10000000
 
 L1_CONTRACT_DEPLOYMENT_BLOCK = 0
-
-ALTERNATIVE_GAS_TOKEN_ENABLED = true
-# EXAMPLE_GAS_TOKEN_DECIMAL = 6
-
 TEST_ENV_MOCK_FINALIZE_ENABLED = true
-TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = 3600
+TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = 300
+MAX_CHUNK_IN_BATCH = 15
+MAX_BATCH_IN_BUNDLE = 30
 
+ALTERNATIVE_GAS_TOKEN_ENABLED = false
+# EXAMPLE_GAS_TOKEN_DECIMAL = 6
 
 [accounts]
 
@@ -44,22 +43,35 @@ L2_GAS_ORACLE_SENDER_ADDR = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 L2GETH_SIGNER_0_ADDRESS = "0x756EA06BDEe36de11F22DCca45a31d8a178eF3c6"
 
 [db]
+DATABASE_HOST = "postgresql"
+DATABASE_PORT = 5432
+SCROLL_DB_CONNECTION_STRING = "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+BLOCKSCOUT_DB_CONNECTION_STRING = "postgresql://postgres:qwerty12345@postgresql:5432/blockscout"
+BRIDGE_HISTORY_DB_CONNECTION_STRING = "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+CHAIN_MONITOR_DB_CONNECTION_STRING = "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+EVENT_WATCHER_DB_CONNECTION_STRING = "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+GAS_ORACLE_DB_CONNECTION_STRING = "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+L1_EXPLORER_DB_CONNECTION_STRING = "postgresql://postgres:qwerty12345@postgresql:5432/l1-explorer"
+ROLLUP_NODE_DB_CONNECTION_STRING = "postgresql://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
+ROLLUP_EXPLORER_DB_CONNECTION_STRING = "postgresql://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable"
 
-SCROLL_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/scroll?sslmode=disable"
-CHAIN_MONITOR_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/chain_monitor?sslmode=disable"
-BRIDGE_HISTORY_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/bridge_history?sslmode=disable"
-ROLLUP_EXPLORER_DB_CONNECTION_STRING = "postgres://postgres:scroll2022@db:5432/rollup_explorer?sslmode=disable"
+[frontend]
 
+EXTERNAL_RPC_URI_L1 ="http://l1-devnet.scrollsdk"
+EXTERNAL_RPC_URI_L2 = "http://l2-rpc.scrollsdk"
+BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
+ROLLUPSCAN_API_URI = "http://rollup-explorer-backend.scrollsdk/api"
+EXTERNAL_EXPLORER_URI_L1 = "http://l1-explorer.scrollsdk"
+EXTERNAL_EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
 
 [genesis]
 
 L2_MAX_ETH_SUPPLY = "226156424291633194186662080095093570025917938800079226639565593765455331328"
 L2_DEPLOYER_INITIAL_BALANCE = 1000000000000000000
 
-
 [contracts]
 
-DEPLOYMENT_SALT = ""
+DEPLOYMENT_SALT = "devnetSalt-000"
 
 # contracts deployed outside this script
 L1_FEE_VAULT_ADDR = "0x0000000000000000000000000000000000000001"
@@ -68,7 +80,7 @@ L1_PLONK_VERIFIER_ADDR = "0x0000000000000000000000000000000000000001"
 [contracts.overrides]
 
 # L1_WETH = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"
-# L1_GAS_TOKEN = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+# L1_GAS_TOKEN = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
 
 L2_MESSAGE_QUEUE = "0x5300000000000000000000000000000000000000"
 L1_GAS_PRICE_ORACLE = "0x5300000000000000000000000000000000000002"
@@ -80,12 +92,3 @@ L2_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"
 [coordinator]
 
 COORDINATOR_JWT_SECRET_KEY = "e788b62d39254928a821ac1c76b274a8c835aa1e20ecfb6f50eb10e87847de44"
-
-[frontend]
-
-EXTERNAL_RPC_URI_L1 ="http://l1-devnet.scrollsdk"
-EXTERNAL_RPC_URI_L2 = "http://l2-rpc.scrollsdk"
-BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
-ROLLUPSCAN_API_URI = "https://rollup-explorer-backend.scrollsdk/api"
-EXTERNAL_EXPLORER_URI_L1 = "http://l1-explorer.scrollsdk"
-EXTERNAL_EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
