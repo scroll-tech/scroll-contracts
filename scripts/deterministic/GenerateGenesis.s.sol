@@ -207,7 +207,7 @@ contract GenerateGenesis is DeployScroll {
         string memory extraData = string(
             abi.encodePacked(
                 "0x0000000000000000000000000000000000000000000000000000000000000000",
-                vm.replace(vm.toString(L2GETH_SIGNER_0_ADDRESS), "0x", ""),
+                vm.replace(vm.toString(L2GETH_SIGNER_ADDRESS), "0x", ""),
                 "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
             )
         );

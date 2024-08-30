@@ -713,7 +713,7 @@ contract DeployScroll is DeterminsticDeployment {
 
     function deployGasToken() private gasToken(true) {
         uint8 decimal = 18;
-        string memory key = ".general.EXAMPLE_GAS_TOKEN_DECIMAL";
+        string memory key = ".gas-token.EXAMPLE_GAS_TOKEN_DECIMAL";
         if (vm.keyExistsToml(cfg, key)) {
             decimal = uint8(cfg.readUint(key));
         }
