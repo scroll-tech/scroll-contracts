@@ -23,6 +23,7 @@ RUN foundryup -v nightly-56dbd20c7179570c53b6c17ff34daa7273a4ddae
 # copy dependencies
 COPY ./lib /contracts/lib
 COPY ./node_modules/@openzeppelin /contracts/node_modules/@openzeppelin
+COPY ./node_modules/hardhat /contracts/node_modules/hardhat
 
 # copy configurations
 COPY foundry.toml /contracts/foundry.toml

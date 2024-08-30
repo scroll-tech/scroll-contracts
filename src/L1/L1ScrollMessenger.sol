@@ -26,6 +26,13 @@ import {IMessageDropCallback} from "../libraries/callbacks/IMessageDropCallback.
 ///
 /// @dev All deposited Ether (including `WETH` deposited throng `L1WETHGateway`) will locked in
 /// this contract.
+///
+/// The messages sent through this contract may failed due to out of gas or some contract errors layer 2. In such case,
+/// users can initiate `replayMessage` to retry this message in layer 2. If it is because out of gas, users can provide
+/// a larger `gasLimit`. Users need also to pay the cross domain relay fee again.
+///
+/// The messages sent through this contract may possibly be skipped in layer 2 due to circuit capacity overflow.
+/// In such case, users can initiate `dropMessage` to claim refunds. But the cross domain relay fee won't be refunded.
 contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     /*************
      * Constants *

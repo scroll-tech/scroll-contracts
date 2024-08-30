@@ -46,7 +46,7 @@ echo "generating balance-checker-config.json"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBalanceCheckerConfig || exit 1
 
 echo ""
-echo "generating .env.frontend"
+echo "generating frontend-config"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateFrontendConfig || exit 1
 
 echo ""

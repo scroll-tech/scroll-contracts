@@ -4,11 +4,21 @@
     "session_attempts": 100,
     "chunk_collection_time_sec": 3600,
     "batch_collection_time_sec": 600,
+    "bundle_collection_time_sec": 600,
     "verifier": {
-      "fork_name": "bernoulli",
       "mock_mode": false,
-      "params_path": "/verifier/params",
-      "assets_path": "/verifier/assets"
+      "low_version_circuit": {
+        "params_path": "/verifier/params",
+        "assets_path": "/verifier/assets/lo",
+        "fork_name": "darwin",
+        "min_prover_version": "v4.4.43"
+      },
+      "high_version_circuit": {
+        "params_path": "/verifier/params",
+        "assets_path": "/verifier/assets/hi",
+        "fork_name": "darwinV2",
+        "min_prover_version": "v4.4.56"
+      }
     },
     "max_verifier_workers": 4,
     "min_prover_version": "v4.3.41"
