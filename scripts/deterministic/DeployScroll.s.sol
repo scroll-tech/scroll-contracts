@@ -21,7 +21,7 @@ import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
-import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
+import {ZkEvmVerifierV2} from "../../src/libraries/verifier/ZkEvmVerifierV2.sol";
 import {GasTokenExample} from "../../src/alternative-gas-token/GasTokenExample.sol";
 import {L1ScrollMessengerNonETH} from "../../src/alternative-gas-token/L1ScrollMessengerNonETH.sol";
 import {L1GasTokenGateway} from "../../src/alternative-gas-token/L1GasTokenGateway.sol";
@@ -132,7 +132,7 @@ contract DeployScroll is DeterminsticDeployment {
     address internal L1_WETH_GATEWAY_IMPLEMENTATION_ADDR;
     address internal L1_WETH_GATEWAY_PROXY_ADDR;
     address internal L1_WHITELIST_ADDR;
-    address internal L1_ZKEVM_VERIFIER_V1_ADDR;
+    address internal L1_ZKEVM_VERIFIER_V2_ADDR;
     address internal L2_GAS_PRICE_ORACLE_IMPLEMENTATION_ADDR;
     address internal L2_GAS_PRICE_ORACLE_PROXY_ADDR;
     address internal L1_GAS_TOKEN_ADDR;
@@ -349,7 +349,7 @@ contract DeployScroll is DeterminsticDeployment {
         deployL1ScrollChainProxy();
         deployL1ScrollMessengerProxy();
         deployL1EnforcedTxGateway();
-        deployL1ZkEvmVerifierV1();
+        deployL1ZkEvmVerifier();
         deployL1MultipleVersionRollupVerifier();
         deployL1MessageQueue();
         deployL1ScrollChain();
@@ -550,16 +550,18 @@ contract DeployScroll is DeterminsticDeployment {
         );
     }
 
-    function deployL1ZkEvmVerifierV1() private {
-        bytes memory args = abi.encode(notnull(L1_PLONK_VERIFIER_ADDR));
-        L1_ZKEVM_VERIFIER_V1_ADDR = deploy("L1_ZKEVM_VERIFIER_V1", type(ZkEvmVerifierV1).creationCode, args);
+    function deployL1ZkEvmVerifier() private {
+        bytes memory args = abi.encode(notnull(L1_PLONK_VERIFIER_ADDR), V4_VERIFIER_DIGEST);
+        L1_ZKEVM_VERIFIER_V2_ADDR = deploy("L1_ZKEVM_VERIFIER_V2", type(ZkEvmVerifierV2).creationCode, args);
     }
 
     function deployL1MultipleVersionRollupVerifier() private {
         uint256[] memory _versions = new uint256[](1);
         address[] memory _verifiers = new address[](1);
-        _versions[0] = 1;
-        _verifiers[0] = notnull(L1_ZKEVM_VERIFIER_V1_ADDR);
+
+        // register V4 verifier: DarwinV2 upgrade, plonk verifier v0.13.1
+        _versions[0] = 4;
+        _verifiers[0] = notnull(L1_ZKEVM_VERIFIER_V2_ADDR);
 
         bytes memory args = abi.encode(DEPLOYER_ADDR, _versions, _verifiers);
 
