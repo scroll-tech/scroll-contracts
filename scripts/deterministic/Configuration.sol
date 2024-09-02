@@ -33,7 +33,6 @@ abstract contract Configuration is Script {
 
     uint256 internal MAX_TX_IN_CHUNK;
     uint256 internal MAX_BLOCK_IN_CHUNK;
-    uint256 internal MAX_CHUNK_IN_BATCH;
     uint256 internal MAX_BATCH_IN_BUNDLE;
     uint256 internal MAX_L1_MESSAGE_GAS_LIMIT;
 
@@ -113,7 +112,6 @@ abstract contract Configuration is Script {
 
         MAX_TX_IN_CHUNK = cfg.readUint(".rollup.MAX_TX_IN_CHUNK");
         MAX_BLOCK_IN_CHUNK = cfg.readUint(".rollup.MAX_BLOCK_IN_CHUNK");
-        MAX_CHUNK_IN_BATCH = cfg.readUint(".rollup.MAX_CHUNK_IN_BATCH");
         MAX_BATCH_IN_BUNDLE = cfg.readUint(".rollup.MAX_BATCH_IN_BUNDLE");
         MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".rollup.MAX_L1_MESSAGE_GAS_LIMIT");
 

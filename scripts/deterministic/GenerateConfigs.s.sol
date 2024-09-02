@@ -55,7 +55,6 @@ contract GenerateRollupConfig is DeployScroll {
 
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
-        vm.writeJson(vm.toString(MAX_CHUNK_IN_BATCH), ROLLUP_CONFIG_PATH, ".l2_config.batch_proposer_config.max_chunk_num_per_batch");
         vm.writeJson(vm.toString(MAX_BATCH_IN_BUNDLE), ROLLUP_CONFIG_PATH, ".l2_config.bundle_proposer_config.max_batch_num_per_bundle");
 
         vm.writeJson(ROLLUP_NODE_DB_CONNECTION_STRING, ROLLUP_CONFIG_PATH, ".db_config.dsn");
@@ -278,7 +277,7 @@ contract GenerateFrontendConfig is DeployScroll {
         // use writeFile to start a new file
         vm.writeFile(FRONTEND_ENV_PATH, "REACT_APP_ETH_SYMBOL = \"ETH\"\n");
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_BASE_CHAIN = \"", CHAIN_NAME_L1, "\""));
-        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_BASE_CHAIN = \"", CHAIN_NAME_L2, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_ROLLUP = \"", CHAIN_NAME_L2, "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_CHAIN_ID_L1 = \"", vm.toString(CHAIN_ID_L1), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_CHAIN_ID_L2 = \"", vm.toString(CHAIN_ID_L2), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_CONNECT_WALLET_PROJECT_ID = \"14efbaafcf5232a47d93a68229b71028\"");
