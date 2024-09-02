@@ -78,7 +78,6 @@
     },
     "batch_proposer_config": {
       "propose_interval_milliseconds": 1000,
-      "max_chunk_num_per_batch": null,
       "max_l1_commit_gas_per_batch": 5000000,
       "max_l1_commit_calldata_size_per_batch": 110000,
       "batch_timeout_sec": 2700,

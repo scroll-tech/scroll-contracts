@@ -26,12 +26,13 @@ abstract contract Configuration is Script {
     string internal L1_RPC_ENDPOINT;
     string internal L2_RPC_ENDPOINT;
 
+    string internal CHAIN_NAME_L1;
+    string internal CHAIN_NAME_L2;
     uint64 internal CHAIN_ID_L1;
     uint64 internal CHAIN_ID_L2;
 
     uint256 internal MAX_TX_IN_CHUNK;
     uint256 internal MAX_BLOCK_IN_CHUNK;
-    uint256 internal MAX_CHUNK_IN_BATCH;
     uint256 internal MAX_BATCH_IN_BUNDLE;
     uint256 internal MAX_L1_MESSAGE_GAS_LIMIT;
 
@@ -57,13 +58,14 @@ abstract contract Configuration is Script {
 
     address internal OWNER_ADDR;
 
-    address internal L2GETH_SIGNER_0_ADDRESS;
+    address internal L2GETH_SIGNER_ADDRESS;
 
     // db
-    string internal SCROLL_DB_CONNECTION_STRING;
+    string internal ROLLUP_NODE_DB_CONNECTION_STRING;
     string internal CHAIN_MONITOR_DB_CONNECTION_STRING;
     string internal BRIDGE_HISTORY_DB_CONNECTION_STRING;
     string internal ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING;
+    string internal COORDINATOR_DB_CONNECTION_STRING;
 
     // genesis
     uint256 internal L2_MAX_ETH_SUPPLY;
@@ -103,21 +105,22 @@ abstract contract Configuration is Script {
         L1_RPC_ENDPOINT = cfg.readString(".general.L1_RPC_ENDPOINT");
         L2_RPC_ENDPOINT = cfg.readString(".general.L2_RPC_ENDPOINT");
 
+        CHAIN_NAME_L1 = cfg.readString(".general.CHAIN_NAME_L1");
+        CHAIN_NAME_L2 = cfg.readString(".general.CHAIN_NAME_L2");
         CHAIN_ID_L1 = uint64(cfg.readUint(".general.CHAIN_ID_L1"));
         CHAIN_ID_L2 = uint64(cfg.readUint(".general.CHAIN_ID_L2"));
 
-        MAX_TX_IN_CHUNK = cfg.readUint(".general.MAX_TX_IN_CHUNK");
-        MAX_BLOCK_IN_CHUNK = cfg.readUint(".general.MAX_BLOCK_IN_CHUNK");
-        MAX_CHUNK_IN_BATCH = cfg.readUint(".general.MAX_CHUNK_IN_BATCH");
-        MAX_BATCH_IN_BUNDLE = cfg.readUint(".general.MAX_BATCH_IN_BUNDLE");
-        MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".general.MAX_L1_MESSAGE_GAS_LIMIT");
+        MAX_TX_IN_CHUNK = cfg.readUint(".rollup.MAX_TX_IN_CHUNK");
+        MAX_BLOCK_IN_CHUNK = cfg.readUint(".rollup.MAX_BLOCK_IN_CHUNK");
+        MAX_BATCH_IN_BUNDLE = cfg.readUint(".rollup.MAX_BATCH_IN_BUNDLE");
+        MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".rollup.MAX_L1_MESSAGE_GAS_LIMIT");
 
         L1_CONTRACT_DEPLOYMENT_BLOCK = cfg.readUint(".general.L1_CONTRACT_DEPLOYMENT_BLOCK");
 
-        ALTERNATIVE_GAS_TOKEN_ENABLED = cfg.readBool(".general.ALTERNATIVE_GAS_TOKEN_ENABLED");
+        ALTERNATIVE_GAS_TOKEN_ENABLED = cfg.readBool(".gas-token.ALTERNATIVE_GAS_TOKEN_ENABLED");
 
-        TEST_ENV_MOCK_FINALIZE_ENABLED = cfg.readBool(".general.TEST_ENV_MOCK_FINALIZE_ENABLED");
-        TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = cfg.readUint(".general.TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC");
+        TEST_ENV_MOCK_FINALIZE_ENABLED = cfg.readBool(".rollup.TEST_ENV_MOCK_FINALIZE_ENABLED");
+        TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = cfg.readUint(".rollup.TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC");
 
         DEPLOYER_PRIVATE_KEY = cfg.readUint(".accounts.DEPLOYER_PRIVATE_KEY");
         L1_COMMIT_SENDER_PRIVATE_KEY = cfg.readUint(".accounts.L1_COMMIT_SENDER_PRIVATE_KEY");
@@ -133,9 +136,9 @@ abstract contract Configuration is Script {
 
         OWNER_ADDR = cfg.readAddress(".accounts.OWNER_ADDR");
 
-        L2GETH_SIGNER_0_ADDRESS = cfg.readAddress(".accounts.L2GETH_SIGNER_0_ADDRESS");
+        L2GETH_SIGNER_ADDRESS = cfg.readAddress(".sequencer.L2GETH_SIGNER_ADDRESS");
 
-        SCROLL_DB_CONNECTION_STRING = cfg.readString(".db.SCROLL_DB_CONNECTION_STRING");
+        ROLLUP_NODE_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_NODE_DB_CONNECTION_STRING");
         CHAIN_MONITOR_DB_CONNECTION_STRING = cfg.readString(".db.CHAIN_MONITOR_DB_CONNECTION_STRING");
         BRIDGE_HISTORY_DB_CONNECTION_STRING = cfg.readString(".db.BRIDGE_HISTORY_DB_CONNECTION_STRING");
         ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_EXPLORER_DB_CONNECTION_STRING");
@@ -174,7 +177,12 @@ abstract contract Configuration is Script {
 
     function tryGetOverride(string memory name) internal returns (address) {
         address addr;
-        string memory key = string(abi.encodePacked(".contracts.overrides.", name));
+        string memory key;
+        if (keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked("L1_GAS_TOKEN"))) {
+            key = string(abi.encodePacked(".gas-token.", name));
+        } else {
+            key = string(abi.encodePacked(".contracts.overrides.", name));
+        }
 
         if (!vm.keyExistsToml(cfg, key)) {
             return address(0);
