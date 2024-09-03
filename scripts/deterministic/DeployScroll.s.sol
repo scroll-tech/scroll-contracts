@@ -197,6 +197,14 @@ contract DeployScroll is DeterminsticDeployment {
         _;
     }
 
+    /// @dev Not execute block if we run the script on the specified layer.
+    modifier except(Layer layer) {
+        if (broadcastLayer == layer) {
+            return;
+        }
+        _;
+    }
+
     /// @dev Only execute block if it's requied by alternative gas token mode.
     modifier gasToken(bool gasTokenRequire) {
         if (ALTERNATIVE_GAS_TOKEN_ENABLED != gasTokenRequire) {
@@ -1037,7 +1045,7 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L1_PROXY_ADMIN_ADDR, L1_ERC1155_GATEWAY_PROXY_ADDR, L1_ERC1155_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
-    function deployL1GasTokenGateway() private gasToken(true) {
+    function deployL1GasTokenGateway() private gasToken(true) except(Layer.L2) {
         bytes memory args = abi.encode(
             notnull(L1_GAS_TOKEN_ADDR),
             notnull(L2_ETH_GATEWAY_PROXY_ADDR),
