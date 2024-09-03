@@ -264,7 +264,10 @@ contract DeployScroll is DeterminsticDeployment {
 
         // check funds for initial deposit (L1, ETH as gas token)
         if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
-            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            address l1ScrollMessengerProxyAddr = contractsCfg.readAddress(
+                string(abi.encodePacked(".L1_SCROLL_MESSENGER_PROXY_ADDR"))
+            );
+            uint256 l1MessengerBalance = l1ScrollMessengerProxyAddr.balance;
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
 
             uint256 amountToSend = 0;
@@ -292,11 +295,12 @@ contract DeployScroll is DeterminsticDeployment {
         // skip it if L1_GAS_TOKEN is not configured in the config file
         address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
         if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
-            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
-                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
+            address l1GasTokenGatewayAddr = contractsCfg.readAddress(
+                string(abi.encodePacked(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR"))
             );
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(gasTokenAddr).balanceOf(l1GasTokenGatewayAddr);
 
-            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+            uint256 scale = 10**(18 - IERC20Metadata(gasTokenAddr).decimals());
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
             if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
                 amountToLock += 1;
@@ -309,14 +313,14 @@ contract DeployScroll is DeterminsticDeployment {
 
             uint256 minBalance = amountToSend;
 
-            if (IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(DEPLOYER_ADDR) < minBalance) {
+            if (IERC20Metadata(gasTokenAddr).balanceOf(DEPLOYER_ADDR) < minBalance) {
                 revert(
                     string(
                         abi.encodePacked(
                             "[ERROR] insufficient funds on deployer account for initial deposit (",
                             vm.toString(DEPLOYER_ADDR),
                             ") minimum ",
-                            IERC20Metadata(L1_GAS_TOKEN_ADDR).symbol(),
+                            IERC20Metadata(gasTokenAddr).symbol(),
                             " balance (in min token unit): ",
                             vm.toString(minBalance)
                         )
