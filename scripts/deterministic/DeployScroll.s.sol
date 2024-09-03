@@ -272,10 +272,8 @@ contract DeployScroll is DeterminsticDeployment {
 
         // check funds for initial deposit (L1, ETH as gas token)
         if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
-            address l1ScrollMessengerProxyAddr = contractsCfg.readAddress(
-                string(abi.encodePacked(".L1_SCROLL_MESSENGER_PROXY_ADDR"))
-            );
-            uint256 l1MessengerBalance = l1ScrollMessengerProxyAddr.balance;
+            address l1MessengerProxyAddr = contractsCfg.readAddress(".L1_SCROLL_MESSENGER_PROXY_ADDR");
+            uint256 l1MessengerBalance = l1MessengerProxyAddr.balance;
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
 
             uint256 amountToSend = 0;
@@ -303,9 +301,7 @@ contract DeployScroll is DeterminsticDeployment {
         // skip it if L1_GAS_TOKEN is not configured in the config file
         address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
         if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
-            address l1GasTokenGatewayAddr = contractsCfg.readAddress(
-                string(abi.encodePacked(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR"))
-            );
+            address l1GasTokenGatewayAddr = contractsCfg.readAddress(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR");
             uint256 l1GasTokenGatewayBalance = IERC20Metadata(gasTokenAddr).balanceOf(l1GasTokenGatewayAddr);
 
             uint256 scale = 10**(18 - IERC20Metadata(gasTokenAddr).decimals());
