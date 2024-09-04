@@ -56,8 +56,6 @@ contract GenerateRollupConfig is DeployScroll {
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
         vm.writeJson(vm.toString(MAX_BATCH_IN_BUNDLE), ROLLUP_CONFIG_PATH, ".l2_config.bundle_proposer_config.max_batch_num_per_bundle");
-
-        vm.writeJson(ROLLUP_NODE_DB_CONNECTION_STRING, ROLLUP_CONFIG_PATH, ".db_config.dsn");
     }
 }
 
@@ -87,7 +85,6 @@ contract GenerateCoordinatorConfig is DeployScroll {
         vm.writeFile(COORDINATOR_CONFIG_PATH, template);
 
         vm.writeJson(vm.toString(CHAIN_ID_L2), COORDINATOR_CONFIG_PATH, ".l2.chain_id");
-        vm.writeJson(COORDINATOR_DB_CONNECTION_STRING, COORDINATOR_CONFIG_PATH, ".db.dsn");
         vm.writeJson(COORDINATOR_JWT_SECRET_KEY, COORDINATOR_CONFIG_PATH, ".auth.secret");
     }
 }
@@ -144,9 +141,6 @@ contract GenerateChainMonitorConfig is DeployScroll {
         vm.writeJson(vm.toString(L2_ERC1155_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.l2_gateways.erc1155_gateway");
         vm.writeJson(vm.toString(L2_SCROLL_MESSENGER_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.scroll_messenger");
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.message_queue");
-
-        // misc
-        vm.writeJson(CHAIN_MONITOR_DB_CONNECTION_STRING, CHAIN_MONITOR_CONFIG_PATH, ".db_config.dsn");
     }
 }
 
@@ -206,7 +200,6 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
         vm.writeJson(L2_RPC_ENDPOINT, BRIDGE_HISTORY_CONFIG_PATH, ".L2.endpoint");
 
         // others
-        vm.writeJson(BRIDGE_HISTORY_DB_CONNECTION_STRING, BRIDGE_HISTORY_CONFIG_PATH, ".db.dsn");
         vm.writeJson(vm.toString(L1_CONTRACT_DEPLOYMENT_BLOCK), BRIDGE_HISTORY_CONFIG_PATH, ".L1.startHeight");
     }
 }
