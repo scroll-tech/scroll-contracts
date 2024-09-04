@@ -61,11 +61,7 @@ abstract contract Configuration is Script {
     address internal L2GETH_SIGNER_ADDRESS;
 
     // db
-    string internal ROLLUP_NODE_DB_CONNECTION_STRING;
-    string internal CHAIN_MONITOR_DB_CONNECTION_STRING;
-    string internal BRIDGE_HISTORY_DB_CONNECTION_STRING;
     string internal ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING;
-    string internal COORDINATOR_DB_CONNECTION_STRING;
 
     // genesis
     uint256 internal L2_MAX_ETH_SUPPLY;
@@ -138,9 +134,6 @@ abstract contract Configuration is Script {
 
         L2GETH_SIGNER_ADDRESS = cfg.readAddress(".sequencer.L2GETH_SIGNER_ADDRESS");
 
-        ROLLUP_NODE_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_NODE_DB_CONNECTION_STRING");
-        CHAIN_MONITOR_DB_CONNECTION_STRING = cfg.readString(".db.CHAIN_MONITOR_DB_CONNECTION_STRING");
-        BRIDGE_HISTORY_DB_CONNECTION_STRING = cfg.readString(".db.BRIDGE_HISTORY_DB_CONNECTION_STRING");
         ROLLUP_EXPLORER_BACKEND_DB_CONNECTION_STRING = cfg.readString(".db.ROLLUP_EXPLORER_DB_CONNECTION_STRING");
 
         L2_MAX_ETH_SUPPLY = cfg.readUint(".genesis.L2_MAX_ETH_SUPPLY");

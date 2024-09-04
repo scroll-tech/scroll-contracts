@@ -91,7 +91,7 @@
   },
   "db_config": {
     "driver_name": "postgres",
-    "dsn": null,
+    "dsn": "",
     "maxOpenNum": 50,
     "maxIdleNum": 20
   }
