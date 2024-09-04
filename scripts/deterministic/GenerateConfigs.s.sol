@@ -3,6 +3,7 @@ pragma solidity =0.8.24;
 
 import {BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
+import {DeterministicDeployment} from "./DeterministicDeployment.sol";
 
 contract GenerateRollupConfig is DeployScroll {
     /***************
@@ -10,7 +11,7 @@ contract GenerateRollupConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateRollupConfig();
@@ -65,7 +66,7 @@ contract GenerateCoordinatorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateCoordinatorConfig();
@@ -95,7 +96,7 @@ contract GenerateChainMonitorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateChainMonitorConfig();
@@ -150,7 +151,7 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateBridgeHistoryConfig();
@@ -210,7 +211,7 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateBalanceCheckerConfig();
@@ -255,7 +256,7 @@ contract GenerateFrontendConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateFrontendConfig();
@@ -335,7 +336,7 @@ contract GenerateRollupExplorerBackendConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateRollupExplorerBackendConfig();

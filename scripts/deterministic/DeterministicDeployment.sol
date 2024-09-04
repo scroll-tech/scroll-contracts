@@ -11,8 +11,8 @@ import {ERC1967Upgrade} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgra
 import {CONFIG_CONTRACTS_PATH, DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
 import {Configuration} from "./Configuration.sol";
 
-/// @notice DeterminsticDeployment provides utilities for deterministic contract deployments.
-abstract contract DeterminsticDeployment is Configuration {
+/// @notice DeterministicDeployment provides utilities for deterministic contract deployments.
+abstract contract DeterministicDeployment is Configuration {
     using stdToml for string;
 
     /*********
@@ -23,7 +23,8 @@ abstract contract DeterminsticDeployment is Configuration {
         None,
         LogAddresses,
         WriteConfig,
-        VerifyConfig
+        VerifyConfig,
+        EmptyConfig
     }
 
     /*******************
@@ -34,13 +35,17 @@ abstract contract DeterminsticDeployment is Configuration {
     string private saltPrefix;
     bool private skipDeploy;
 
-    /***************
-     * Constructor *
-     ***************/
+    /**********************
+     * Internal interface *
+     **********************/
 
-    constructor() {
-        mode = ScriptMode.None;
+    function initialize(ScriptMode _mode) internal {
+        mode = _mode;
         skipDeploy = false;
+
+        if (mode != ScriptMode.EmptyConfig) {
+            readConfig();
+        }
 
         // salt prefix used for deterministic deployments
         if (bytes(DEPLOYMENT_SALT).length != 0) {
@@ -63,23 +68,15 @@ abstract contract DeterminsticDeployment is Configuration {
         }
     }
 
-    /**********************
-     * Internal interface *
-     **********************/
-
-    function setScriptMode(ScriptMode scriptMode) internal {
-        mode = scriptMode;
-    }
-
-    function setScriptMode(string memory scriptMode) internal {
+    function parseScriptMode(string memory scriptMode) internal pure returns (ScriptMode) {
         if (keccak256(bytes(scriptMode)) == keccak256(bytes("log-addresses"))) {
-            mode = ScriptMode.LogAddresses;
+            return ScriptMode.LogAddresses;
         } else if (keccak256(bytes(scriptMode)) == keccak256(bytes("write-config"))) {
-            mode = ScriptMode.WriteConfig;
+            return ScriptMode.WriteConfig;
         } else if (keccak256(bytes(scriptMode)) == keccak256(bytes("verify-config"))) {
-            mode = ScriptMode.VerifyConfig;
+            return ScriptMode.VerifyConfig;
         } else {
-            mode = ScriptMode.None;
+            return ScriptMode.None;
         }
     }
 

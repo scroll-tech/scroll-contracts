@@ -80,7 +80,7 @@ contract ScrollStandardERC20FactorySetOwner is ScrollStandardERC20Factory {
     }
 }
 
-contract DeployScroll is DeterminsticDeployment {
+contract DeployScroll is DeterministicDeployment {
     using stdToml for string;
 
     /*********
@@ -219,7 +219,9 @@ contract DeployScroll is DeterminsticDeployment {
 
     function run(string memory layer, string memory scriptMode) public {
         broadcastLayer = parseLayer(layer);
-        setScriptMode(scriptMode);
+        ScriptMode mode = parseScriptMode(scriptMode);
+
+        DeterministicDeployment.initialize(mode);
 
         checkDeployerBalance();
         deployAllContracts();
