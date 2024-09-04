@@ -42,7 +42,7 @@
     "PufferGatewayAddr": "0x0000000000000000000000000000000000000000"
   },
   "db": {
-    "dsn": null,
+    "dsn": "",
     "driverName": "postgres",
     "maxOpenNum": 200,
     "maxIdleNum": 20
