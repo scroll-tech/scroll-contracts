@@ -197,6 +197,14 @@ contract DeployScroll is DeterminsticDeployment {
         _;
     }
 
+    /// @dev Do not execute block if we run the script on the specified layer.
+    modifier skip(Layer layer) {
+        if (broadcastLayer == layer) {
+            return;
+        }
+        _;
+    }
+
     /// @dev Only execute block if it's requied by alternative gas token mode.
     modifier gasToken(bool gasTokenRequire) {
         if (ALTERNATIVE_GAS_TOKEN_ENABLED != gasTokenRequire) {
@@ -264,7 +272,11 @@ contract DeployScroll is DeterminsticDeployment {
 
         // check funds for initial deposit (L1, ETH as gas token)
         if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
-            uint256 l1MessengerBalance = address(L1_SCROLL_MESSENGER_PROXY_ADDR).balance;
+            // note: L1_SCROLL_MESSENGER_PROXY_ADDR is not known at this point,
+            // so we read it directly from the generated configuration file.
+            address l1MessengerProxyAddr = notnull(contractsCfg.readAddress(".L1_SCROLL_MESSENGER_PROXY_ADDR"));
+
+            uint256 l1MessengerBalance = l1MessengerProxyAddr.balance;
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
 
             uint256 amountToSend = 0;
@@ -291,12 +303,15 @@ contract DeployScroll is DeterminsticDeployment {
         // check funds for initial deposit (L1, alternative gas token)
         // skip it if L1_GAS_TOKEN is not configured in the config file
         address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
-        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
-            uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
-                L1_GAS_TOKEN_GATEWAY_PROXY_ADDR
-            );
 
-            uint256 scale = 10**(18 - IERC20Metadata(L1_GAS_TOKEN_ADDR).decimals());
+        if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
+            // note: L1_GAS_TOKEN_GATEWAY_PROXY_ADDR is not known at this point,
+            // so we read it directly from the generated configuration file.
+            address l1GasTokenGatewayAddr = notnull(contractsCfg.readAddress(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR"));
+
+            uint256 l1GasTokenGatewayBalance = IERC20Metadata(gasTokenAddr).balanceOf(l1GasTokenGatewayAddr);
+
+            uint256 scale = 10**(18 - IERC20Metadata(gasTokenAddr).decimals());
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE / scale;
             if (L2_DEPLOYER_INITIAL_BALANCE % scale != 0) {
                 amountToLock += 1;
@@ -309,14 +324,14 @@ contract DeployScroll is DeterminsticDeployment {
 
             uint256 minBalance = amountToSend;
 
-            if (IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(DEPLOYER_ADDR) < minBalance) {
+            if (IERC20Metadata(gasTokenAddr).balanceOf(DEPLOYER_ADDR) < minBalance) {
                 revert(
                     string(
                         abi.encodePacked(
                             "[ERROR] insufficient funds on deployer account for initial deposit (",
                             vm.toString(DEPLOYER_ADDR),
                             ") minimum ",
-                            IERC20Metadata(L1_GAS_TOKEN_ADDR).symbol(),
+                            IERC20Metadata(gasTokenAddr).symbol(),
                             " balance (in min token unit): ",
                             vm.toString(minBalance)
                         )
@@ -1033,7 +1048,10 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L1_PROXY_ADMIN_ADDR, L1_ERC1155_GATEWAY_PROXY_ADDR, L1_ERC1155_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
-    function deployL1GasTokenGateway() private gasToken(true) {
+    // Only run this block during simulation (for predicting the contract address)
+    // and during deployment on L1. Running it on L2 would fail, as this contract
+    // calls `gasToken.decimals()` in its constructor.
+    function deployL1GasTokenGateway() private gasToken(true) skip(Layer.L2) {
         bytes memory args = abi.encode(
             notnull(L1_GAS_TOKEN_ADDR),
             notnull(L2_ETH_GATEWAY_PROXY_ADDR),
