@@ -197,8 +197,8 @@ contract DeployScroll is DeterminsticDeployment {
         _;
     }
 
-    /// @dev Not execute block if we run the script on the specified layer.
-    modifier except(Layer layer) {
+    /// @dev Do not execute block if we run the script on the specified layer.
+    modifier skip(Layer layer) {
         if (broadcastLayer == layer) {
             return;
         }
@@ -272,7 +272,10 @@ contract DeployScroll is DeterminsticDeployment {
 
         // check funds for initial deposit (L1, ETH as gas token)
         if (broadcastLayer == Layer.L1 && !ALTERNATIVE_GAS_TOKEN_ENABLED) {
-            address l1MessengerProxyAddr = contractsCfg.readAddress(".L1_SCROLL_MESSENGER_PROXY_ADDR");
+            // note: L1_SCROLL_MESSENGER_PROXY_ADDR is not known at this point,
+            // so we read it directly from the generated configuration file.
+            address l1MessengerProxyAddr = notnull(contractsCfg.readAddress(".L1_SCROLL_MESSENGER_PROXY_ADDR"));
+
             uint256 l1MessengerBalance = l1MessengerProxyAddr.balance;
             uint256 amountToLock = L2_DEPLOYER_INITIAL_BALANCE;
 
@@ -300,8 +303,12 @@ contract DeployScroll is DeterminsticDeployment {
         // check funds for initial deposit (L1, alternative gas token)
         // skip it if L1_GAS_TOKEN is not configured in the config file
         address gasTokenAddr = tryGetOverride("L1_GAS_TOKEN");
+
         if (broadcastLayer == Layer.L1 && ALTERNATIVE_GAS_TOKEN_ENABLED && gasTokenAddr != address(0)) {
-            address l1GasTokenGatewayAddr = contractsCfg.readAddress(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR");
+            // note: L1_GAS_TOKEN_GATEWAY_PROXY_ADDR is not known at this point,
+            // so we read it directly from the generated configuration file.
+            address l1GasTokenGatewayAddr = notnull(contractsCfg.readAddress(".L1_GAS_TOKEN_GATEWAY_PROXY_ADDR"));
+
             uint256 l1GasTokenGatewayBalance = IERC20Metadata(gasTokenAddr).balanceOf(l1GasTokenGatewayAddr);
 
             uint256 scale = 10**(18 - IERC20Metadata(gasTokenAddr).decimals());
@@ -1041,7 +1048,10 @@ contract DeployScroll is DeterminsticDeployment {
         upgrade(L1_PROXY_ADMIN_ADDR, L1_ERC1155_GATEWAY_PROXY_ADDR, L1_ERC1155_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
-    function deployL1GasTokenGateway() private gasToken(true) except(Layer.L2) {
+    // Only run this block during simulation (for predicting the contract address)
+    // and during deployment on L1. Running it on L2 would fail, as this contract
+    // calls `gasToken.decimals()` in its constructor.
+    function deployL1GasTokenGateway() private gasToken(true) skip(Layer.L2) {
         bytes memory args = abi.encode(
             notnull(L1_GAS_TOKEN_ADDR),
             notnull(L2_ETH_GATEWAY_PROXY_ADDR),
