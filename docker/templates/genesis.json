@@ -20,7 +20,8 @@
     "darwinV2Time": 0,
     "clique": {
       "period": 3,
-      "epoch": 30000
+      "epoch": 30000,
+      "relaxed_period": true
     },
     "scroll": {
       "useZktrie": true,
