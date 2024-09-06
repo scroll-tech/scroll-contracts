@@ -85,11 +85,11 @@ abstract contract Configuration is Script {
     string internal EXTERNAL_EXPLORER_URI_L1;
     string internal EXTERNAL_EXPLORER_URI_L2;
 
-    /***************
-     * Constructor *
-     ***************/
+    /**********************
+     * Internal interface *
+     **********************/
 
-    constructor() {
+    function readConfig() internal {
         if (!vm.exists(CONFIG_CONTRACTS_PATH)) {
             string memory template = vm.readFile(CONFIG_CONTRACTS_TEMPLATE_PATH);
             vm.writeFile(CONFIG_CONTRACTS_PATH, template);
@@ -156,10 +156,6 @@ abstract contract Configuration is Script {
 
         runSanityCheck();
     }
-
-    /**********************
-     * Internal interface *
-     **********************/
 
     /// @dev Ensure that `addr` is not the zero address.
     ///      This helps catch bugs arising from incorrect deployment order.
