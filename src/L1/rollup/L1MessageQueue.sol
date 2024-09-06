@@ -346,6 +346,13 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         _queueTransaction(_sender, _target, _value, _gasLimit, _data);
     }
 
+    function appendHashes(uint256 _fromQueueIndex, bytes32[] memory _hashes) external {
+        require(_fromQueueIndex == messageQueue.length, "messageQueue index mismatch");
+        for (uint256 i = 0; i < _hashes.length; i++) {
+            messageQueue.push(_hashes[i]);
+        }
+    }
+
     /// @inheritdoc IL1MessageQueue
     function popCrossDomainMessage(
         uint256 _startIndex,
