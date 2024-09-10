@@ -43,12 +43,6 @@ contract GenerateRollupConfig is DeployScroll {
         vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.rollup_contract_address");
         vm.writeJson(vm.toString(L2_GAS_PRICE_ORACLE_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_price_oracle_contract_address");
 
-        // private keys
-        vm.writeJson(vm.toString(bytes32(L1_GAS_ORACLE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L1_COMMIT_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.commit_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L1_FINALIZE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L2_GAS_ORACLE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_sender_private_key");
-
         // other
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_ENABLED), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.enable_test_env_bypass_features");
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_batch_without_proof_timeout_sec");
