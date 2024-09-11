@@ -3,6 +3,7 @@ pragma solidity =0.8.24;
 
 import {ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH, BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
+import {DeterministicDeployment} from "./DeterministicDeployment.sol";
 
 contract GenerateRollupConfig is DeployScroll {
     /***************
@@ -10,7 +11,7 @@ contract GenerateRollupConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateRollupConfig();
@@ -42,12 +43,6 @@ contract GenerateRollupConfig is DeployScroll {
         vm.writeJson(vm.toString(L1_SCROLL_CHAIN_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.rollup_contract_address");
         vm.writeJson(vm.toString(L2_GAS_PRICE_ORACLE_PROXY_ADDR), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_price_oracle_contract_address");
 
-        // private keys
-        vm.writeJson(vm.toString(bytes32(L1_GAS_ORACLE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L1_COMMIT_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.commit_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L1_FINALIZE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_sender_private_key");
-        vm.writeJson(vm.toString(bytes32(L2_GAS_ORACLE_SENDER_PRIVATE_KEY)), ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_sender_private_key");
-
         // other
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_ENABLED), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.enable_test_env_bypass_features");
         vm.writeJson(vm.toString(TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.finalize_batch_without_proof_timeout_sec");
@@ -55,10 +50,7 @@ contract GenerateRollupConfig is DeployScroll {
 
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
-        vm.writeJson(vm.toString(MAX_CHUNK_IN_BATCH), ROLLUP_CONFIG_PATH, ".l2_config.batch_proposer_config.max_chunk_num_per_batch");
         vm.writeJson(vm.toString(MAX_BATCH_IN_BUNDLE), ROLLUP_CONFIG_PATH, ".l2_config.bundle_proposer_config.max_batch_num_per_bundle");
-
-        vm.writeJson(SCROLL_DB_CONNECTION_STRING, ROLLUP_CONFIG_PATH, ".db_config.dsn");
     }
 }
 
@@ -68,7 +60,7 @@ contract GenerateCoordinatorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateCoordinatorConfig();
@@ -88,7 +80,6 @@ contract GenerateCoordinatorConfig is DeployScroll {
         vm.writeFile(COORDINATOR_CONFIG_PATH, template);
 
         vm.writeJson(vm.toString(CHAIN_ID_L2), COORDINATOR_CONFIG_PATH, ".l2.chain_id");
-        vm.writeJson(SCROLL_DB_CONNECTION_STRING, COORDINATOR_CONFIG_PATH, ".db.dsn");
         vm.writeJson(COORDINATOR_JWT_SECRET_KEY, COORDINATOR_CONFIG_PATH, ".auth.secret");
     }
 }
@@ -99,7 +90,7 @@ contract GenerateChainMonitorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateChainMonitorConfig();
@@ -145,9 +136,6 @@ contract GenerateChainMonitorConfig is DeployScroll {
         vm.writeJson(vm.toString(L2_ERC1155_GATEWAY_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.l2_gateways.erc1155_gateway");
         vm.writeJson(vm.toString(L2_SCROLL_MESSENGER_PROXY_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.scroll_messenger");
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), CHAIN_MONITOR_CONFIG_PATH, ".l2_config.l2_contracts.message_queue");
-
-        // misc
-        vm.writeJson(CHAIN_MONITOR_DB_CONNECTION_STRING, CHAIN_MONITOR_CONFIG_PATH, ".db_config.dsn");
     }
 }
 
@@ -157,7 +145,7 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateBridgeHistoryConfig();
@@ -207,7 +195,6 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
         vm.writeJson(L2_RPC_ENDPOINT, BRIDGE_HISTORY_CONFIG_PATH, ".L2.endpoint");
 
         // others
-        vm.writeJson(BRIDGE_HISTORY_DB_CONNECTION_STRING, BRIDGE_HISTORY_CONFIG_PATH, ".db.dsn");
         vm.writeJson(vm.toString(L1_CONTRACT_DEPLOYMENT_BLOCK), BRIDGE_HISTORY_CONFIG_PATH, ".L1.startHeight");
     }
 }
@@ -218,7 +205,7 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateBalanceCheckerConfig();
@@ -263,7 +250,7 @@ contract GenerateFrontendConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateFrontendConfig();
@@ -277,8 +264,8 @@ contract GenerateFrontendConfig is DeployScroll {
     function generateFrontendConfig() private {
         // use writeFile to start a new file
         vm.writeFile(FRONTEND_ENV_PATH, "REACT_APP_ETH_SYMBOL = \"ETH\"\n");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_BASE_CHAIN = \"Ethereum\"");
-        vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_ROLLUP = \"Scroll Stack\"");
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_BASE_CHAIN = \"", CHAIN_NAME_L1, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_ROLLUP = \"", CHAIN_NAME_L2, "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_CHAIN_ID_L1 = \"", vm.toString(CHAIN_ID_L1), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_CHAIN_ID_L2 = \"", vm.toString(CHAIN_ID_L2), "\""));
         vm.writeLine(FRONTEND_ENV_PATH, "REACT_APP_CONNECT_WALLET_PROJECT_ID = \"14efbaafcf5232a47d93a68229b71028\"");
@@ -343,7 +330,7 @@ contract GenerateRollupExplorerBackendConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateRollupExplorerBackendConfig();

@@ -76,7 +76,7 @@ jobs:
         run: forge test --evm-version cancun -vvv
 
       - name: Run foundry coverage
-        run : forge coverage --evm-version cancun --report lcov
+        run : forge coverage --evm-version cancun --skip "DeployScroll.t.sol" --report lcov
 
       - name : Prune coverage
         run : lcov --rc branch_coverage=1 --remove ./lcov.info -o ./lcov.info.pruned 'src/mocks/*' 'src/test/*' 'scripts/*' 'node_modules/*' 'lib/*'
