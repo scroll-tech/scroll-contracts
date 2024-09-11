@@ -1,13 +1,13 @@
 {
     "db_config": {
       "driver_name": "postgres",
-      "dsn": null,
+      "dsn": "",
       "max_open_connections": 200,
       "max_idel_connections": 20
     },
     "read_only_db_config": {
       "driver_name": "postgres",
-      "dsn": null,
+      "dsn": "",
       "max_open_connections": 200,
       "max_idel_connections": 20
     },
@@ -18,7 +18,7 @@
     },
     "auth_db_config": {
       "driver_name": "postgres",
-      "dsn": null,
+      "dsn": "",
       "max_open_connections": 200,
       "max_idel_connections": 20
     },

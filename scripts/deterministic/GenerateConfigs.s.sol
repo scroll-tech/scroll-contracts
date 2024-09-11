@@ -379,9 +379,5 @@ contract GenerateAdminSystemBackendConfig is DeployScroll {
 
         string memory template = vm.readFile(ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH);
         vm.writeFile(ADMIN_SYSTEM_BACKEND_CONFIG_PATH, template);
-
-        vm.writeJson(SCROLL_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".db_config.dsn");
-        vm.writeJson(SCROLL_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".read_only_db_config.dsn");
-        vm.writeJson(ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING, ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ".auth_db_config.dsn");
     }
 }
