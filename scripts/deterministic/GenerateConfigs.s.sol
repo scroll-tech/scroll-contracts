@@ -360,7 +360,7 @@ contract GenerateAdminSystemBackendConfig is DeployScroll {
      ***************/
 
     function run() public {
-        setScriptMode(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
         predictAllContracts();
 
         generateAdminSystemBackendConfig();
