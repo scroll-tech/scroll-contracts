@@ -45,7 +45,7 @@ npm install --global yarn
 
 ### Foundry
 
-Install `foundryup`, the Foundry toolchain installer:
+Install `foundryup`, the [Foundry](https://book.getfoundry.sh/) toolchain installer:
 
 ```bash
 curl -L https://foundry.paradigm.xyz | bash
