@@ -28,6 +28,7 @@
         "token_expire_seconds": 3600
       },
       "ldap": {
+        "enabled": false,
         "endpoint": "ldap://xxx.xxx.com:389",
         "bind_dn": "",
         "bind_password": "",
