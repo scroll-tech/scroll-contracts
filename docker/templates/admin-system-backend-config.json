@@ -23,6 +23,7 @@
       "max_idel_connections": 20
     },
     "authentication": {
+      "mode": "skip",
       "jwt": {
         "secret": "scroll admin system secret key",
         "token_expire_seconds": 3600
