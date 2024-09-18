@@ -278,6 +278,8 @@ contract GenerateFrontendConfig is DeployScroll {
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_ROLLUPSCAN_API_URI = \"", ROLLUPSCAN_API_URI, "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_EXPLORER_URI_L1 = \"", EXTERNAL_EXPLORER_URI_L1, "\""));
         vm.writeLine(FRONTEND_ENV_PATH, string.concat("REACT_APP_EXTERNAL_EXPLORER_URI_L2 = \"", EXTERNAL_EXPLORER_URI_L2, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("ADMIN_SYSTEM_DASHBOARD_URI = \"", ADMIN_SYSTEM_DASHBOARD_URI, "\""));
+        vm.writeLine(FRONTEND_ENV_PATH, string.concat("GRAFANA_URI = \"", GRAFANA_URI, "\""));
 
         // L1 contracts
         vm.writeLine(FRONTEND_ENV_PATH, "");

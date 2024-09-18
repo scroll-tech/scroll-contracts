@@ -74,6 +74,8 @@ BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
 ROLLUPSCAN_API_URI = "http://rollup-explorer-backend.scrollsdk/api"
 EXTERNAL_EXPLORER_URI_L1 = "http://l1-explorer.scrollsdk"
 EXTERNAL_EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
+ADMIN_SYSTEM_DASHBOARD_URI = "http://admin-system-dashboard.scrollsdk"
+GRAFANA_URI = "http://grafana.scrollsdk"
 
 [genesis]
 
@@ -111,3 +113,5 @@ ROLLUP_EXPLORER_API_HOST = "rollup-explorer-backend.scrollsdk"
 COORDINATOR_API_HOST = "coordinator-api.scrollsdk"
 RPC_GATEWAY_HOST = "l2-rpc.scrollsdk"
 BLOCKSCOUT_HOST = "blockscout.scrollsdk"
+ADMIN_SYSTEM_DASHBOARD_HOST= "admin-system-dashboard.scrollsdk"
+GRAFANA_HOST = "http://grafana.scrollsdk"

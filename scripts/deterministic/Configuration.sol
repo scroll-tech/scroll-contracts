@@ -84,6 +84,8 @@ abstract contract Configuration is Script {
     string internal ROLLUPSCAN_API_URI;
     string internal EXTERNAL_EXPLORER_URI_L1;
     string internal EXTERNAL_EXPLORER_URI_L2;
+    string internal ADMIN_SYSTEM_DASHBOARD_URI;
+    string internal GRAFANA_URI;
 
     /**********************
      * Internal interface *
@@ -153,6 +155,8 @@ abstract contract Configuration is Script {
         ROLLUPSCAN_API_URI = cfg.readString(".frontend.ROLLUPSCAN_API_URI");
         EXTERNAL_EXPLORER_URI_L1 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L1");
         EXTERNAL_EXPLORER_URI_L2 = cfg.readString(".frontend.EXTERNAL_EXPLORER_URI_L2");
+        ADMIN_SYSTEM_DASHBOARD_URI = cfg.readString(".frontend.ADMIN_SYSTEM_DASHBOARD_URI");
+        GRAFANA_URI = cfg.readString(".frontend.GRAFANA_URI");
 
         runSanityCheck();
     }
