@@ -49,6 +49,7 @@ COPY ./docker/templates/coordinator-config.json /contracts/docker/templates/coor
 COPY ./docker/templates/genesis.json /contracts/docker/templates/genesis.json
 COPY ./docker/templates/rollup-config.json /contracts/docker/templates/rollup-config.json
 COPY ./docker/templates/rollup-explorer-backend-config.json /contracts/docker/templates/rollup-explorer-backend-config.json
+COPY ./docker/templates/admin-system-backend-config.json /contracts/docker/templates/admin-system-backend-config.json
 
 COPY ./docker/scripts/gen-configs.sh /contracts/docker/scripts/gen-configs.sh
 

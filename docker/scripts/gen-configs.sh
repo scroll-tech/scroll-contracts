@@ -52,3 +52,7 @@ forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateFrontendConfig 
 echo ""
 echo "generating rollup-explorer-backend-config.json"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateRollupExplorerBackendConfig || exit 1
+
+echo ""
+echo "generating admin-system-backend-config.json"
+forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateAdminSystemBackendConfig || exit 1
