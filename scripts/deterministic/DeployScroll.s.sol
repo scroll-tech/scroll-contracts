@@ -1229,10 +1229,16 @@ contract DeployScroll is DeterministicDeployment {
         }
 
         // note: since we are using L1MessageQueueWithGasPriceOracle,
-        // and we don't have a L2GasPriceOracle deploy, so we skip it.
+        // and we don't have a L2GasPriceOracle deploy, so we skip the initializeV2.
+        // instead, we updateWhitelistChecker
         // if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 2) {
         //     L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
         // }
+        if (L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).whitelistChecker() != L1_WHITELIST_ADDR) {
+            L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).updateWhitelistChecker(
+                notnull(L1_WHITELIST_ADDR)
+            );
+        }
 
         if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 3) {
             L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV3();
