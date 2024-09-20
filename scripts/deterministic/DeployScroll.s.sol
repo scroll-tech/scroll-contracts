@@ -133,8 +133,6 @@ contract DeployScroll is DeterministicDeployment {
     address internal L1_WETH_GATEWAY_PROXY_ADDR;
     address internal L1_WHITELIST_ADDR;
     address internal L1_ZKEVM_VERIFIER_V2_ADDR;
-    address internal L2_GAS_PRICE_ORACLE_IMPLEMENTATION_ADDR;
-    address internal L2_GAS_PRICE_ORACLE_PROXY_ADDR;
     address internal L1_GAS_TOKEN_ADDR;
     address internal L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR;
     address internal L1_GAS_TOKEN_GATEWAY_PROXY_ADDR;
@@ -362,7 +360,6 @@ contract DeployScroll is DeterministicDeployment {
         deployL1ProxyAdmin();
         deployL1PlaceHolder();
         deployL1Whitelist();
-        deployL2GasPriceOracle();
         deployL1ScrollChainProxy();
         deployL1ScrollMessengerProxy();
         deployL1EnforcedTxGateway();
@@ -433,7 +430,6 @@ contract DeployScroll is DeterministicDeployment {
     // @notice initializeL1Contracts initializes contracts deployed on L1.
     function initializeL1Contracts() private broadcast(Layer.L1) only(Layer.L1) {
         initializeScrollChain();
-        initializeL2GasPriceOracle();
         initializeL1MessageQueue();
         initializeL1ScrollMessenger();
         initializeEnforcedTxGateway();
@@ -499,25 +495,6 @@ contract DeployScroll is DeterministicDeployment {
     function deployL1Whitelist() private {
         bytes memory args = abi.encode(DEPLOYER_ADDR);
         L1_WHITELIST_ADDR = deploy("L1_WHITELIST", type(Whitelist).creationCode, args);
-    }
-
-    function deployL2GasPriceOracle() private {
-        L2_GAS_PRICE_ORACLE_IMPLEMENTATION_ADDR = deploy(
-            "L2_GAS_PRICE_ORACLE_IMPLEMENTATION",
-            type(L2GasPriceOracle).creationCode
-        );
-
-        bytes memory args = abi.encode(
-            notnull(L2_GAS_PRICE_ORACLE_IMPLEMENTATION_ADDR),
-            notnull(L1_PROXY_ADMIN_ADDR),
-            new bytes(0)
-        );
-
-        L2_GAS_PRICE_ORACLE_PROXY_ADDR = deploy(
-            "L2_GAS_PRICE_ORACLE_PROXY",
-            type(TransparentUpgradeableProxy).creationCode,
-            args
-        );
     }
 
     function deployL1ScrollChainProxy() private {
@@ -1238,34 +1215,29 @@ contract DeployScroll is DeterministicDeployment {
         }
     }
 
-    function initializeL2GasPriceOracle() private {
-        if (getInitializeCount(L2_GAS_PRICE_ORACLE_PROXY_ADDR) == 0) {
-            L2GasPriceOracle(L2_GAS_PRICE_ORACLE_PROXY_ADDR).initialize(
-                21000, // _txGas
-                53000, // _txGasContractCreation
-                4, // _zeroGas
-                16 // _nonZeroGas
-            );
-        }
-
-        if (L2GasPriceOracle(L2_GAS_PRICE_ORACLE_PROXY_ADDR).whitelist() != L1_WHITELIST_ADDR) {
-            L2GasPriceOracle(L2_GAS_PRICE_ORACLE_PROXY_ADDR).updateWhitelist(L1_WHITELIST_ADDR);
-        }
-    }
-
     function initializeL1MessageQueue() private {
         if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) == 0) {
             L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initialize(
                 notnull(L1_SCROLL_MESSENGER_PROXY_ADDR),
                 notnull(L1_SCROLL_CHAIN_PROXY_ADDR),
                 notnull(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR),
-                notnull(L2_GAS_PRICE_ORACLE_PROXY_ADDR),
+                // note: this should be the address of L2GasPriceOracle,
+                // but since we are using L1MessageQueueWithGasPriceOracle, so we set an all zero address here
+                address(0),
                 MAX_L1_MESSAGE_GAS_LIMIT
             );
         }
 
-        if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 2) {
-            L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
+        // note: since we are using L1MessageQueueWithGasPriceOracle,
+        // and we don't have a L2GasPriceOracle deploy, so we skip the initializeV2.
+        // instead, we updateWhitelistChecker
+        // if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 2) {
+        //     L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
+        // }
+        if (L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).whitelistChecker() != L1_WHITELIST_ADDR) {
+            L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).updateWhitelistChecker(
+                notnull(L1_WHITELIST_ADDR)
+            );
         }
 
         if (getInitializeCount(L1_MESSAGE_QUEUE_PROXY_ADDR) < 3) {
@@ -1436,7 +1408,6 @@ contract DeployScroll is DeterministicDeployment {
         transferOwnership(L1_MESSAGE_QUEUE_PROXY_ADDR, OWNER_ADDR);
         transferOwnership(L1_SCROLL_MESSENGER_PROXY_ADDR, OWNER_ADDR);
         transferOwnership(L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR, OWNER_ADDR);
-        transferOwnership(L2_GAS_PRICE_ORACLE_PROXY_ADDR, OWNER_ADDR);
         transferOwnership(L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR, OWNER_ADDR);
         transferOwnership(L1_PROXY_ADMIN_ADDR, OWNER_ADDR);
         transferOwnership(L1_SCROLL_CHAIN_PROXY_ADDR, OWNER_ADDR);
