@@ -17,7 +17,7 @@ gen_config_contracts_toml() {
     fi
 }
 
-# format_config_file will add scrollConfig: | to the first line and indent the rest
+# format_config_file will add "scrollConfig: |" to the first line and indent the rest
 format_config_file() {
     local file="$1"
     local config_scroll_key="configScroll: |"
