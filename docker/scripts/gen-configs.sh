@@ -17,42 +17,67 @@ gen_config_contracts_toml() {
     fi
 }
 
+# format_config_file will add scrollConfig: | to the first line and indent the rest
+format_config_file() {
+    local file="$1"
+    local config_scroll_key="configScroll: |"
+    temp_file=$(mktemp)
+    
+    {
+    echo $config_scroll_key
+    while IFS= read -r line; do
+        echo "  $line"
+    done < "$file"
+    } > "$temp_file"
+
+    mv "$temp_file" "$file"
+}
+
 echo ""
 echo "generating config-contracts.toml"
 gen_config_contracts_toml
 
 echo ""
-echo "generating genesis.json"
+echo "generating genesis.yaml"
 forge script scripts/deterministic/GenerateGenesis.s.sol:GenerateGenesis || exit 1
+format_config_file "./volume/genesis.yaml"
 
 echo ""
-echo "generating rollup-config.json"
+echo "generating rollup-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateRollupConfig || exit 1
+format_config_file "./volume/rollup-config.yaml"
 
 echo ""
-echo "generating coordinator-config.json"
+echo "generating coordinator-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateCoordinatorConfig || exit 1
+format_config_file "./volume/coordinator-config.yaml"
 
 echo ""
-echo "generating chain-monitor-config.json"
+echo "generating chain-monitor-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateChainMonitorConfig || exit 1
+format_config_file "./volume/chain-monitor-config.yaml"
 
 echo ""
-echo "generating bridge-history-config.json"
+echo "generating bridge-history-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBridgeHistoryConfig || exit 1
+format_config_file "./volume/bridge-history-config.yaml"
 
 echo ""
-echo "generating balance-checker-config.json"
+echo "generating balance-checker-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBalanceCheckerConfig || exit 1
+format_config_file "./volume/balance-checker-config.yaml"
 
 echo ""
-echo "generating frontend-config"
+echo "generating frontend-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateFrontendConfig || exit 1
+format_config_file "./volume/frontend-config.yaml"
 
 echo ""
-echo "generating rollup-explorer-backend-config.json"
+echo "generating rollup-explorer-backend-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateRollupExplorerBackendConfig || exit 1
+format_config_file "./volume/rollup-explorer-backend-config.yaml"
 
 echo ""
-echo "generating admin-system-backend-config.json"
+echo "generating admin-system-backend-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateAdminSystemBackendConfig || exit 1
+format_config_file "./volume/admin-system-backend-config.yaml"

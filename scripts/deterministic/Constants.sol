@@ -28,15 +28,15 @@ string constant CONFIG_PATH = "./volume/config.toml";
 // output files
 string constant CONFIG_CONTRACTS_PATH = "./volume/config-contracts.toml";
 string constant GENESIS_ALLOC_JSON_PATH = "./volume/__genesis-alloc.json";
-string constant GENESIS_JSON_PATH = "./volume/genesis.json";
-string constant ROLLUP_CONFIG_PATH = "./volume/rollup-config.json";
-string constant COORDINATOR_CONFIG_PATH = "./volume/coordinator-config.json";
-string constant CHAIN_MONITOR_CONFIG_PATH = "./volume/chain-monitor-config.json";
-string constant BRIDGE_HISTORY_CONFIG_PATH = "./volume/bridge-history-config.json";
-string constant BALANCE_CHECKER_CONFIG_PATH = "./volume/balance-checker-config.json";
-string constant FRONTEND_ENV_PATH = "./volume/frontend-config";
-string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "./volume/rollup-explorer-backend-config.json";
-string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "./volume/admin-system-backend-config.json";
+string constant GENESIS_JSON_PATH = "./volume/genesis.yaml";
+string constant ROLLUP_CONFIG_PATH = "./volume/rollup-config.yaml";
+string constant COORDINATOR_CONFIG_PATH = "./volume/coordinator-config.yaml";
+string constant CHAIN_MONITOR_CONFIG_PATH = "./volume/chain-monitor-config.yaml";
+string constant BRIDGE_HISTORY_CONFIG_PATH = "./volume/bridge-history-config.yaml";
+string constant BALANCE_CHECKER_CONFIG_PATH = "./volume/balance-checker-config.yaml";
+string constant FRONTEND_ENV_PATH = "./volume/frontend-config.yaml";
+string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "./volume/rollup-explorer-backend-config.yaml";
+string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "./volume/admin-system-backend-config.yaml";
 
 // plonk verifier configs
 bytes32 constant V4_VERIFIER_DIGEST = 0x0a1904dbfff4614fb090b4b3864af4874f12680c32f07889e9ede8665097e5ec;
