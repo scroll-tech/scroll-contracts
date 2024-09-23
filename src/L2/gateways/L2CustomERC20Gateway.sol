@@ -8,8 +8,8 @@ import {IL1ERC20Gateway} from "../../L1/gateways/IL1ERC20Gateway.sol";
 import {ScrollGatewayBase} from "../../libraries/gateway/ScrollGatewayBase.sol";
 import {IScrollERC20Upgradeable} from "../../libraries/token/IScrollERC20Upgradeable.sol";
 
-/// @title L2ERC20Gateway
-/// @notice The `L2ERC20Gateway` is used to withdraw custom ERC20 compatible tokens on layer 2 and
+/// @title L2CustomERC20Gateway
+/// @notice The `L2CustomERC20Gateway` is used to withdraw custom ERC20 compatible tokens on layer 2 and
 /// finalize deposit the tokens from layer 1.
 /// @dev The withdrawn tokens will be burned directly. On finalizing deposit, the corresponding
 /// tokens will be minted and transferred to the recipient.
@@ -109,9 +109,12 @@ contract L2CustomERC20Gateway is L2ERC20Gateway {
      ************************/
 
     /// @notice Update layer 2 to layer 1 token mapping.
+    ///
+    /// @dev To make the token mapping consistent with L1, this should be called from L1.
+    ///
     /// @param _l2Token The address of corresponding ERC20 token on layer 2.
     /// @param _l1Token The address of ERC20 token on layer 1.
-    function updateTokenMapping(address _l2Token, address _l1Token) external onlyOwner {
+    function updateTokenMapping(address _l2Token, address _l1Token) external onlyCallByCounterpart {
         require(_l1Token != address(0), "token address cannot be 0");
 
         address _oldL1Token = tokenMapping[_l2Token];
@@ -146,7 +149,7 @@ contract L2CustomERC20Gateway is L2ERC20Gateway {
         // 2. Burn token.
         IScrollERC20Upgradeable(_token).burn(_from, _amount);
 
-        // 3. Generate message passed to L1StandardERC20Gateway.
+        // 3. Generate message passed to L1CustomERC20Gateway.
         bytes memory _message = abi.encodeCall(
             IL1ERC20Gateway.finalizeWithdrawERC20,
             (_l1Token, _token, _from, _to, _amount, _data)
