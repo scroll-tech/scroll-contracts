@@ -20,14 +20,14 @@ gen_config_contracts_toml() {
 # format_config_file will add "scrollConfig: |" to the first line and indent the rest
 format_config_file() {
     local file="$1"
-    local config_scroll_key="configScroll: |"
+    local config_scroll_key="scrollConfig: |"
     temp_file=$(mktemp)
-    
+
     {
-    echo $config_scroll_key
-    while IFS= read -r line; do
-        echo "  $line"
-    done < "$file"
+        echo "$config_scroll_key"
+        while IFS= read -r line; do
+            echo "  $line"
+        done < <(grep "" "$file")
     } > "$temp_file"
 
     mv "$temp_file" "$file"
