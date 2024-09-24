@@ -28,7 +28,7 @@
     }
   },
   "l2_config": {
-    "confirmations": "0x0",
+    "confirmations": "0x10",
     "endpoint": null,
     "l2_message_queue_address": null,
     "relayer_config": {
