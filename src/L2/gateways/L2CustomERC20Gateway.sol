@@ -92,7 +92,7 @@ contract L2CustomERC20Gateway is L2ERC20Gateway {
         address _to,
         uint256 _amount,
         bytes calldata _data
-    ) external payable override onlyCallByCounterpart nonReentrant {
+    ) external payable virtual override onlyCallByCounterpart nonReentrant {
         require(msg.value == 0, "nonzero msg.value");
         require(_l1Token != address(0), "token address cannot be 0");
         require(_l1Token == tokenMapping[_l2Token], "l1 token mismatch");
@@ -115,8 +115,6 @@ contract L2CustomERC20Gateway is L2ERC20Gateway {
     /// @param _l2Token The address of corresponding ERC20 token on layer 2.
     /// @param _l1Token The address of ERC20 token on layer 1.
     function updateTokenMapping(address _l2Token, address _l1Token) external onlyCallByCounterpart {
-        require(_l1Token != address(0), "token address cannot be 0");
-
         address _oldL1Token = tokenMapping[_l2Token];
         tokenMapping[_l2Token] = _l1Token;
 

@@ -95,7 +95,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
 
         // Prepare token balances
         l1Token.mint(address(this), type(uint128).max);
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
         hevm.warp(1000000);
     }
 
@@ -442,7 +442,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
 
         // emit SentMessage by deposit ETH
         hevm.expectEmit(true, true, false, true);
-        emit SentMessage(address(batch), address(counterpartBatch), 1000, 0, ETH_DEPOSIT_SAFE_GAS_LIMIT, "");
+        emit SentMessage(address(batch), address(counterpartBatch), 1000, 1, ETH_DEPOSIT_SAFE_GAS_LIMIT, "");
 
         // emit SentMessage by batchBridge
         hevm.expectEmit(true, true, false, true);
@@ -450,7 +450,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
             address(batch),
             address(counterpartBatch),
             0,
-            1,
+            2,
             SAFE_BATCH_BRIDGE_GAS_LIMIT,
             abi.encodeCall(
                 L2BatchBridgeGateway.finalizeBatchDeposit,
@@ -485,7 +485,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
 
         // emit SentMessage by deposit ETH
         hevm.expectEmit(true, true, false, true);
-        emit SentMessage(address(batch), address(counterpartBatch), 900, 2, ETH_DEPOSIT_SAFE_GAS_LIMIT, "");
+        emit SentMessage(address(batch), address(counterpartBatch), 900, 3, ETH_DEPOSIT_SAFE_GAS_LIMIT, "");
 
         // emit SentMessage by batchBridge
         hevm.expectEmit(true, true, false, true);
@@ -493,7 +493,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
             address(batch),
             address(counterpartBatch),
             0,
-            3,
+            4,
             SAFE_BATCH_BRIDGE_GAS_LIMIT,
             abi.encodeCall(
                 L2BatchBridgeGateway.finalizeBatchDeposit,
@@ -544,14 +544,14 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
         );
         // emit SentMessage by deposit ERC20
         hevm.expectEmit(true, true, false, true);
-        emit SentMessage(address(gateway), address(counterpartGateway), 0, 0, ERC20_DEPOSIT_SAFE_GAS_LIMIT, message);
+        emit SentMessage(address(gateway), address(counterpartGateway), 0, 1, ERC20_DEPOSIT_SAFE_GAS_LIMIT, message);
         // emit SentMessage by batchBridge
         hevm.expectEmit(true, true, false, true);
         emit SentMessage(
             address(batch),
             address(counterpartBatch),
             0,
-            1,
+            2,
             SAFE_BATCH_BRIDGE_GAS_LIMIT,
             abi.encodeCall(
                 L2BatchBridgeGateway.finalizeBatchDeposit,
@@ -598,14 +598,14 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
         );
         // emit SentMessage by deposit ERC20
         hevm.expectEmit(true, true, false, true);
-        emit SentMessage(address(gateway), address(counterpartGateway), 0, 2, ERC20_DEPOSIT_SAFE_GAS_LIMIT, message);
+        emit SentMessage(address(gateway), address(counterpartGateway), 0, 3, ERC20_DEPOSIT_SAFE_GAS_LIMIT, message);
         // emit SentMessage by batchBridge
         hevm.expectEmit(true, true, false, true);
         emit SentMessage(
             address(batch),
             address(counterpartBatch),
             0,
-            3,
+            4,
             SAFE_BATCH_BRIDGE_GAS_LIMIT,
             abi.encodeCall(
                 L2BatchBridgeGateway.finalizeBatchDeposit,
