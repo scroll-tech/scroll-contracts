@@ -1,0 +1,5 @@
+{
+    "db_url": null,
+    "open_api_addr": "/rollupscan",
+    "max_per_page": 500
+}

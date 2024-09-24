@@ -92,7 +92,7 @@ contract DeployL2BridgeContracts is Script {
         }
 
         address owner = vm.addr(L2_DEPLOYER_PRIVATE_KEY);
-        oracle = new L1GasPriceOracle(owner);
+        oracle = new L1GasPriceOracle(owner, true);
 
         logAddress("L1_GAS_PRICE_ORACLE_ADDR", address(oracle));
     }

@@ -1,0 +1,59 @@
+{
+  "db_config": {
+    "driver_name": "postgres",
+    "dsn": "",
+    "max_open_connections": 200,
+    "max_idel_connections": 20
+  },
+  "read_only_db_config": {
+    "driver_name": "postgres",
+    "dsn": "",
+    "max_open_connections": 200,
+    "max_idel_connections": 20
+  },
+  "db_mappings": {
+    "default": "read_only",
+    "batch_chunk": "read_only",
+    "prover_block_list": "read_write"
+  },
+  "auth_db_config": {
+    "driver_name": "postgres",
+    "dsn": "",
+    "max_open_connections": 200,
+    "max_idel_connections": 20
+  },
+  "authentication": {
+    "mode": "skip",
+    "jwt": {
+      "secret": "scroll admin system secret key",
+      "token_expire_seconds": 3600
+    },
+    "ldap": {
+      "endpoint": "ldap://xxx.xxx.com:389",
+      "bind_dn": "",
+      "bind_password": "",
+      "search_base_dn_list": [""],
+      "search_filter": "(mail=%s)"
+    },
+    "otp": {
+      "issuer": "ScrollAdmin(Dev)",
+      "enabled": true,
+      "admin_only": true
+    }
+  },
+  "authorization": {
+    "casbin": {
+      "model_path": "conf/model.conf",
+      "policy_path": "conf/policy.csv"
+    }
+  },
+  "prometheus": {
+    "endpoint": "https://xxx.xxx.com/prometheus",
+    "user": "",
+    "password": ""
+  },
+  "admin": {
+    "prover_becomes_offline_since_last_get_task_seconds": 3600,
+    "prover_becomes_idle_since_last_task_assigned_seconds": 1800
+  }
+}
