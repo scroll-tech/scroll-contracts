@@ -24,7 +24,7 @@ format_config_file() {
     temp_file=$(mktemp)
 
     {
-        echo "$config_scroll_key"
+        echo $config_scroll_key
         while IFS= read -r line; do
             echo "  $line"
         done < <(grep "" "$file")
