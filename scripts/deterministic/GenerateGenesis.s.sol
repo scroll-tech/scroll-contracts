@@ -185,6 +185,9 @@ contract GenerateGenesis is DeployScroll {
         bytes32 _recipientSlot = hex"0000000000000000000000000000000000000000000000000000000000000003";
         vm.store(predeployAddr, _recipientSlot, vm.load(_vaultAddr, _recipientSlot));
 
+        bytes32 _ETHGatewaySlot = hex"0000000000000000000000000000000000000000000000000000000000000005";
+        vm.store(predeployAddr, _ETHGatewaySlot, vm.load(_vaultAddr, _ETHGatewaySlot));
+
         // reset so its not included state dump
         vm.etch(address(_vaultAddr), "");
         vm.resetNonce(address(_vaultAddr));
