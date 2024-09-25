@@ -189,8 +189,8 @@ contract GenerateGenesis is DeployScroll {
         vm.store(predeployAddr, _ETHGatewaySlot, vm.load(_vaultAddr, _ETHGatewaySlot));
 
         // reset so its not included state dump
-        vm.etch(address(_vaultAddr), "");
-        vm.resetNonce(address(_vaultAddr));
+        vm.etch(_vaultAddr, "");
+        vm.resetNonce(_vaultAddr);
     }
 
     function setDeterministicDeploymentProxy() internal {
