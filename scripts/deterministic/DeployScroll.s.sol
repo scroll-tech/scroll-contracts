@@ -38,6 +38,7 @@ import {L2WETHGateway} from "../../src/L2/gateways/L2WETHGateway.sol";
 import {L1GasPriceOracle} from "../../src/L2/predeploys/L1GasPriceOracle.sol";
 import {L2MessageQueue} from "../../src/L2/predeploys/L2MessageQueue.sol";
 import {L2TxFeeVault} from "../../src/L2/predeploys/L2TxFeeVault.sol";
+import {L2TxFeeVaultWithGasToken} from "../../src/alternative-gas-token/L2TxFeeVaultWithGasToken.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 import {WrappedEther} from "../../src/L2/predeploys/WrappedEther.sol";
 import {ScrollStandardERC20} from "../../src/libraries/token/ScrollStandardERC20.sol";
@@ -771,8 +772,18 @@ contract DeployScroll is DeterministicDeployment {
     }
 
     function deployTxFeeVault() private {
-        bytes memory args = abi.encode(DEPLOYER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
-        L2_TX_FEE_VAULT_ADDR = deploy("L2_TX_FEE_VAULT", type(L2TxFeeVault).creationCode, args);
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            bytes memory args = abi.encode(DEPLOYER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
+            L2_TX_FEE_VAULT_ADDR = deploy("L2_TX_FEE_VAULT", type(L2TxFeeVault).creationCode, args);
+        } else {
+            bytes memory args = abi.encode(
+                L2_ETH_GATEWAY_PROXY_ADDR,
+                DEPLOYER_ADDR,
+                L1_FEE_VAULT_ADDR,
+                FEE_VAULT_MIN_WITHDRAW_AMOUNT
+            );
+            L2_TX_FEE_VAULT_ADDR = deploy("L2_TX_FEE_VAULT", type(L2TxFeeVaultWithGasToken).creationCode, args);
+        }
     }
 
     function deployL2ProxyAdmin() private {
@@ -1432,7 +1443,10 @@ contract DeployScroll is DeterministicDeployment {
     }
 
     function initializeL2TxFeeVault() private {
-        if (L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).messenger() != notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)) {
+        if (
+            !ALTERNATIVE_GAS_TOKEN_ENABLED &&
+            L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).messenger() != notnull(L2_SCROLL_MESSENGER_PROXY_ADDR)
+        ) {
             L2TxFeeVault(payable(L2_TX_FEE_VAULT_ADDR)).updateMessenger(L2_SCROLL_MESSENGER_PROXY_ADDR);
         }
     }

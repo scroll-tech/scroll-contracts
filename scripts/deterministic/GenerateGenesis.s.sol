@@ -4,6 +4,7 @@ pragma solidity =0.8.24;
 import {L1GasPriceOracle} from "../../src/L2/predeploys/L1GasPriceOracle.sol";
 import {L2MessageQueue} from "../../src/L2/predeploys/L2MessageQueue.sol";
 import {L2TxFeeVault} from "../../src/L2/predeploys/L2TxFeeVault.sol";
+import {L2TxFeeVaultWithGasToken} from "../../src/alternative-gas-token/L2TxFeeVaultWithGasToken.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 import {WrappedEther} from "../../src/L2/predeploys/WrappedEther.sol";
 
@@ -152,28 +153,44 @@ contract GenerateGenesis is DeployScroll {
         }
 
         // set code
-        L2TxFeeVault _vault = new L2TxFeeVault(DEPLOYER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
-        vm.etch(predeployAddr, address(_vault).code);
-
+        address _vaultAddr;
         vm.prank(DEPLOYER_ADDR);
-        _vault.updateMessenger(L2_SCROLL_MESSENGER_PROXY_ADDR);
+        if (!ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            L2TxFeeVault _vault = new L2TxFeeVault(DEPLOYER_ADDR, L1_FEE_VAULT_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT);
+            vm.prank(DEPLOYER_ADDR);
+            _vault.updateMessenger(L2_SCROLL_MESSENGER_PROXY_ADDR);
+            _vaultAddr = address(_vault);
+        } else {
+            L2TxFeeVaultWithGasToken _vault = new L2TxFeeVaultWithGasToken(
+                L2_ETH_GATEWAY_PROXY_ADDR,
+                DEPLOYER_ADDR,
+                L1_FEE_VAULT_ADDR,
+                FEE_VAULT_MIN_WITHDRAW_AMOUNT
+            );
+            _vaultAddr = address(_vault);
+        }
+
+        vm.etch(predeployAddr, _vaultAddr.code);
 
         // set storage
         bytes32 _ownerSlot = hex"0000000000000000000000000000000000000000000000000000000000000000";
-        vm.store(predeployAddr, _ownerSlot, vm.load(address(_vault), _ownerSlot));
+        vm.store(predeployAddr, _ownerSlot, vm.load(_vaultAddr, _ownerSlot));
 
         bytes32 _minWithdrawAmountSlot = hex"0000000000000000000000000000000000000000000000000000000000000001";
-        vm.store(predeployAddr, _minWithdrawAmountSlot, vm.load(address(_vault), _minWithdrawAmountSlot));
+        vm.store(predeployAddr, _minWithdrawAmountSlot, vm.load(_vaultAddr, _minWithdrawAmountSlot));
 
         bytes32 _messengerSlot = hex"0000000000000000000000000000000000000000000000000000000000000002";
-        vm.store(predeployAddr, _messengerSlot, vm.load(address(_vault), _messengerSlot));
+        vm.store(predeployAddr, _messengerSlot, vm.load(_vaultAddr, _messengerSlot));
 
         bytes32 _recipientSlot = hex"0000000000000000000000000000000000000000000000000000000000000003";
-        vm.store(predeployAddr, _recipientSlot, vm.load(address(_vault), _recipientSlot));
+        vm.store(predeployAddr, _recipientSlot, vm.load(_vaultAddr, _recipientSlot));
+
+        bytes32 _ETHGatewaySlot = hex"0000000000000000000000000000000000000000000000000000000000000005";
+        vm.store(predeployAddr, _ETHGatewaySlot, vm.load(_vaultAddr, _ETHGatewaySlot));
 
         // reset so its not included state dump
-        vm.etch(address(_vault), "");
-        vm.resetNonce(address(_vault));
+        vm.etch(_vaultAddr, "");
+        vm.resetNonce(_vaultAddr);
     }
 
     function setDeterministicDeploymentProxy() internal {

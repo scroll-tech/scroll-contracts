@@ -119,13 +119,7 @@ contract L2TxFeeVault is OwnableBase {
 
         emit Withdrawal(_value, recipient, msg.sender);
 
-        // no fee provided
-        IL2ScrollMessenger(messenger).sendMessage{value: _value}(
-            recipient,
-            _value,
-            bytes(""), // no message (simple eth transfer)
-            0 // _gasLimit can be zero for fee vault.
-        );
+        sendWithdrawMessage(recipient, _value);
     }
 
     /// @notice Triggers a withdrawal of all available funds to the L1 fee wallet.
@@ -163,5 +157,20 @@ contract L2TxFeeVault is OwnableBase {
         minWithdrawAmount = _newMinWithdrawAmount;
 
         emit UpdateMinWithdrawAmount(_oldMinWithdrawAmount, _newMinWithdrawAmount);
+    }
+
+    /**********************
+     * Internal Functions *
+     **********************/
+
+    /// @dev Internal function to do `sendWithdrawMessage` function call.
+    function sendWithdrawMessage(address _recipient, uint256 _value) internal virtual {
+        // no fee provided
+        IL2ScrollMessenger(messenger).sendMessage{value: _value}(
+            _recipient,
+            _value,
+            bytes(""), // no message (simple eth transfer)
+            0 // _gasLimit can be zero for fee vault.
+        );
     }
 }
