@@ -99,7 +99,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         hevm.assume(token1 != address(l1Token));
 
         assertEq(gateway.getL2ERC20Address(token1), address(0));
-        gateway.updateTokenMapping(token1, token2);
+        gateway.updateTokenMapping{value: 1 ether}(token1, token2);
         assertEq(gateway.getL2ERC20Address(token1), token2);
     }
 
@@ -178,7 +178,16 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         address recipient,
         bytes memory dataToCall
     ) public {
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        // message 0 is append here
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
+
+        // finalize message 0
+        hevm.startPrank(address(rollup));
+        messageQueue.popCrossDomainMessage(0, 1, 0);
+        messageQueue.finalizePoppedCrossDomainMessage(1);
+        hevm.stopPrank();
+        assertEq(messageQueue.pendingQueueIndex(), 1);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
 
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
         bytes memory message = abi.encodeWithSelector(
@@ -192,20 +201,20 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         );
         gateway.depositERC20AndCall(address(l1Token), recipient, amount, dataToCall, defaultGasLimit);
 
-        // skip message 0
+        // skip message 1
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 1, 0x1);
-        messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
+        messageQueue.popCrossDomainMessage(1, 1, 0x1);
+        messageQueue.finalizePoppedCrossDomainMessage(2);
+        assertEq(messageQueue.pendingQueueIndex(), 2);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
         hevm.stopPrank();
 
-        // drop message 0
+        // drop message 1
         hevm.expectEmit(true, true, false, true);
         emit RefundERC20(address(l1Token), address(this), amount);
 
         uint256 balance = l1Token.balanceOf(address(this));
-        l1Messenger.dropMessage(address(gateway), address(counterpartGateway), 0, 0, message);
+        l1Messenger.dropMessage(address(gateway), address(counterpartGateway), 0, 1, message);
         assertEq(balance + amount, l1Token.balanceOf(address(this)));
     }
 
@@ -283,7 +292,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         hevm.assume(recipient != address(0));
         hevm.assume(recipient != address(gateway));
 
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
 
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
 
@@ -342,7 +351,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
     ) public {
         MockGatewayRecipient recipient = new MockGatewayRecipient();
 
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
 
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
 
@@ -407,6 +416,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         uint256 gasLimit,
         uint256 feePerGas
     ) private {
+        uint64 nonce = 1;
         amount = bound(amount, 0, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
@@ -428,7 +438,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             address(gateway),
             address(counterpartGateway),
             0,
-            0,
+            nonce,
             message
         );
 
@@ -439,7 +449,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             gateway.depositERC20{value: feeToPay + extraValue}(address(l1Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("deposit zero amount");
             if (useRouter) {
@@ -452,13 +462,13 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             {
                 hevm.expectEmit(true, true, false, true);
                 address sender = AddressAliasHelper.applyL1ToL2Alias(address(l1Messenger));
-                emit QueueTransaction(sender, address(l2Messenger), 0, 0, gasLimit, xDomainCalldata);
+                emit QueueTransaction(sender, address(l2Messenger), 0, nonce, gasLimit, xDomainCalldata);
             }
 
             // emit SentMessage from L1ScrollMessenger
             {
                 hevm.expectEmit(true, true, false, true);
-                emit SentMessage(address(gateway), address(counterpartGateway), 0, 0, gasLimit, message);
+                emit SentMessage(address(gateway), address(counterpartGateway), 0, nonce, gasLimit, message);
             }
 
             // emit DepositERC20 from L1CustomERC20Gateway
@@ -486,6 +496,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         uint256 gasLimit,
         uint256 feePerGas
     ) private {
+        uint64 nonce = 1;
         amount = bound(amount, 0, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
@@ -507,7 +518,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             address(gateway),
             address(counterpartGateway),
             0,
-            0,
+            nonce,
             message
         );
 
@@ -518,7 +529,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             gateway.depositERC20{value: feeToPay + extraValue}(address(l1Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("deposit zero amount");
             if (useRouter) {
@@ -531,13 +542,13 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             {
                 hevm.expectEmit(true, true, false, true);
                 address sender = AddressAliasHelper.applyL1ToL2Alias(address(l1Messenger));
-                emit QueueTransaction(sender, address(l2Messenger), 0, 0, gasLimit, xDomainCalldata);
+                emit QueueTransaction(sender, address(l2Messenger), 0, nonce, gasLimit, xDomainCalldata);
             }
 
             // emit SentMessage from L1ScrollMessenger
             {
                 hevm.expectEmit(true, true, false, true);
-                emit SentMessage(address(gateway), address(counterpartGateway), 0, 0, gasLimit, message);
+                emit SentMessage(address(gateway), address(counterpartGateway), 0, nonce, gasLimit, message);
             }
 
             // emit DepositERC20 from L1CustomERC20Gateway
@@ -566,6 +577,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
         uint256 gasLimit,
         uint256 feePerGas
     ) private {
+        uint64 nonce = 1;
         amount = bound(amount, 0, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
@@ -587,7 +599,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             address(gateway),
             address(counterpartGateway),
             0,
-            0,
+            nonce,
             message
         );
 
@@ -598,7 +610,7 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             gateway.depositERC20{value: feeToPay + extraValue}(address(l1Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l1Token), address(l2Token));
+        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("deposit zero amount");
             if (useRouter) {
@@ -623,13 +635,13 @@ contract L1CustomERC20GatewayTest is L1GatewayTestBase {
             {
                 hevm.expectEmit(true, true, false, true);
                 address sender = AddressAliasHelper.applyL1ToL2Alias(address(l1Messenger));
-                emit QueueTransaction(sender, address(l2Messenger), 0, 0, gasLimit, xDomainCalldata);
+                emit QueueTransaction(sender, address(l2Messenger), 0, nonce, gasLimit, xDomainCalldata);
             }
 
             // emit SentMessage from L1ScrollMessenger
             {
                 hevm.expectEmit(true, true, false, true);
-                emit SentMessage(address(gateway), address(counterpartGateway), 0, 0, gasLimit, message);
+                emit SentMessage(address(gateway), address(counterpartGateway), 0, nonce, gasLimit, message);
             }
 
             // emit DepositERC20 from L1CustomERC20Gateway

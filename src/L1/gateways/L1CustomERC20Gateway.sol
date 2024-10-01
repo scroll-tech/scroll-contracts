@@ -43,7 +43,7 @@ contract L1CustomERC20Gateway is L1ERC20Gateway {
 
     /// @notice Constructor for `L1CustomERC20Gateway` implementation contract.
     ///
-    /// @param _counterpart The address of `L2USDCGateway` contract in L2.
+    /// @param _counterpart The address of `L2CustomERC20Gateway` contract in L2.
     /// @param _router The address of `L1GatewayRouter` contract in L1.
     /// @param _messenger The address of `L1ScrollMessenger` contract L1.
     constructor(
@@ -86,13 +86,17 @@ contract L1CustomERC20Gateway is L1ERC20Gateway {
     /// @notice Update layer 1 to layer 2 token mapping.
     /// @param _l1Token The address of ERC20 token on layer 1.
     /// @param _l2Token The address of corresponding ERC20 token on layer 2.
-    function updateTokenMapping(address _l1Token, address _l2Token) external onlyOwner {
+    function updateTokenMapping(address _l1Token, address _l2Token) external payable onlyOwner {
         require(_l2Token != address(0), "token address cannot be 0");
 
         address _oldL2Token = tokenMapping[_l1Token];
         tokenMapping[_l1Token] = _l2Token;
 
         emit UpdateTokenMapping(_l1Token, _oldL2Token, _l2Token);
+
+        // update corresponding mapping in L2, 1000000 gas limit should be enough
+        bytes memory _message = abi.encodeCall(L1CustomERC20Gateway.updateTokenMapping, (_l2Token, _l1Token));
+        IL1ScrollMessenger(messenger).sendMessage{value: msg.value}(counterpart, 0, _message, 1000000, _msgSender());
     }
 
     /**********************
