@@ -17,6 +17,12 @@ contract ScrollStandardERC20FactoryTest is DSTestPlus {
         factory = new ScrollStandardERC20Factory(address(impl));
     }
 
+    function testDeployFactoryRevert() external {
+        // zero address as ERC20 implementation address, revert
+        hevm.expectRevert("zero implementation address");
+        new ScrollStandardERC20Factory(address(0));
+    }
+
     function testDeployL2Token(address _gateway, address _l1Token) external {
         // call by non-owner, should revert
         hevm.startPrank(address(1));
