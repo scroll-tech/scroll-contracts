@@ -39,6 +39,10 @@ abstract contract Configuration is Script {
     uint256 internal L1_CONTRACT_DEPLOYMENT_BLOCK;
 
     bool internal ALTERNATIVE_GAS_TOKEN_ENABLED;
+    bool internal GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED;
+    string internal EXCHANGE_RATE_UPDATE_MODE;
+    string internal FIXED_EXCHANGE_RATE;
+    string internal TOKEN_SYMBOL_PAIR;
 
     bool internal TEST_ENV_MOCK_FINALIZE_ENABLED;
     uint256 internal TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC;
