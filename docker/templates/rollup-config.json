@@ -22,9 +22,20 @@
         "l1_blob_base_fee_weight": 0.030,
         "check_committed_batches_window_minutes": 5,
         "l1_base_fee_default": 15000000000,
-        "l1_blob_base_fee_default": 1
+        "l1_blob_base_fee_default": 1,
+        "alternative_gas_token_config": {
+          "enabled": false,
+          "mode": "Fixed",
+          "fixed_exchange_rate": 0.001,
+          "token_symbol_pair": ""
+        }
       },
-      "gas_oracle_sender_private_key": "1313131313131313131313131313131313131313131313131313131313131313"
+      "gas_oracle_sender_signer_config": {
+        "signer_type": "PrivateKey",
+        "private_key_signer_config": {
+          "private_key": "1313131313131313131313131313131313131313131313131313131313131313"
+        }
+      }
     }
   },
   "l2_config": {
@@ -49,7 +60,13 @@
       },
       "gas_oracle_config": {
         "min_gas_price": 0,
-        "gas_price_diff": 50000
+        "gas_price_diff": 50000,
+        "alternative_gas_token_config": {
+          "enabled": false,
+          "mode": "Fixed",
+          "fixed_exchange_rate": 0.001,
+          "token_symbol_pair": ""
+        }
       },
       "chain_monitor": {
         "enabled": true,
@@ -60,9 +77,24 @@
       "enable_test_env_bypass_features": null,
       "finalize_batch_without_proof_timeout_sec": null,
       "finalize_bundle_without_proof_timeout_sec": null,
-      "gas_oracle_sender_private_key": "1313131313131313131313131313131313131313131313131313131313131313",
-      "commit_sender_private_key": "1414141414141414141414141414141414141414141414141414141414141414",
-      "finalize_sender_private_key": "1515151515151515151515151515151515151515151515151515151515151515",
+      "gas_oracle_sender_signer_config": {
+        "signer_type": "PrivateKey",
+        "private_key_signer_config": {
+          "private_key": "1313131313131313131313131313131313131313131313131313131313131313"
+        }
+      },
+      "commit_sender_signer_config": {
+        "signer_type": "PrivateKey",
+        "private_key_signer_config": {
+          "private_key": "1414141414141414141414141414141414141414141414141414141414141414"
+        }
+      },
+      "finalize_sender_signer_config": {
+        "signer_type": "PrivateKey",
+        "private_key_signer_config": {
+          "private_key": "1515151515151515151515151515151515151515151515151515151515151515"
+        }
+      },
       "l1_commit_gas_limit_multiplier": 1.2
     },
     "chunk_proposer_config": {

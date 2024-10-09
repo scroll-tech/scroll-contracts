@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
-import {ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH, BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
+import {stdToml} from "forge-std/StdToml.sol";
+
+import {ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH, BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, CONFIG_PATH, COORDINATOR_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, FRONTEND_ENV_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
 import {DeterministicDeployment} from "./DeterministicDeployment.sol";
 
 contract GenerateRollupConfig is DeployScroll {
+    using stdToml for string;
+
     /***************
      * Entry point *
      ***************/
@@ -51,6 +55,39 @@ contract GenerateRollupConfig is DeployScroll {
         vm.writeJson(vm.toString(MAX_BLOCK_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_block_num_per_chunk");
         vm.writeJson(vm.toString(MAX_TX_IN_CHUNK), ROLLUP_CONFIG_PATH, ".l2_config.chunk_proposer_config.max_tx_num_per_chunk");
         vm.writeJson(vm.toString(MAX_BATCH_IN_BUNDLE), ROLLUP_CONFIG_PATH, ".l2_config.bundle_proposer_config.max_batch_num_per_bundle");
+
+        // alternative gas token configuration for gas oracle 
+        if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            bool GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED;
+            if (vm.keyExistsToml(cfg, ".gas-token.GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED")) {
+                GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED = cfg.readBool(".gas-token.GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED");
+                vm.writeJson(vm.toString(GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED), ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.enabled");
+                vm.writeJson(vm.toString(GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.enabled");
+            }
+            if (GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED) {
+                string memory EXCHANGE_RATE_UPDATE_MODE = cfg.readString(".gas-token.EXCHANGE_RATE_UPDATE_MODE");
+                vm.writeJson(EXCHANGE_RATE_UPDATE_MODE, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.mode");
+                vm.writeJson(EXCHANGE_RATE_UPDATE_MODE, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.mode");
+                if (keccak256(abi.encodePacked(EXCHANGE_RATE_UPDATE_MODE)) == keccak256("Fixed")) {
+                    string memory FIXED_EXCHANGE_RATE = cfg.readString(".gas-token.FIXED_EXCHANGE_RATE");
+                    vm.writeJson(FIXED_EXCHANGE_RATE, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.fixed_exchange_rate");
+                    vm.writeJson(FIXED_EXCHANGE_RATE, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.fixed_exchange_rate");
+                } else if (keccak256(abi.encodePacked(EXCHANGE_RATE_UPDATE_MODE)) == keccak256("BinanceApi")) {
+                    string memory TOKEN_SYMBOL_PAIR = cfg.readString(".gas-token.TOKEN_SYMBOL_PAIR");
+                    vm.writeJson(TOKEN_SYMBOL_PAIR, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.token_symbol_pair");
+                    vm.writeJson(TOKEN_SYMBOL_PAIR, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.token_symbol_pair");
+                } else {
+                    revert(
+                        string(
+                            abi.encodePacked(
+                                "[ERROR] unsupported exchange rate update mode for gas oracle, mode: ",
+                                EXCHANGE_RATE_UPDATE_MODE
+                            )
+                        )
+                    );
+                }
+            }
+        }
     }
 }
 
