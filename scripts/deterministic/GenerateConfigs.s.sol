@@ -58,21 +58,22 @@ contract GenerateRollupConfig is DeployScroll {
 
         // alternative gas token configuration for gas oracle 
         if (ALTERNATIVE_GAS_TOKEN_ENABLED) {
+            bool GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED;
             if (vm.keyExistsToml(cfg, ".gas-token.GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED")) {
                 GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED = cfg.readBool(".gas-token.GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED");
                 vm.writeJson(vm.toString(GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED), ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.enabled");
                 vm.writeJson(vm.toString(GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED), ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.enabled");
             }
             if (GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED) {
-                EXCHANGE_RATE_UPDATE_MODE = cfg.readString(".gas-token.EXCHANGE_RATE_UPDATE_MODE");
+                string memory EXCHANGE_RATE_UPDATE_MODE = cfg.readString(".gas-token.EXCHANGE_RATE_UPDATE_MODE");
                 vm.writeJson(EXCHANGE_RATE_UPDATE_MODE, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.mode");
                 vm.writeJson(EXCHANGE_RATE_UPDATE_MODE, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.mode");
                 if (keccak256(abi.encodePacked(EXCHANGE_RATE_UPDATE_MODE)) == keccak256("Fixed")) {
-                    FIXED_EXCHANGE_RATE = cfg.readString(".gas-token.FIXED_EXCHANGE_RATE");
+                    string memory FIXED_EXCHANGE_RATE = cfg.readString(".gas-token.FIXED_EXCHANGE_RATE");
                     vm.writeJson(FIXED_EXCHANGE_RATE, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.fixed_exchange_rate");
                     vm.writeJson(FIXED_EXCHANGE_RATE, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.fixed_exchange_rate");
                 } else if (keccak256(abi.encodePacked(EXCHANGE_RATE_UPDATE_MODE)) == keccak256("BinanceApi")) {
-                    TOKEN_SYMBOL_PAIR = cfg.readString(".gas-token.TOKEN_SYMBOL_PAIR");
+                    string memory TOKEN_SYMBOL_PAIR = cfg.readString(".gas-token.TOKEN_SYMBOL_PAIR");
                     vm.writeJson(TOKEN_SYMBOL_PAIR, ROLLUP_CONFIG_PATH, ".l1_config.relayer_config.gas_oracle_config.alternative_gas_token_config.token_symbol_pair");
                     vm.writeJson(TOKEN_SYMBOL_PAIR, ROLLUP_CONFIG_PATH, ".l2_config.relayer_config.gas_oracle_config.alternative_gas_token_config.token_symbol_pair");
                 } else {
