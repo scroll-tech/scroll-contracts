@@ -168,7 +168,7 @@ contract L1ERC1155Gateway is ERC1155HolderUpgradeable, ScrollGatewayBase, IL1ERC
      * Restricted Functions *
      ************************/
 
-    /// @notice Update layer 2 to layer 2 token mapping.
+    /// @notice Update layer 1 to layer 2 token mapping.
     /// @param _l1Token The address of ERC1155 token on layer 1.
     /// @param _l2Token The address of corresponding ERC1155 token on layer 2.
     function updateTokenMapping(address _l1Token, address _l2Token) external onlyOwner {

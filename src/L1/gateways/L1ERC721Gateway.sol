@@ -167,7 +167,7 @@ contract L1ERC721Gateway is ERC721HolderUpgradeable, ScrollGatewayBase, IL1ERC72
      * Restricted Functions *
      ************************/
 
-    /// @notice Update layer 2 to layer 2 token mapping.
+    /// @notice Update layer 1 to layer 2 token mapping.
     /// @param _l1Token The address of ERC721 token on layer 1.
     /// @param _l2Token The address of corresponding ERC721 token on layer 2.
     function updateTokenMapping(address _l1Token, address _l2Token) external onlyOwner {

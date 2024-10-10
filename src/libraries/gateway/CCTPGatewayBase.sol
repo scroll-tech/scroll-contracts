@@ -23,10 +23,10 @@ abstract contract CCTPGatewayBase is ScrollGatewayBase {
      * Constants *
      *************/
 
-    /// @notice The address of L1 USDC address.
+    /// @notice The address of L1 USDC.
     address public immutable l1USDC;
 
-    /// @notice The address of L2 USDC address.
+    /// @notice The address of L2 USDC.
     address public immutable l2USDC;
 
     /// @notice The destination domain for layer2.

@@ -14,7 +14,7 @@ import {L2CustomERC20Gateway} from "./L2CustomERC20Gateway.sol";
 /// @title L2ReverseCustomERC20Gateway
 /// @notice The `L2ReverseCustomERC20Gateway` is used to withdraw native ERC20 tokens on layer 2 and
 /// finalize deposit the tokens from layer 1.
-/// @dev The withdrawn ERC20 tokens are holed in this contract. On finalizing deposit, the corresponding
+/// @dev The withdrawn ERC20 tokens are held in this contract. On finalizing deposit, the corresponding
 /// token will be transferred to the recipient.
 contract L2ReverseCustomERC20Gateway is L2CustomERC20Gateway {
     using SafeERC20Upgradeable for IERC20Upgradeable;

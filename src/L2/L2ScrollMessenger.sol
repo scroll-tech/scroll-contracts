@@ -18,7 +18,7 @@ import {ScrollMessengerBase} from "../libraries/ScrollMessengerBase.sol";
 /// @notice The `L2ScrollMessenger` contract can:
 ///
 /// 1. send messages from layer 2 to layer 1;
-/// 2. relay messages from layer 1 layer 2;
+/// 2. relay messages from layer 1 to layer 2;
 /// 3. drop expired message due to sequencer problems.
 ///
 /// @dev It should be a predeployed contract on layer 2 and should hold infinite amount
