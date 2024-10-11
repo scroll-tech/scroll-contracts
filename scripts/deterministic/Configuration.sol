@@ -75,6 +75,9 @@ abstract contract Configuration is Script {
     address internal L1_PLONK_VERIFIER_ADDR;
 
     // coordinator
+    string internal CHUNK_COLLECTION_TIME_SEC;
+    string internal BATCH_COLLECTION_TIME_SEC;
+    string internal BUNDLE_COLLECTION_TIME_SEC;
     string internal COORDINATOR_JWT_SECRET_KEY;
 
     // frontend
@@ -147,6 +150,9 @@ abstract contract Configuration is Script {
         L1_FEE_VAULT_ADDR = cfg.readAddress(".contracts.L1_FEE_VAULT_ADDR");
         L1_PLONK_VERIFIER_ADDR = cfg.readAddress(".contracts.L1_PLONK_VERIFIER_ADDR");
 
+        CHUNK_COLLECTION_TIME_SEC = cfg.readString(".coordinator.CHUNK_COLLECTION_TIME_SEC");
+        BATCH_COLLECTION_TIME_SEC = cfg.readString(".coordinator.BATCH_COLLECTION_TIME_SEC");
+        BUNDLE_COLLECTION_TIME_SEC = cfg.readString(".coordinator.BUNDLE_COLLECTION_TIME_SEC");
         COORDINATOR_JWT_SECRET_KEY = cfg.readString(".coordinator.COORDINATOR_JWT_SECRET_KEY");
 
         EXTERNAL_RPC_URI_L1 = cfg.readString(".frontend.EXTERNAL_RPC_URI_L1");
