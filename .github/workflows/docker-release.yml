@@ -1,9 +1,9 @@
 name: Build and publish scroll-alpine image
+# This workflow aims to build images from the feat-deterministic-deployment branch
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
+
 jobs:
   build:
     name: Clone, Build, Publish
@@ -41,7 +41,6 @@ jobs:
       - name: Build deploy image
         id: build_deploy_image
         env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: scrolltech/scroll-stack-contracts
         uses: docker/build-push-action@v3
         with:
@@ -50,13 +49,11 @@ jobs:
           context: .
           file: docker/Dockerfile.deploy
           tags: |
-            ${{ env.REPOSITORY }}:deploy-${{ github.ref_name }}
-            ${{ env.REPOSITORY }}:latest
+            ${{ env.REPOSITORY }}:deploy-${{ github.sha }}
 
       - name: Build gen image
         id: build_gen_image
         env:
-          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           REPOSITORY: scrolltech/scroll-stack-contracts
         uses: docker/build-push-action@v3
         with:
@@ -65,5 +62,4 @@ jobs:
           context: .
           file: docker/Dockerfile.gen-configs
           tags: |
-            ${{ env.REPOSITORY }}:gen-configs-${{ github.ref_name }}
-            ${{ env.REPOSITORY }}:latest
+            ${{ env.REPOSITORY }}:gen-configs-${{ github.sha }}
