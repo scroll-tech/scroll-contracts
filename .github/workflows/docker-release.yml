@@ -1,4 +1,5 @@
 name: Build and publish scroll-alpine image
+# This workflow aims to build images from the feat-deterministic-deployment branch
 
 on:
   workflow_dispatch:
@@ -49,8 +50,7 @@ jobs:
           context: .
           file: docker/Dockerfile.deploy
           tags: |
-            ${{ env.REPOSITORY }}:deploy-${{ github.ref_name }}
-            ${{ env.REPOSITORY }}:latest
+            ${{ env.REPOSITORY }}:deploy-${{ github.sha }}
 
       - name: Build gen image
         id: build_gen_image
@@ -64,5 +64,4 @@ jobs:
           context: .
           file: docker/Dockerfile.gen-configs
           tags: |
-            ${{ env.REPOSITORY }}:gen-configs-${{ github.ref_name }}
-            ${{ env.REPOSITORY }}:latest
+            ${{ env.REPOSITORY }}:gen-configs-${{ github.sha }}
