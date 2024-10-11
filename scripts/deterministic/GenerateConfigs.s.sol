@@ -79,6 +79,10 @@ contract GenerateCoordinatorConfig is DeployScroll {
         string memory template = vm.readFile(COORDINATOR_CONFIG_TEMPLATE_PATH);
         vm.writeFile(COORDINATOR_CONFIG_PATH, template);
 
+        vm.writeJson(CHUNK_COLLECTION_TIME_SEC, COORDINATOR_CONFIG_PATH, ".prover_manager.chunk_collection_time_sec");
+        vm.writeJson(BATCH_COLLECTION_TIME_SEC, COORDINATOR_CONFIG_PATH, ".prover_manager.batch_collection_time_sec");
+        vm.writeJson(BUNDLE_COLLECTION_TIME_SEC, COORDINATOR_CONFIG_PATH, ".prover_manager.bundle_collection_time_sec");
+
         vm.writeJson(vm.toString(CHAIN_ID_L2), COORDINATOR_CONFIG_PATH, ".l2.chain_id");
         vm.writeJson(COORDINATOR_JWT_SECRET_KEY, COORDINATOR_CONFIG_PATH, ".auth.secret");
     }

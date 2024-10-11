@@ -3,7 +3,7 @@
     "provers_per_session": 1,
     "session_attempts": 100,
     "chunk_collection_time_sec": 3600,
-    "batch_collection_time_sec": 600,
+    "batch_collection_time_sec": 1800,
     "bundle_collection_time_sec": 600,
     "verifier": {
       "mock_mode": false,
