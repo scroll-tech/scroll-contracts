@@ -61,7 +61,7 @@ contract L1WETHGateway is L1ERC20Gateway {
     ///
     /// @dev The parameters `_counterpart`, `_router` and `_messenger` are no longer used.
     ///
-    /// @param _counterpart The address of L2ETHGateway in L2.
+    /// @param _counterpart The address of L2WETHGateway in L2.
     /// @param _router The address of L1GatewayRouter in L1.
     /// @param _messenger The address of L1ScrollMessenger in L1.
     function initialize(
