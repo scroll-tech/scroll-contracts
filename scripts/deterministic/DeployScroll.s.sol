@@ -2,7 +2,7 @@
 pragma solidity =0.8.24;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {ProxyAdminSetOwner} from "./contracts/ProxyAdminSetOwner.sol";
 import {TransparentUpgradeableProxy, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -19,7 +19,7 @@ import {L1ScrollMessenger} from "../../src/L1/L1ScrollMessenger.sol";
 import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gateway.sol";
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
-import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
+import {MultipleVersionRollupVerifierSetOwner} from "./contracts/MultipleVersionRollupVerifierSetOwner.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {ZkEvmVerifierV2} from "../../src/libraries/verifier/ZkEvmVerifierV2.sol";
 import {GasTokenExample} from "../../src/alternative-gas-token/GasTokenExample.sol";
@@ -42,7 +42,7 @@ import {L2TxFeeVaultWithGasToken} from "../../src/alternative-gas-token/L2TxFeeV
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 import {WrappedEther} from "../../src/L2/predeploys/WrappedEther.sol";
 import {ScrollStandardERC20} from "../../src/libraries/token/ScrollStandardERC20.sol";
-import {ScrollStandardERC20Factory} from "../../src/libraries/token/ScrollStandardERC20Factory.sol";
+import {ScrollStandardERC20FactorySetOwner} from "./contracts/ScrollStandardERC20FactorySetOwner.sol";
 
 import {ScrollChainMockFinalize} from "../../src/mocks/ScrollChainMockFinalize.sol";
 
@@ -52,34 +52,6 @@ import "./DeterministicDeployment.sol";
 
 /// @dev The minimum deployer account balance.
 uint256 constant MINIMUM_DEPLOYER_BALANCE = 0.1 ether;
-
-contract ProxyAdminSetOwner is ProxyAdmin {
-    /// @dev allow setting the owner in the constructor, otherwise
-    ///      DeterministicDeploymentProxy would become the owner.
-    constructor(address owner) {
-        _transferOwnership(owner);
-    }
-}
-
-contract MultipleVersionRollupVerifierSetOwner is MultipleVersionRollupVerifier {
-    /// @dev allow setting the owner in the constructor, otherwise
-    ///      DeterministicDeploymentProxy would become the owner.
-    constructor(
-        address owner,
-        uint256[] memory _versions,
-        address[] memory _verifiers
-    ) MultipleVersionRollupVerifier(_versions, _verifiers) {
-        _transferOwnership(owner);
-    }
-}
-
-contract ScrollStandardERC20FactorySetOwner is ScrollStandardERC20Factory {
-    /// @dev allow setting the owner in the constructor, otherwise
-    ///      DeterministicDeploymentProxy would become the owner.
-    constructor(address owner, address _implementation) ScrollStandardERC20Factory(_implementation) {
-        _transferOwnership(owner);
-    }
-}
 
 contract DeployScroll is DeterministicDeployment {
     using stdToml for string;

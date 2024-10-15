@@ -1,0 +1,130 @@
+#!/bin/sh
+
+# extract values from config file
+config_file="./volume/config.toml"
+CHAIN_ID_L1=$(grep -E "^CHAIN_ID_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
+CHAIN_ID_L2=$(grep -E "^CHAIN_ID_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
+L1_RPC_ENDPOINT=$(grep -E "^L1_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+L2_RPC_ENDPOINT=$(grep -E "^L2_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+EXPLORER_API_KEY_L1=$(grep -E "^EXPLORER_API_KEY_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+EXPLORER_API_KEY_L2=$(grep -E "^EXPLORER_API_KEY_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+ALTERNATIVE_GAS_TOKEN_ENABLED=$(grep -E "^ALTERNATIVE_GAS_TOKEN_ENABLED =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
+TEST_ENV_MOCK_FINALIZE_ENABLED=$(grep -E "^TEST_ENV_MOCK_FINALIZE_ENABLED =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
+
+# extract contract name and address
+extract_contract_info() {
+  contract_name=$(cut -d "=" -f 1 <<< "$line" | tr -d '"')
+  contract_addr=$(cut -d "=" -f 2 <<< "$line" | tr -d '"' | tr -d ' ')
+}
+
+get_contract_name() {
+  # specially handle the case where alternative gas token is enabled
+  if [[ "$ALTERNATIVE_GAS_TOKEN_ENABLED" == "true" && "$1" =~ ^(L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR|L2_TX_FEE_VAULT_ADDR)$ ]]; then
+    case "$1" in
+      L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR) echo L1ScrollMessengerNonETH ;;
+      L2_TX_FEE_VAULT_ADDR) echo L2TxFeeVaultWithGasToken ;;
+      *) 
+    esac
+  # specially handle the case where mock finalize is enabled
+  elif [[ "$TEST_ENV_MOCK_FINALIZE_ENABLED" == "true" && "$1" =~ ^(L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR)$ ]]; then
+    case "$1" in
+      L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR) echo ScrollChainMockFinalize ;;
+      *) 
+    esac
+  else
+    case "$1" in
+      L1_WETH_ADDR) echo WrappedEther ;;
+      L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR) echo EmptyContract ;;
+      L1_PROXY_ADMIN_ADDR) echo ProxyAdminSetOwner ;;
+      L1_WHITELIST_ADDR) echo Whitelist ;;
+      L1_SCROLL_CHAIN_PROXY_ADDR) echo Whitelist ;;
+      L1_SCROLL_MESSENGER_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_ENFORCED_TX_GATEWAY_IMPLEMENTATION_ADDR) echo EnforcedTxGateway ;;
+      L1_ENFORCED_TX_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_ZKEVM_VERIFIER_V2_ADDR) echo ZkEvmVerifierV2 ;;
+      L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR ) echo MultipleVersionRollupVerifierSetOwner ;;
+      L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR) echo L1MessageQueueWithGasPriceOracle ;;
+      L1_MESSAGE_QUEUE_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR) echo ScrollChain ;;
+      L1_GATEWAY_ROUTER_IMPLEMENTATION_ADDR) echo L1GatewayRouter ;;
+      L1_GATEWAY_ROUTER_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_ETH_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_WETH_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_STANDARD_ERC20_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_CUSTOM_ERC20_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_ERC721_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_ERC1155_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_MESSAGE_QUEUE_ADDR) echo L2MessageQueue ;;
+      L1_GAS_PRICE_ORACLE_ADDR) echo L1GasPriceOracle ;;
+      L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR) echo L1GasTokenGateway ;;
+      L1_GAS_TOKEN_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L1_WRAPPED_TOKEN_GATEWAY_ADDR) echo L1WrappedTokenGateway ;;
+      L2_WHITELIST_ADDR) echo Whitelist ;;
+      L2_WETH_ADDR) echo WrappedEther ;;
+      L2_TX_FEE_VAULT_ADDR) echo L2TxFeeVault ;;
+      L2_PROXY_ADMIN_ADDR) echo ProxyAdminSetOwner ;;
+      L2_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR) echo EmptyContract ;;
+      L2_SCROLL_MESSENGER_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_ETH_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_WETH_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_STANDARD_ERC20_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_ERC721_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_ERC1155_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_SCROLL_STANDARD_ERC20_ADDR) echo ScrollStandardERC20 ;;
+      L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR) echo ScrollStandardERC20FactorySetOwner ;;
+      L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR) echo L1ScrollMessenger ;;
+      L1_STANDARD_ERC20_GATEWAY_IMPLEMENTATION_ADDR) echo L1StandardERC20Gateway ;;
+      L1_ETH_GATEWAY_IMPLEMENTATION_ADDR) echo L1ETHGateway ;;
+      L1_WETH_GATEWAY_IMPLEMENTATION_ADDR) echo L1WETHGateway ;;
+      L1_CUSTOM_ERC20_GATEWAY_IMPLEMENTATION_ADDR) echo L1CustomERC20Gateway ;;
+      L1_ERC721_GATEWAY_IMPLEMENTATION_ADDR) echo L1ERC721Gateway ;;
+      L1_ERC1155_GATEWAY_IMPLEMENTATION_ADDR ) echo L1ERC1155Gateway ;;
+      L2_SCROLL_MESSENGER_IMPLEMENTATION_ADDR) echo L2ScrollMessenger ;;
+      L2_GATEWAY_ROUTER_IMPLEMENTATION_ADDR) echo L2GatewayRouter ;;
+      L2_GATEWAY_ROUTER_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
+      L2_STANDARD_ERC20_GATEWAY_IMPLEMENTATION_ADDR) echo L2StandardERC20Gateway ;;
+      L2_ETH_GATEWAY_IMPLEMENTATION_ADDR) echo L2ETHGateway ;;
+      L2_WETH_GATEWAY_IMPLEMENTATION_ADDR) echo L2WETHGateway ;;
+      L2_CUSTOM_ERC20_GATEWAY_IMPLEMENTATION_ADDR) echo L2CustomERC20Gateway ;;
+      L2_ERC721_GATEWAY_IMPLEMENTATION_ADDR) echo L2ERC721Gateway ;;
+      L2_ERC1155_GATEWAY_IMPLEMENTATION_ADDR) echo L2ERC1155Gateway ;;
+      *) echo "" ;; # default: return void string
+    esac
+  fi
+}
+
+# Read the file line by line
+while IFS= read -r line; do
+  extract_contract_info "$line"
+
+  # only support L1 for now
+  if [[ "$contract_name" =~ ^L1 ]]; then
+    layer = "L1"
+  elif [[ "$contract_name" =~ ^L2 ]]; then
+    layer = "L2"
+    # specially handle contract_name L1_GAS_PRICE_ORACLE_ADDR
+    if [[ "$contract_name" == "L1_GAS_PRICE_ORACLE_ADDR" ]]; then
+      layer = "L1"
+    fi
+  else
+    echo "Wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
+    continue
+  fi
+
+  source_code_name=$(get_source_code_name $contract_name)
+
+  # skip if contract_name or line_addr is empty
+  if [[ -z $source_code_name || -z $contract_addr ]]; then
+    echo "Empty source_code_name: $source_code_name or contract_addr: $contract_addr"
+    continue
+  fi
+
+  echo "verifing contract $contract_name with address $contract_addr on $layer"
+  if [[ "$layer" == "L1" ]]; then
+      forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch --etherscan-api-key $EXPLORER_API_KEY_L1 --guess-constructor-args -- EXPLORER_URI_L1
+  elif [[ "$layer" == "L2" ]]; then
+      forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch --etherscan-api-key $EXPLORER_API_KEY_L2 --guess-constructor-args
+  fi
+  
+done < ./volume/config-contracts.toml

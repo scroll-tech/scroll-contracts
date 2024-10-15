@@ -69,7 +69,7 @@ TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = 300
 
 [frontend]
 
-EXTERNAL_RPC_URI_L1 ="http://l1-devnet.scrollsdk"
+EXTERNAL_RPC_URI_L1 = "http://l1-devnet.scrollsdk"
 EXTERNAL_RPC_URI_L2 = "http://l2-rpc.scrollsdk"
 BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
 ROLLUPSCAN_API_URI = "http://rollup-explorer-backend.scrollsdk/api"
@@ -101,6 +101,14 @@ L2_WHITELIST = "0x5300000000000000000000000000000000000003"
 L2_WETH = "0x5300000000000000000000000000000000000004"
 L2_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"
 
+[contracts.verify]
+
+# EXPLORER_URI_L1 = "http://blockscout.scrollsdk"
+EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
+RPC_URI_L1 = "http://l1-devnet.scrollsdk"
+RPC_URI_L2 = "http://l2-rpc.scrollsdk"
+EXPLORER_API_KEY_L1 = ""
+EXPLORER_API_KEY_L2 = ""
 
 [coordinator]
 
