@@ -1,0 +1,45 @@
+# Use the latest node Debian slim base image
+# This makes installing yarn dep much easier
+FROM node:20-bookworm-slim
+
+# Switch to bash shell
+SHELL ["/bin/bash", "-c"]
+
+WORKDIR /root
+
+# Install dependencies
+RUN apt update
+RUN apt install --yes curl bash coreutils git jq ca-certificates
+
+# Download and run the Foundry installation script
+RUN curl -L https://foundry.paradigm.xyz | bash
+
+# Set the environment variables to ensure Foundry tools are in the PATH
+ENV PATH="/root/.foundry/bin:${PATH}"
+
+# Run foundryup to update Foundry
+RUN foundryup -v nightly-56dbd20c7179570c53b6c17ff34daa7273a4ddae
+
+# copy dependencies
+COPY ./lib /contracts/lib
+COPY ./node_modules/@openzeppelin /contracts/node_modules/@openzeppelin
+COPY ./node_modules/hardhat /contracts/node_modules/hardhat
+
+# copy configurations
+COPY foundry.toml /contracts/foundry.toml
+COPY remappings.txt /contracts/remappings.txt
+
+# copy source code
+COPY ./src /contracts/src
+COPY ./scripts /contracts/scripts
+
+# compile contracts
+ENV FOUNDRY_EVM_VERSION="cancun"
+ENV FOUNDRY_BYTECODE_HASH="none"
+
+WORKDIR /contracts
+RUN forge build
+
+COPY ./docker/scripts/verify.sh /contracts/docker/scripts/verify.sh
+
+ENTRYPOINT ["/bin/bash", "/contracts/docker/scripts/verify.sh"]
