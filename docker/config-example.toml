@@ -103,8 +103,10 @@ L2_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"
 
 [contracts.verify]
 
-# EXPLORER_URI_L1 = "http://blockscout.scrollsdk"
-EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
+VERIFIER_TYPE_L1 = "etherscan"
+VERIFIER_TYPE_L2 = "blockscout"
+EXPLORER_URI_L1 = ""
+EXPLORER_URI_L2 = "http://blockscout.scrollsdk/api?"
 RPC_URI_L1 = "http://l1-devnet.scrollsdk"
 RPC_URI_L2 = "http://l2-rpc.scrollsdk"
 EXPLORER_API_KEY_L1 = ""

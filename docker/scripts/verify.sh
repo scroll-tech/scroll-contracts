@@ -6,6 +6,10 @@ CHAIN_ID_L1=$(grep -E "^CHAIN_ID_L1 =" "$config_file" | sed 's/ *= */=/' | cut -
 CHAIN_ID_L2=$(grep -E "^CHAIN_ID_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
 L1_RPC_ENDPOINT=$(grep -E "^L1_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 L2_RPC_ENDPOINT=$(grep -E "^L2_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+VERIFIER_TYPE_L1=$(grep -E "^VERIFIER_TYPE_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+VERIFIER_TYPE_L2=$(grep -E "^VERIFIER_TYPE_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+EXPLORER_URI_L1=$(grep -E "^EXPLORER_URI_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+EXPLORER_URI_L2=$(grep -E "^EXPLORER_URI_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 EXPLORER_API_KEY_L1=$(grep -E "^EXPLORER_API_KEY_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 EXPLORER_API_KEY_L2=$(grep -E "^EXPLORER_API_KEY_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 ALTERNATIVE_GAS_TOKEN_ENABLED=$(grep -E "^ALTERNATIVE_GAS_TOKEN_ENABLED =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
@@ -17,7 +21,7 @@ extract_contract_info() {
   contract_addr=$(cut -d "=" -f 2 <<< "$line" | tr -d '"' | tr -d ' ')
 }
 
-get_contract_name() {
+get_source_code_name() {
   # specially handle the case where alternative gas token is enabled
   if [[ "$ALTERNATIVE_GAS_TOKEN_ENABLED" == "true" && "$1" =~ ^(L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR|L2_TX_FEE_VAULT_ADDR)$ ]]; then
     case "$1" in
@@ -37,7 +41,7 @@ get_contract_name() {
       L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR) echo EmptyContract ;;
       L1_PROXY_ADMIN_ADDR) echo ProxyAdminSetOwner ;;
       L1_WHITELIST_ADDR) echo Whitelist ;;
-      L1_SCROLL_CHAIN_PROXY_ADDR) echo Whitelist ;;
+      L1_SCROLL_CHAIN_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
       L1_SCROLL_MESSENGER_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
       L1_ENFORCED_TX_GATEWAY_IMPLEMENTATION_ADDR) echo EnforcedTxGateway ;;
       L1_ENFORCED_TX_GATEWAY_PROXY_ADDR) echo TransparentUpgradeableProxy ;;
@@ -100,12 +104,12 @@ while IFS= read -r line; do
 
   # only support L1 for now
   if [[ "$contract_name" =~ ^L1 ]]; then
-    layer = "L1"
+    layer="L1"
   elif [[ "$contract_name" =~ ^L2 ]]; then
-    layer = "L2"
+    layer="L2"
     # specially handle contract_name L1_GAS_PRICE_ORACLE_ADDR
     if [[ "$contract_name" == "L1_GAS_PRICE_ORACLE_ADDR" ]]; then
-      layer = "L1"
+      layer="L1"
     fi
   else
     echo "Wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
@@ -120,11 +124,19 @@ while IFS= read -r line; do
     continue
   fi
 
-  echo "verifing contract $contract_name with address $contract_addr on $layer"
+  echo "\nverifing contract $contract_name with address $contract_addr on $layer"
+  EXTRA_PARAMS=""
   if [[ "$layer" == "L1" ]]; then
-      forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch --etherscan-api-key $EXPLORER_API_KEY_L1 --guess-constructor-args -- EXPLORER_URI_L1
+    if [[ "$VERIFIER_TYPE_L1" != "etherscan" ]]; then
+      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L1"
+    fi
+    forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch --etherscan-api-key $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
-      forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch --etherscan-api-key $EXPLORER_API_KEY_L2 --guess-constructor-args
+    echo "Pass"
+    if [[ "$VERIFIER_TYPE_L2" != "etherscan" ]]; then
+      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2"
+    fi
+   #forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch --etherscan-api-key $EXPLORER_API_KEY_L2 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   fi
   
 done < ./volume/config-contracts.toml
