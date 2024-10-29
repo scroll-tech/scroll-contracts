@@ -21,7 +21,7 @@ contract ScrollChainMockFinalize is ScrollChain {
         uint64 _chainId,
         address _messageQueue,
         address _verifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier) {}
+    ) ScrollChain(_chainId, _messageQueue, _verifier, address(0)) {}
 
     /*****************************
      * Public Mutating Functions *

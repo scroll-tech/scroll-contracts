@@ -109,7 +109,12 @@ contract DeployL1BridgeContracts is Script {
     }
 
     function deployScrollChain() internal {
-        ScrollChain impl = new ScrollChain(CHAIN_ID_L2, L1_MESSAGE_QUEUE_PROXY_ADDR, address(rollupVerifier));
+        ScrollChain impl = new ScrollChain(
+            CHAIN_ID_L2,
+            L1_MESSAGE_QUEUE_PROXY_ADDR,
+            address(rollupVerifier),
+            address(0)
+        );
 
         logAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR", address(impl));
     }

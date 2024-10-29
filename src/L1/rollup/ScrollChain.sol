@@ -105,6 +105,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the given address is `address(0)`.
     error ErrorZeroAddress();
 
+    error ErrorWithdrawRootMismatch();
+
+    error ErrorStateRootMismatch();
+
     /*************
      * Constants *
      *************/
@@ -125,6 +129,19 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @notice The address of RollupVerifier.
     address public immutable verifier;
+
+    /// @notice The address of RollupVerifier.
+    address public immutable teeVerifier;
+
+    /***********
+     * Structs *
+     ***********/
+
+    struct UnresolvedState {
+        uint256 batchIndex;
+        bytes32 stateRoot;
+        bytes32 withdrawRoot;
+    }
 
     /*************
      * Variables *
@@ -157,6 +174,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     mapping(uint256 => bytes32) public override withdrawRoots;
 
+    /// @inheritdoc IScrollChain
+    uint256 public override lastTeeFinalizedBatchIndex;
+
+    UnresolvedState public unresolvedState;
+
     /**********************
      * Function Modifiers *
      **********************/
@@ -172,6 +194,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         _;
     }
 
+    modifier whenFinalizeNotPaused() {
+        if (unresolvedState.batchIndex > 0) revert();
+        _;
+    }
+
     /***************
      * Constructor *
      ***************/
@@ -184,7 +211,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     constructor(
         uint64 _chainId,
         address _messageQueue,
-        address _verifier
+        address _verifier,
+        address _teeVerifier
     ) {
         if (_messageQueue == address(0) || _verifier == address(0)) {
             revert ErrorZeroAddress();
@@ -195,6 +223,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         layer2ChainId = _chainId;
         messageQueue = _messageQueue;
         verifier = _verifier;
+        teeVerifier = _teeVerifier;
     }
 
     /// @notice Initialize the storage of ScrollChain.
@@ -539,7 +568,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _aggrProof
-    ) external override OnlyProver whenNotPaused {
+    ) external override OnlyProver whenFinalizeNotPaused {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
@@ -583,9 +612,70 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 
+    /// @inheritdoc IScrollChain
+    function finalizeBundleWithTeeProof(
+        bytes calldata _batchHeader,
+        bytes32 _postStateRoot,
+        bytes32 _withdrawRoot,
+        bytes calldata _teeProof
+    ) external override OnlyProver whenFinalizeNotPaused {
+        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
+
+        // compute pending batch hash and verify
+        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
+
+        // check if this batch is finalized by zk proof.
+        bytes32 cachedStateRoot = finalizedStateRoots[_batchIndex];
+        if (cachedStateRoot == bytes32(0)) revert();
+
+        uint256 _finalizedBatchIndex = lastTeeFinalizedBatchIndex;
+        bytes memory _publicInput = abi.encodePacked(
+            layer2ChainId,
+            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
+            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
+            committedBatches[_finalizedBatchIndex], // _prevBatchHash
+            _postStateRoot,
+            _batchHash,
+            _withdrawRoot
+        );
+
+        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
+        IRollupVerifier(teeVerifier).verifyBundleProof(batchVersion, _batchIndex, _teeProof, _publicInput);
+
+        // check withdraw root and state root match with zk proof
+        if (withdrawRoots[_batchIndex] != _withdrawRoot || cachedStateRoot != _postStateRoot) {
+            unresolvedState.batchIndex = _batchIndex;
+            unresolvedState.stateRoot = _postStateRoot;
+            unresolvedState.withdrawRoot = _withdrawRoot;
+            return;
+        }
+
+        lastTeeFinalizedBatchIndex = _batchIndex;
+
+        emit FinalizeBatchWithTEEProof(_batchIndex);
+    }
+
     /************************
      * Restricted Functions *
      ************************/
+
+    function resolveStateMismatch(bool useSGXState) external onlyOwner {
+        UnresolvedState memory state = unresolvedState;
+        if (state.batchIndex == 0) revert();
+        if (useSGXState) {
+            finalizedStateRoots[state.batchIndex] = state.stateRoot;
+            withdrawRoots[state.batchIndex] = state.withdrawRoot;
+            emit ResolveState(state.batchIndex, state.stateRoot, state.withdrawRoot);
+        }
+
+        lastTeeFinalizedBatchIndex = state.batchIndex;
+        emit FinalizeBatchWithTEEProof(state.batchIndex);
+
+        // clear state
+        unresolvedState.batchIndex = 0;
+        unresolvedState.stateRoot = bytes32(0);
+        unresolvedState.withdrawRoot = bytes32(0);
+    }
 
     /// @notice Add an account to the sequencer list.
     /// @param _account The address of account to add.

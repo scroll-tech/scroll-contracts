@@ -26,6 +26,12 @@ interface IScrollChain {
     /// @param withdrawRoot The merkle root on layer2 after this batch.
     event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
 
+    /// @notice Emitted when a batch is finalized by tee proof.
+    /// @param batchIndex The index of the batch.
+    event FinalizeBatchWithTEEProof(uint256 indexed batchIndex);
+
+    event ResolveState(uint256 indexed batchIndex, bytes32 stateRoot, bytes32 withdrawRoot);
+
     /// @notice Emitted when owner updates the status of sequencer.
     /// @param account The address of account updated.
     /// @param status The status of the account updated.
@@ -47,6 +53,9 @@ interface IScrollChain {
 
     /// @return The latest finalized batch index.
     function lastFinalizedBatchIndex() external view returns (uint256);
+
+    /// @return The latest finalized batch index by tee proof.
+    function lastTeeFinalizedBatchIndex() external view returns (uint256);
 
     /// @param batchIndex The index of the batch.
     /// @return The batch hash of a committed batch.
@@ -139,5 +148,17 @@ interface IScrollChain {
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata aggrProof
+    ) external;
+
+    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 with TEE proof.
+    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
+    /// @param postStateRoot The state root after current bundle.
+    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param teeProof The tee proof for current bundle.
+    function finalizeBundleWithTeeProof(
+        bytes calldata batchHeader,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot,
+        bytes calldata teeProof
     ) external;
 }
