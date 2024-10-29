@@ -98,11 +98,11 @@ get_source_code_name() {
   fi
 }
 
-# Read the file line by line
+# read the file line by line
 while IFS= read -r line; do
   extract_contract_info "$line"
 
-  # only support L1 for now
+  # get contracts deployment layer
   if [[ "$contract_name" =~ ^L1 ]]; then
     layer="L1"
   elif [[ "$contract_name" =~ ^L2 ]]; then
@@ -112,31 +112,32 @@ while IFS= read -r line; do
       layer="L1"
     fi
   else
-    echo "Wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
+    echo "wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
     continue
   fi
 
   source_code_name=$(get_source_code_name $contract_name)
 
-  # skip if contract_name or line_addr is empty
+  # skip if source_code_name or contract_addr is empty
   if [[ -z $source_code_name || -z $contract_addr ]]; then
-    echo "Empty source_code_name: $source_code_name or contract_addr: $contract_addr"
+    echo "empty source_code_name: $source_code_name or contract_addr: $contract_addr"
     continue
   fi
 
-  echo "\nverifing contract $contract_name with address $contract_addr on $layer"
+  # verify contract
+  echo ""
+  echo "verifing contract $contract_name with address $contract_addr on $layer"
   EXTRA_PARAMS=""
   if [[ "$layer" == "L1" ]]; then
-    if [[ "$VERIFIER_TYPE_L1" != "etherscan" ]]; then
-      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L1"
+    if [[ "$VERIFIER_TYPE_L1" != "etherscan" && "$VERIFIER_TYPE_L1" != "" ]]; then
+      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch --etherscan-api-key $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check --etherscan-api-key $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
     echo "Pass"
-    if [[ "$VERIFIER_TYPE_L2" != "etherscan" ]]; then
-      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2"
+    if [[ "$VERIFIER_TYPE_L2" != "etherscan" && "$VERIFIER_TYPE_L2" != "" ]]; then
+      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
-   #forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch --etherscan-api-key $EXPLORER_API_KEY_L2 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch $EXPLORER_API_KEY_L2 --guess-constructor-args --skip-is-verified-check --etherscan-api-key $EXTRA_PARAMS
   fi
-  
 done < ./volume/config-contracts.toml
