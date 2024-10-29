@@ -105,6 +105,7 @@ contract DeployScroll is DeterministicDeployment {
     address internal L1_WETH_GATEWAY_IMPLEMENTATION_ADDR;
     address internal L1_WETH_GATEWAY_PROXY_ADDR;
     address internal L1_WHITELIST_ADDR;
+    address internal L1_PLONK_VERIFIER_ADDR;
     address internal L1_ZKEVM_VERIFIER_V2_ADDR;
     address internal L1_GAS_TOKEN_ADDR;
     address internal L1_GAS_TOKEN_GATEWAY_IMPLEMENTATION_ADDR;
@@ -336,6 +337,7 @@ contract DeployScroll is DeterministicDeployment {
         deployL1ScrollChainProxy();
         deployL1ScrollMessengerProxy();
         deployL1EnforcedTxGateway();
+        deployL1PlonkVerifier();
         deployL1ZkEvmVerifier();
         deployL1MultipleVersionRollupVerifier();
         deployL1MessageQueue();
@@ -515,6 +517,10 @@ contract DeployScroll is DeterministicDeployment {
             type(TransparentUpgradeableProxy).creationCode,
             args
         );
+    }
+
+    function deployL1PlonkVerifier() private {
+        L1_PLONK_VERIFIER_ADDR = deploy("L1_PLONK_VERIFIER", PLONK_VERIFIER_CREATION_CODE);
     }
 
     function deployL1ZkEvmVerifier() private {
