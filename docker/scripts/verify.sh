@@ -134,7 +134,6 @@ while IFS= read -r line; do
     fi
     forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check --etherscan-api-key $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
-    echo "Pass"
     if [[ "$VERIFIER_TYPE_L2" != "etherscan" && "$VERIFIER_TYPE_L2" != "" ]]; then
       EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
