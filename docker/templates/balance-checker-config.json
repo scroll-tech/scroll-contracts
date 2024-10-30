@@ -4,37 +4,43 @@
       "rpc_url": "${SCROLL_L1_RPC}",
       "min_balance_ether": "10",
       "address": "${L1_COMMIT_SENDER_ADDRESS}",
-      "name": "L1_COMMIT_SENDER"
+      "name": "L1_COMMIT_SENDER",
+      "confirmation_number": 1
     },
     {
       "rpc_url": "${SCROLL_L1_RPC}",
       "min_balance_ether": "10",
       "address": "${L1_FINALIZE_SENDER_ADDRESS}",
-      "name": "L1_FINALIZE_SENDER"
+      "name": "L1_FINALIZE_SENDER",
+      "confirmation_number": 1
     },
     {
       "rpc_url": "${SCROLL_L1_RPC}",
       "min_balance_ether": "1.1",
       "address": "${L1_GAS_ORACLE_SENDER_ADDRESS}",
-      "name": "L1_GAS_ORACLE_SENDER"
+      "name": "L1_GAS_ORACLE_SENDER",
+      "confirmation_number": 1
     },
     {
       "rpc_url": "${SCROLL_L1_RPC}",
       "min_balance_ether": "0",
       "address": "${L1_SCROLL_FEE_VAULT_ADDRESS}",
-      "name": "L1_SCROLL_FEE_VAULT"
+      "name": "L1_SCROLL_FEE_VAULT",
+      "confirmation_number": 1
     },
     {
       "rpc_url": "${SCROLL_L2_RPC}",
       "min_balance_ether": "1.1",
       "address": "${L2_GAS_ORACLE_SENDER_ADDRESS}",
-      "name": "L2_GAS_ORACLE_SENDER"
+      "name": "L2_GAS_ORACLE_SENDER",
+      "confirmation_number": 1
     },
     {
       "rpc_url": "${SCROLL_L2_RPC}",
       "min_balance_ether": "0",
       "address": "${L2_TX_FEE_VAULT_ADDR}",
-      "name": "L2_TX_FEE_VAULT"
+      "name": "L2_TX_FEE_VAULT",
+      "confirmation_number": 1
     }
   ],
   "JOB_INTERVAL_SECS": 60,
