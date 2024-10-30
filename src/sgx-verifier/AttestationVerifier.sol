@@ -8,9 +8,9 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {IAttestationVerifier} from "./IAttestationVerifier.sol";
 import {IDcapAttestation} from "./IDcapAttestation.sol";
 
-import {BELE} from "./utils/BELE.sol";
 import {BytesUtils} from "./utils/BytesUtils.sol";
 
+/// @dev This contract is modified from https://github.com/automata-network/scroll-prover/blob/demo/contracts/src/core/AttestationVerifier.sol
 contract AttestationVerifier is Ownable, IAttestationVerifier {
     using BytesUtils for bytes;
     using EnumerableSet for EnumerableSet.Bytes32Set;
@@ -19,47 +19,33 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
      * Errors *
      **********/
 
+    /// @dev Thrown when the given attestation report is invalid.
     error ErrorInvalidReport();
 
-    error ErrorInvalidReportData();
-
+    /// @dev Thrown when the user data from the attestation report mismatch.
     error ErrorReportDataMismatch();
 
+    /// @dev Thrown when the MrSigner from the attestation report is invalid.
     error ErrorInvalidMrSigner();
 
+    /// @dev Thrown when the MrSigner from the attestation report is invalid.
     error ErrorInvalidMrEnclave();
 
     /***********************
      * Immutable Variables *
      ***********************/
 
+    /// @notice The address of automata's DCAP Attestation contract.
     IDcapAttestation public immutable attestationVerifier;
-
-    /***********
-     * Structs *
-     ***********/
-
-    struct EnclaveReport {
-        bytes16 cpuSvn;
-        bytes4 miscSelect;
-        bytes28 reserved1;
-        bytes16 attributes;
-        bytes32 mrEnclave;
-        bytes32 reserved2;
-        bytes32 mrSigner;
-        bytes reserved3; // 96 bytes
-        uint16 isvProdId;
-        uint16 isvSvn;
-        bytes reserved4; // 60 bytes
-        bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation of attestation key and QEAuthData
-    }
 
     /*********************
      * Storage Variables *
      *********************/
 
+    /// @dev The list of trusted enclaves.
     EnumerableSet.Bytes32Set private trustedUserMrEnclave;
 
+    /// @dev The list of trusted signers.
     EnumerableSet.Bytes32Set private trustedUserMrSigner;
 
     /***************
@@ -109,17 +95,15 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
             revert ErrorInvalidReport();
         }
 
-        EnclaveReport memory report = extractEnclaveReport(output);
-        bytes32 reportUserData = report.reportData.readBytes32(32);
+        (bytes32 reportUserData, bytes32 mrEnclave, bytes32 mrSigner) = extractEnclaveReport(output);
         if (reportUserData != _userData) {
             revert ErrorReportDataMismatch();
         }
-
         // check local enclave report
-        if (!isTrustedMrEnclave(report.mrEnclave)) {
+        if (!isTrustedMrEnclave(mrEnclave)) {
             revert ErrorInvalidMrEnclave();
         }
-        if (!isTrustedMrSigner(report.mrSigner)) {
+        if (!isTrustedMrSigner(mrSigner)) {
             revert ErrorInvalidMrSigner();
         }
     }
@@ -128,7 +112,11 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
      * Restricted Functions *
      ************************/
 
+    /// @notice Update the status of a signer.
+    /// @param _mrSigner The signer to update.
+    /// @param _status The new status to update. If it is `true`, the signer is trusted.
     function updateMrSigner(bytes32 _mrSigner, bool _status) external onlyOwner {
+        // @note No need to check the previous status, offline owner will make sure this tx is meaningful.
         if (_status) {
             trustedUserMrSigner.add(_mrSigner);
         } else {
@@ -138,7 +126,11 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
         emit UpdateMrSigner(_mrSigner, _status);
     }
 
+    /// @notice Update the status of an enclave.
+    /// @param _mrEnclave The enclave to update.
+    /// @param _status The new status to update. If it is `true`, the enclave is trusted.
     function updateMrEnclave(bytes32 _mrEnclave, bool _status) external onlyOwner {
+        // @note No need to check the previous status, offline owner will make sure this tx is meaningful.
         if (_status) {
             trustedUserMrEnclave.add(_mrEnclave);
         } else {
@@ -152,20 +144,50 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
      * Internal Functions *
      **********************/
 
-    function extractEnclaveReport(bytes memory output) internal pure returns (EnclaveReport memory) {
-        uint256 offset = 13;
-        uint256 len = output.length - offset;
-        return parseEnclaveReport(output.substring(13, len));
-    }
-
-    // todo: optimize with assembly
-    function parseEnclaveReport(bytes memory rawEnclaveReport)
+    /// @dev Internal function to extract `reportUserData`, `mrEnclave` and `mrSigner` from report.
+    function extractEnclaveReport(bytes memory rawEnclaveReport)
         internal
         pure
-        returns (EnclaveReport memory enclaveReport)
+        returns (
+            bytes32 reportUserData,
+            bytes32 mrEnclave,
+            bytes32 mrSigner
+        )
     {
+        // @note the actual length is 384, but we have extra 13 bytes at the beginning.
+        if (rawEnclaveReport.length != 397) {
+            revert ErrorInvalidReport();
+        }
+
+        // @dev Below codes can be further optimized with assembly codes, but not necessary.
+        // @note The actual offsets are `64`, `128` and `320`, but we have extra 13 bytes at the beginning.
+        // The offsets used here become `77`, `141` and `333`.
+        mrEnclave = bytes32(rawEnclaveReport.substring(77, 32));
+        mrSigner = bytes32(rawEnclaveReport.substring(141, 32));
+        reportUserData = rawEnclaveReport.substring(333, 64).readBytes32(32);
+    }
+
+    /* for reference
+    struct EnclaveReport {
+        bytes16 cpuSvn;
+        bytes4 miscSelect;
+        bytes28 reserved1;
+        bytes16 attributes;
+        bytes32 mrEnclave;
+        bytes32 reserved2;
+        bytes32 mrSigner;
+        bytes reserved3; // 96 bytes
+        uint16 isvProdId;
+        uint16 isvSvn;
+        bytes reserved4; // 60 bytes
+        bytes reportData; // 64 bytes - For QEReports, this contains the hash of the concatenation of attestation key and QEAuthData
+    }
+
+    function parseEnclaveReport(
+        bytes memory rawEnclaveReport
+    ) internal pure returns (EnclaveReport memory enclaveReport) {
         if (rawEnclaveReport.length != 384) {
-            revert ErrorInvalidReportData();
+            revert ErrorInvalidReport();
         }
 
         enclaveReport.cpuSvn = bytes16(rawEnclaveReport.substring(0, 16));
@@ -181,4 +203,5 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
         enclaveReport.reserved4 = rawEnclaveReport.substring(260, 60);
         enclaveReport.reportData = rawEnclaveReport.substring(320, 64);
     }
+    */
 }

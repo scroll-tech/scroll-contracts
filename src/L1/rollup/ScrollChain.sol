@@ -105,9 +105,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the given address is `address(0)`.
     error ErrorZeroAddress();
 
-    error ErrorWithdrawRootMismatch();
+    /// @dev Thrown when no unresolved state exists.
+    error ErrorNoUnresolvedState();
 
-    error ErrorStateRootMismatch();
+    /// @dev Thrown when the finalization is paused.
+    error ErrorFinalizationPaused();
+
+    /// @dev Thrown when the batch is not finalized with zk proof.
+    error ErrorBatchNotFinalizedWithZKProof();
 
     /*************
      * Constants *
@@ -195,7 +200,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     modifier whenFinalizeNotPaused() {
-        if (unresolvedState.batchIndex > 0) revert();
+        if (unresolvedState.batchIndex > 0) revert ErrorFinalizationPaused();
         _;
     }
 
@@ -619,14 +624,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _withdrawRoot,
         bytes calldata _teeProof
     ) external override OnlyProver whenFinalizeNotPaused {
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
-
         // compute pending batch hash and verify
         (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
 
         // check if this batch is finalized by zk proof.
         bytes32 cachedStateRoot = finalizedStateRoots[_batchIndex];
-        if (cachedStateRoot == bytes32(0)) revert();
+        if (cachedStateRoot == bytes32(0)) {
+            revert ErrorBatchNotFinalizedWithZKProof();
+        }
 
         uint256 _finalizedBatchIndex = lastTeeFinalizedBatchIndex;
         bytes memory _publicInput = abi.encodePacked(
@@ -659,9 +664,16 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      * Restricted Functions *
      ************************/
 
+    /// @notice Resolve mismatched state.
+    ///
+    /// @dev This should only be called by Security Council.
+    ///
+    /// @param useSGXState Whether we want to use the state root from SGX prover.
     function resolveStateMismatch(bool useSGXState) external onlyOwner {
         UnresolvedState memory state = unresolvedState;
-        if (state.batchIndex == 0) revert();
+        if (state.batchIndex == 0) {
+            revert ErrorNoUnresolvedState();
+        }
         if (useSGXState) {
             finalizedStateRoots[state.batchIndex] = state.stateRoot;
             withdrawRoots[state.batchIndex] = state.withdrawRoot;
