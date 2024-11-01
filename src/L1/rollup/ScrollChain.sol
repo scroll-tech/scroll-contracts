@@ -182,6 +182,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     uint256 public override lastTeeFinalizedBatchIndex;
 
+    /// @notice The state for mismatched batch
     UnresolvedState public unresolvedState;
 
     /**********************
@@ -250,6 +251,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         __messageQueue = _messageQueue;
 
         emit UpdateMaxNumTxInChunk(0, _maxNumTxInChunk);
+    }
+
+    function initializeV2() external reinitializer(2) {
+        lastTeeFinalizedBatchIndex = lastFinalizedBatchIndex;
+        emit FinalizeBatchWithTEEProof(lastFinalizedBatchIndex);
     }
 
     /*************************
@@ -634,6 +640,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         uint256 _finalizedBatchIndex = lastTeeFinalizedBatchIndex;
+        if (_batchIndex <= _finalizedBatchIndex) {
+            revert ErrorBatchIsAlreadyVerified();
+        }
+
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
             uint32(_batchIndex - _finalizedBatchIndex), // numBatches
@@ -652,6 +662,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             unresolvedState.batchIndex = _batchIndex;
             unresolvedState.stateRoot = _postStateRoot;
             unresolvedState.withdrawRoot = _withdrawRoot;
+            emit StateMismatch(_batchIndex, _postStateRoot, _withdrawRoot);
             return;
         }
 

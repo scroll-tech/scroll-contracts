@@ -32,6 +32,9 @@ contract ScrollChainTest is DSTestPlus {
     event CommitBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
     event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
     event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
+    event FinalizeBatchWithTEEProof(uint256 indexed batchIndex);
+    event StateMismatch(uint256 indexed batchIndex, bytes32 stateRoot, bytes32 withdrawRoot);
+    event ResolveState(uint256 indexed batchIndex, bytes32 stateRoot, bytes32 withdrawRoot);
 
     ProxyAdmin internal admin;
     EmptyContract private placeholder;
@@ -189,7 +192,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // this is keccak("");
@@ -255,7 +259,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -387,7 +392,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -739,7 +745,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -805,7 +812,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -883,6 +891,233 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
     }
 
+    function testFinalizeBundleWithTeeProof() external {
+        // caller not prover, revert
+        hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
+        rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+
+        rollup.addProver(address(0));
+        rollup.addSequencer(address(0));
+
+        // import genesis batch
+        bytes memory batchHeader0 = new bytes(89);
+        assembly {
+            mstore(add(batchHeader0, add(0x20, 25)), 1)
+        }
+        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
+
+        // upgrade to ScrollChainMockBlob
+        MockRollupVerifier sgxVerifier = new MockRollupVerifier();
+        ScrollChainMockBlob impl = new ScrollChainMockBlob(
+            rollup.layer2ChainId(),
+            rollup.messageQueue(),
+            rollup.verifier(),
+            address(sgxVerifier)
+        );
+        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
+        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
+        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
+        bytes
+            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
+
+        bytes[] memory chunks = new bytes[](1);
+        bytes memory chunk0;
+
+        bytes32 batchHash0 = rollup.committedBatches(0);
+        bytes memory batchHeader1 = new bytes(193);
+        assembly {
+            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
+            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
+            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
+            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
+            mstore(add(batchHeader1, add(0x20, 121)), 0) // lastBlockTimestamp
+            mcopy(add(batchHeader1, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
+        }
+        // hash is ed32768c5f910a11edaf1c1ec0c0da847def9d24e0a24567c3c3d284061cf935
+
+        // commit one batch
+        chunk0 = new bytes(1 + 60);
+        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
+        chunks[0] = chunk0;
+        hevm.startPrank(address(0));
+        assertEq(rollup.committedBatches(1), bytes32(0));
+        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        hevm.stopPrank();
+        assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
+
+        // finalize with zk proof
+        assertBoolEq(rollup.isBatchFinalized(1), false);
+        hevm.startPrank(address(0));
+        rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        hevm.stopPrank();
+        assertBoolEq(rollup.isBatchFinalized(1), true);
+        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
+        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
+        assertEq(rollup.lastFinalizedBatchIndex(), 1);
+
+        // revert, when ErrorCallerIsNotProver
+        hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
+        rollup.finalizeBundleWithTeeProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+
+        // revert when ErrorBatchHeaderV3LengthMismatch
+        bytes memory header = new bytes(192);
+        assembly {
+            mstore8(add(header, 0x20), 3) // version
+        }
+        hevm.startPrank(address(0));
+        hevm.expectRevert(BatchHeaderV3Codec.ErrorBatchHeaderV3LengthMismatch.selector);
+        rollup.finalizeBundleWithTeeProof(header, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
+        hevm.stopPrank();
+
+        // revert when ErrorIncorrectBatchHash
+        batchHeader1[1] = bytes1(uint8(1)); // change random byte
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
+        hevm.stopPrank();
+        batchHeader1[1] = bytes1(uint8(0)); // change back
+
+        // revert when ErrorBatchNotFinalizedWithZKProof
+        hevm.startPrank(address(0));
+        batchHeader1[8] = bytes1(uint8(2)); // batch index change to 2
+        ScrollChainMockBlob(address(rollup)).setCommittedBatches(2, keccak256(batchHeader1));
+        hevm.expectRevert(ScrollChain.ErrorBatchNotFinalizedWithZKProof.selector);
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
+        batchHeader1[8] = bytes1(uint8(1)); // batch index change back
+        hevm.stopPrank();
+
+        // succeed on batch 1
+        hevm.startPrank(address(0));
+        hevm.expectEmit(true, false, false, true);
+        emit FinalizeBatchWithTEEProof(1);
+        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        assertEq(rollup.lastTeeFinalizedBatchIndex(), 1);
+        hevm.stopPrank();
+
+        // revert when ErrorBatchIsAlreadyVerified
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        hevm.stopPrank();
+    }
+
+    function testFinalizeBundleWithTeeProofMismatch() external {
+        rollup.addProver(address(0));
+        rollup.addSequencer(address(0));
+
+        // import genesis batch
+        bytes memory batchHeader0 = new bytes(89);
+        assembly {
+            mstore(add(batchHeader0, add(0x20, 25)), 1)
+        }
+        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
+
+        // upgrade to ScrollChainMockBlob
+        MockRollupVerifier sgxVerifier = new MockRollupVerifier();
+        ScrollChainMockBlob impl = new ScrollChainMockBlob(
+            rollup.layer2ChainId(),
+            rollup.messageQueue(),
+            rollup.verifier(),
+            address(sgxVerifier)
+        );
+        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
+        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
+        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
+        bytes
+            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
+
+        bytes[] memory chunks = new bytes[](1);
+        bytes memory chunk0;
+
+        bytes32 batchHash0 = rollup.committedBatches(0);
+        bytes memory batchHeader1 = new bytes(193);
+        assembly {
+            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
+            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
+            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
+            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
+            mstore(add(batchHeader1, add(0x20, 121)), 0) // lastBlockTimestamp
+            mcopy(add(batchHeader1, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
+        }
+        // hash is ed32768c5f910a11edaf1c1ec0c0da847def9d24e0a24567c3c3d284061cf935
+
+        // commit one batch
+        chunk0 = new bytes(1 + 60);
+        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
+        chunks[0] = chunk0;
+        hevm.startPrank(address(0));
+        assertEq(rollup.committedBatches(1), bytes32(0));
+        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        hevm.stopPrank();
+        assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
+
+        // finalize with zk proof
+        assertBoolEq(rollup.isBatchFinalized(1), false);
+        hevm.startPrank(address(0));
+        rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        hevm.stopPrank();
+        assertBoolEq(rollup.isBatchFinalized(1), true);
+        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
+        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
+        assertEq(rollup.lastFinalizedBatchIndex(), 1);
+
+        // revert, caller not owner
+        hevm.startPrank(address(1));
+        hevm.expectRevert("Ownable: caller is not the owner");
+        rollup.resolveStateMismatch(true);
+        hevm.stopPrank();
+
+        // revert, ErrorNoUnresolvedState
+        hevm.expectRevert(ScrollChain.ErrorNoUnresolvedState.selector);
+        rollup.resolveStateMismatch(true);
+
+        // mismatch on batch 1
+        hevm.startPrank(address(0));
+        hevm.expectEmit(true, false, false, true);
+        emit StateMismatch(1, bytes32(uint256(3)), bytes32(uint256(4)));
+        (uint256 unresolvedBatchIndex, bytes32 unresolvedStateRoot, bytes32 unresolvedWithdrawRoot) = rollup
+            .unresolvedState();
+        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        assertEq(unresolvedBatchIndex, 0);
+        assertEq(unresolvedStateRoot, bytes32(0));
+        assertEq(unresolvedWithdrawRoot, bytes32(0));
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(3)), bytes32(uint256(4)), new bytes(0));
+        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        (unresolvedBatchIndex, unresolvedStateRoot, unresolvedWithdrawRoot) = rollup.unresolvedState();
+        assertEq(unresolvedBatchIndex, 1);
+        assertEq(unresolvedStateRoot, bytes32(uint256(3)));
+        assertEq(unresolvedWithdrawRoot, bytes32(uint256(4)));
+        hevm.stopPrank();
+
+        // revert when ErrorFinalizationPaused
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorFinalizationPaused.selector);
+        rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        hevm.stopPrank();
+
+        // resolveStateMismatch with tee state
+        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
+        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
+        hevm.expectEmit(true, false, false, true);
+        emit FinalizeBatchWithTEEProof(1);
+        rollup.resolveStateMismatch(true);
+        assertEq(rollup.withdrawRoots(1), bytes32(uint256(4)));
+        assertEq(rollup.lastTeeFinalizedBatchIndex(), 1);
+        (unresolvedBatchIndex, unresolvedStateRoot, unresolvedWithdrawRoot) = rollup.unresolvedState();
+        assertEq(unresolvedBatchIndex, 0);
+        assertEq(unresolvedStateRoot, bytes32(0));
+        assertEq(unresolvedWithdrawRoot, bytes32(0));
+    }
+
     function _commitBatchV3()
         internal
         returns (
@@ -903,7 +1138,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -1203,7 +1439,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
         // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
@@ -1415,7 +1652,8 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueue(),
-            rollup.verifier()
+            rollup.verifier(),
+            address(0)
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
 
@@ -1592,10 +1830,6 @@ contract ScrollChainTest is DSTestPlus {
         rollup.commitBatch(1, new bytes(0), new bytes[](0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
         rollup.commitBatchWithBlobProof(3, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
-        hevm.expectRevert("Pausable: paused");
-        rollup.finalizeBatchWithProof4844(new bytes(0), bytes32(0), bytes32(0), bytes32(0), new bytes(0), new bytes(0));
-        hevm.expectRevert("Pausable: paused");
-        rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
         hevm.stopPrank();
 
         // unpause

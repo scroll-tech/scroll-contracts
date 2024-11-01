@@ -30,6 +30,16 @@ interface IScrollChain {
     /// @param batchIndex The index of the batch.
     event FinalizeBatchWithTEEProof(uint256 indexed batchIndex);
 
+    /// @notice Emitted when state between zk proof and tee proof mismatch
+    /// @param batchIndex The index of the batch.
+    /// @param stateRoot The state root from tee proof.
+    /// @param withdrawRoot The correct withdraw root from tee proof.
+    event StateMismatch(uint256 indexed batchIndex, bytes32 stateRoot, bytes32 withdrawRoot);
+
+    /// @notice Emitted when mismatched state is resolved.
+    /// @param batchIndex The index of the batch.
+    /// @param stateRoot The correct state root.
+    /// @param withdrawRoot The correct withdraw root.
     event ResolveState(uint256 indexed batchIndex, bytes32 stateRoot, bytes32 withdrawRoot);
 
     /// @notice Emitted when owner updates the status of sequencer.
