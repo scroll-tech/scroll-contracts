@@ -4,8 +4,8 @@
 config_file="./volume/config.toml"
 CHAIN_ID_L1=$(grep -E "^CHAIN_ID_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
 CHAIN_ID_L2=$(grep -E "^CHAIN_ID_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2-)
-L1_RPC_ENDPOINT=$(grep -E "^L1_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
-L2_RPC_ENDPOINT=$(grep -E "^L2_RPC_ENDPOINT =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+RPC_URI_L1=$(grep -E "^RPC_URI_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
+RPC_URI_L2=$(grep -E "^RPC_URI_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 VERIFIER_TYPE_L1=$(grep -E "^VERIFIER_TYPE_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 VERIFIER_TYPE_L2=$(grep -E "^VERIFIER_TYPE_L2 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
 EXPLORER_URI_L1=$(grep -E "^EXPLORER_URI_L1 =" "$config_file" | sed 's/ *= */=/' | cut -d'=' -f2- | tr -d '"')
@@ -132,11 +132,12 @@ while IFS= read -r line; do
     if [[ "$VERIFIER_TYPE_L1" != "etherscan" && "$VERIFIER_TYPE_L1" != "" ]]; then
       EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $L1_RPC_ENDPOINT --chain-id $CHAIN_ID_L1 --watch --api-key $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --api-key $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
     if [[ "$VERIFIER_TYPE_L2" != "etherscan" && "$VERIFIER_TYPE_L2" != "" ]]; then
       EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $L2_RPC_ENDPOINT --chain-id $CHAIN_ID_L2 --watch --api-key $EXPLORER_API_KEY_L2 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    echo "forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS"
+    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   fi
 done < ./volume/config-contracts.toml
