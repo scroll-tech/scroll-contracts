@@ -2,7 +2,7 @@
 /* eslint-disable node/no-missing-import */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { hexlify } from "ethers";
+import { hexlify, ZeroAddress } from "ethers";
 import fs from "fs";
 import { ethers } from "hardhat";
 
@@ -95,7 +95,12 @@ describe("ZkEvmVerifierV2", async () => {
         const chainProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), admin.getAddress(), "0x");
 
         const ScrollChainMockBlob = await ethers.getContractFactory("ScrollChainMockBlob", deployer);
-        const chainImpl = await ScrollChainMockBlob.deploy(layer2ChainId, deployer.address, verifier.getAddress());
+        const chainImpl = await ScrollChainMockBlob.deploy(
+          layer2ChainId,
+          deployer.address,
+          verifier.getAddress(),
+          ZeroAddress
+        );
         await admin.upgrade(chainProxy.getAddress(), chainImpl.getAddress());
 
         chain = await ethers.getContractAt("ScrollChainMockBlob", await chainProxy.getAddress(), deployer);

@@ -71,7 +71,7 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
     }
 
     /// @inheritdoc IAttestationVerifier
-    function getTrustedMrSigner() external view returns (bytes32[] memory signers) {
+    function getTrustedMrSigners() external view returns (bytes32[] memory signers) {
         uint256 length = trustedUserMrSigner.length();
         signers = new bytes32[](length);
         for (uint256 i = 0; i < length; i++) {
@@ -80,7 +80,7 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
     }
 
     /// @inheritdoc IAttestationVerifier
-    function getTrustedMrEnclave() external view returns (bytes32[] memory enclaves) {
+    function getTrustedMrEnclaves() external view returns (bytes32[] memory enclaves) {
         uint256 length = trustedUserMrEnclave.length();
         enclaves = new bytes32[](length);
         for (uint256 i = 0; i < length; i++) {

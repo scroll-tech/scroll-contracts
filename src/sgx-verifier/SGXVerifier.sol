@@ -35,7 +35,7 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
      *************/
 
     /// @dev The role for prover registration.
-    bytes32 PROVER_REGISTER_ROLE = keccak256("PROVER_REGISTER_ROLE");
+    bytes32 public PROVER_REGISTER_ROLE = keccak256("PROVER_REGISTER_ROLE");
 
     /// @dev type hash for struct `ProveBundleSignatureData`.
     bytes32 private constant _BUNDLE_PAYLOAD_TYPEHASH =

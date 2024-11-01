@@ -30,10 +30,10 @@ interface IAttestationVerifier {
     function isTrustedMrEnclave(bytes32 mrEnclave) external view returns (bool);
 
     /// @notice Return the list of trusted signers.
-    function getTrustedMrSigner() external view returns (bytes32[] memory signers);
+    function getTrustedMrSigners() external view returns (bytes32[] memory signers);
 
     /// @notice Return the list of trusted enclaves.
-    function getTrustedMrEnclave() external view returns (bytes32[] memory enclaves);
+    function getTrustedMrEnclaves() external view returns (bytes32[] memory enclaves);
 
     /// @notice Verify attestation report.
     ///
