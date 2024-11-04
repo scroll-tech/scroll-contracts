@@ -129,15 +129,23 @@ while IFS= read -r line; do
   echo "verifing contract $contract_name with address $contract_addr on $layer"
   EXTRA_PARAMS=""
   if [[ "$layer" == "L1" ]]; then
-    if [[ "$VERIFIER_TYPE_L1" != "etherscan" && "$VERIFIER_TYPE_L1" != "" ]]; then
-      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
+    if [[ "$VERIFIER_TYPE_L1" == "etherscan" ]]; then
+      EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L1"
+    elif [[ "$VERIFIER_TYPE_L1" == "blockscout" ]]; then
+      EXTRA_PARAMS="--verifier-url ${EXPLORER_URI_L1}/api/ --verifier $VERIFIER_TYPE_L1"
+    elif [[ "$VERIFIER_TYPE_L1" == "sourcify" ]]; then
+      EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L1 --verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
     fi
-    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --api-key $EXPLORER_API_KEY_L1 --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
-    if [[ "$VERIFIER_TYPE_L2" != "etherscan" && "$VERIFIER_TYPE_L2" != "" ]]; then
-      EXTRA_PARAMS="--verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
+    if [[ "$VERIFIER_TYPE_L2" == "etherscan" ]]; then
+      EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2"
+    elif [[ "$VERIFIER_TYPE_L2" == "blockscout" ]]; then
+      EXTRA_PARAMS="--verifier-url ${EXPLORER_URI_L2}/api/ --verifier $VERIFIER_TYPE_L2"
+    elif [[ "$VERIFIER_TYPE_L2" == "sourcify" ]]; then
+      EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2 --verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
     echo "forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS"
-    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   fi
 done < ./volume/config-contracts.toml
