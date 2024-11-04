@@ -28,7 +28,7 @@ forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L
 # simulate L2
 echo ""
 echo "simulating on L2"
-# forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT" --sig "run(string,string)" "L2" "verify-config" --legacy || exit 1
+forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT" --sig "run(string,string)" "L2" "verify-config" --legacy || exit 1
 
 # deploy L1
 echo ""
@@ -38,7 +38,7 @@ forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L
 # deploy L2
 echo ""
 echo "deploying on L2"
-# forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT"  --batch-size "$BATCH_SIZE" --sig "run(string,string)" "L2" "verify-config" --broadcast --legacy || exit 1
+forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT"  --batch-size "$BATCH_SIZE" --sig "run(string,string)" "L2" "verify-config" --broadcast --legacy || exit 1
 
 # log broadcast files
 echo "" 
