@@ -40,9 +40,6 @@ ENV FOUNDRY_BYTECODE_HASH="none"
 WORKDIR /contracts
 RUN forge build
 
-# copy script configs
-COPY ./docker/templates/config-contracts.toml /contracts/docker/templates/config-contracts.toml
+COPY ./docker/scripts/verify.sh /contracts/docker/scripts/verify.sh
 
-COPY ./docker/scripts/deploy.sh /contracts/docker/scripts/deploy.sh
-
-ENTRYPOINT ["/bin/bash", "/contracts/docker/scripts/deploy.sh"]
+ENTRYPOINT ["/bin/bash", "/contracts/docker/scripts/verify.sh"]

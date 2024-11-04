@@ -63,3 +63,16 @@ jobs:
           file: docker/Dockerfile.gen-configs
           tags: |
             ${{ env.REPOSITORY }}:gen-configs-${{ github.sha }}
+
+      - name: Build verify image
+        id: build_verify_image
+        env:
+          REPOSITORY: scrolltech/scroll-stack-contracts
+        uses: docker/build-push-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+          push: true
+          context: .
+          file: docker/Dockerfile.verify
+          tags: |
+            ${{ env.REPOSITORY }}:verify-${{ github.sha }}
