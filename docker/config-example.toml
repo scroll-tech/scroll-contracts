@@ -113,8 +113,8 @@ EXPLORER_URI_L1 = "http://l1-explorer.scrollsdk"
 EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
 RPC_URI_L1 = "http://l1-devnet.scrollsdk"
 RPC_URI_L2 = "http://l2-rpc.scrollsdk"
-EXPLORER_API_KEY_L1 = "D5N28UZ7XQ9UBP8364QEXT77PK8AYKB2BR"
-EXPLORER_API_KEY_L2 = "D5N28UZ7XQ9UBP8364QEXT77PK8AYKB2BR"
+EXPLORER_API_KEY_L1 = ""
+EXPLORER_API_KEY_L2 = ""
 
 [coordinator]
 
