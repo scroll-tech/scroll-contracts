@@ -136,7 +136,7 @@ while IFS= read -r line; do
     elif [[ "$VERIFIER_TYPE_L1" == "sourcify" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L1 --verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
     fi
-    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
     if [[ "$VERIFIER_TYPE_L2" == "etherscan" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2"
