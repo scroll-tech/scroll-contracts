@@ -145,7 +145,6 @@ while IFS= read -r line; do
     elif [[ "$VERIFIER_TYPE_L2" == "sourcify" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2 --verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
-    echo "forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS"
     forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   fi
 done < ./volume/config-contracts.toml
