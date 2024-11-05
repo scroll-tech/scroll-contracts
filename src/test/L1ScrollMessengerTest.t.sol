@@ -95,7 +95,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.expectRevert("Provided message has not been enqueued");
         l1Messenger.replayMessage(address(this), address(0), 101, 0, new bytes(0), defaultGasLimit, refundAddress);
 
-        messageQueue.setL2BaseFee(1);
+        _setL2BaseFee(1);
         // Insufficient msg.value
         hevm.expectRevert("Insufficient msg.value for fee");
         l1Messenger.replayMessage(address(this), address(0), 100, 0, new bytes(0), defaultGasLimit, refundAddress);
@@ -134,7 +134,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         // test replay list
         // 1. send a message with nonce 2
         // 2. replay 3 times
-        messageQueue.setL2BaseFee(0);
+        _setL2BaseFee(0);
         l1Messenger.updateMaxReplayTimes(100);
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
         bytes32 hash = keccak256(

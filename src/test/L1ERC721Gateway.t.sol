@@ -680,7 +680,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         hevm.expectRevert("no corresponding l2 token");
@@ -743,7 +743,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         hevm.expectRevert("no corresponding l2 token");
@@ -805,7 +805,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         uint256[] memory _tokenIds = new uint256[](tokenCount);
@@ -880,7 +880,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         uint256[] memory _tokenIds = new uint256[](tokenCount);

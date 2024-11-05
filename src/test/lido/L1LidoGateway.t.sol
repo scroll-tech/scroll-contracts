@@ -522,7 +522,7 @@ contract L1LidoGatewayTest is L1GatewayTestBase {
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
         feePerGas = feePerGas * gasLimit;
 
         // revert when reentrant

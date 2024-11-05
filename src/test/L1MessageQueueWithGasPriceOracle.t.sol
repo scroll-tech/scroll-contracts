@@ -15,8 +15,7 @@ import {ScrollTestBase} from "./ScrollTestBase.t.sol";
 
 contract L1MessageQueueWithGasPriceOracleTest is ScrollTestBase {
     // events
-    event UpdateWhitelistChecker(address indexed _oldWhitelistChecker, address indexed _newWhitelistChecker);
-    event UpdateL2BaseFee(uint256 oldL2BaseFee, uint256 newL2BaseFee);
+    event UpdateL2BaseFeeParameters(uint256 overhead, uint256 scalar);
 
     L1MessageQueueWithGasPriceOracle private queue;
     L2GasPriceOracle internal gasOracle;
@@ -47,51 +46,48 @@ contract L1MessageQueueWithGasPriceOracleTest is ScrollTestBase {
         queue.initializeV2();
     }
 
-    function testUpdateWhitelistChecker(address _newWhitelistChecker) external {
-        hevm.assume(_newWhitelistChecker != address(whitelist));
+    function testUpdateL2BaseFeeParameters(
+        uint256 basefee,
+        uint128 overhead,
+        uint128 scalar
+    ) external {
+        basefee = bound(basefee, 1, 1e18);
+        hevm.fee(basefee);
 
         // call by non-owner, should revert
         hevm.startPrank(address(1));
         hevm.expectRevert("Ownable: caller is not the owner");
-        queue.updateWhitelistChecker(_newWhitelistChecker);
+        queue.updateL2BaseFeeParameters(overhead, scalar);
         hevm.stopPrank();
 
         // call by owner, should succeed
-        assertEq(address(queue.whitelistChecker()), address(whitelist));
-        hevm.expectEmit(true, true, false, true);
-        emit UpdateWhitelistChecker(address(whitelist), _newWhitelistChecker);
-        queue.updateWhitelistChecker(_newWhitelistChecker);
-        assertEq(address(queue.whitelistChecker()), _newWhitelistChecker);
+        (uint128 x, uint128 y) = queue.l2BaseFeeParameters();
+        assertEq(x, 0);
+        assertEq(y, 0);
+        hevm.expectEmit(false, false, false, true);
+        emit UpdateL2BaseFeeParameters(overhead, scalar);
+        queue.updateL2BaseFeeParameters(overhead, scalar);
+        (x, y) = queue.l2BaseFeeParameters();
+        assertEq(x, overhead);
+        assertEq(y, scalar);
+
+        assertEq(queue.l2BaseFee(), overhead + (scalar * block.basefee) / 1e18);
     }
 
-    function testSetL2BaseFee(uint256 _baseFee1, uint256 _baseFee2) external {
-        // call by non-whitelister, should revert
-        hevm.startPrank(address(1));
-        hevm.expectRevert(IL1MessageQueueWithGasPriceOracle.ErrorNotWhitelistedSender.selector);
-        queue.setL2BaseFee(_baseFee1);
-        hevm.stopPrank();
-
-        // call by owner, should succeed
-        assertEq(queue.l2BaseFee(), 0);
-        hevm.expectEmit(false, false, false, true);
-        emit UpdateL2BaseFee(0, _baseFee1);
-        queue.setL2BaseFee(_baseFee1);
-        assertEq(queue.l2BaseFee(), _baseFee1);
-
-        hevm.expectEmit(false, false, false, true);
-        emit UpdateL2BaseFee(_baseFee1, _baseFee2);
-        queue.setL2BaseFee(_baseFee2);
-        assertEq(queue.l2BaseFee(), _baseFee2);
-    }
-
-    function testEstimateCrossDomainMessageFee(uint256 baseFee, uint256 gasLimit) external {
+    function testEstimateCrossDomainMessageFee(
+        uint256 basefee,
+        uint128 overhead,
+        uint128 scalar,
+        uint256 gasLimit
+    ) external {
+        basefee = bound(basefee, 0, 1 ether);
         gasLimit = bound(gasLimit, 0, 3000000);
-        baseFee = bound(baseFee, 0, 1000000000);
 
         assertEq(queue.estimateCrossDomainMessageFee(gasLimit), 0);
 
-        queue.setL2BaseFee(baseFee);
-        assertEq(queue.estimateCrossDomainMessageFee(gasLimit), baseFee * gasLimit);
+        hevm.fee(basefee);
+        queue.updateL2BaseFeeParameters(overhead, scalar);
+        assertEq(queue.estimateCrossDomainMessageFee(gasLimit), ((basefee * scalar) / 1e18 + overhead) * gasLimit);
     }
 
     function testCalculateIntrinsicGasFee(bytes memory data) external {

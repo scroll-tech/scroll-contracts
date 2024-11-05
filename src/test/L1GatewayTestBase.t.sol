@@ -182,4 +182,10 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
     }
+
+    function _setL2BaseFee(uint256 feePerGas) internal {
+        // l2 base fee = scalar * block.basefee + overhead
+        messageQueue.updateL2BaseFeeParameters(0, 1e18);
+        hevm.fee(feePerGas);
+    }
 }

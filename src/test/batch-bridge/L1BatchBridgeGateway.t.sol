@@ -91,7 +91,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
         );
         batch.initialize(batchFeeVault);
         router.initialize(address(0), address(gateway));
-        messageQueue.setL2BaseFee(L2_GAS_PRICE);
+        _setL2BaseFee(L2_GAS_PRICE);
 
         // Prepare token balances
         l1Token.mint(address(this), type(uint128).max);

@@ -451,7 +451,7 @@ contract L1WETHGatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
@@ -526,7 +526,7 @@ contract L1WETHGatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
@@ -602,7 +602,7 @@ contract L1WETHGatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        _setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
