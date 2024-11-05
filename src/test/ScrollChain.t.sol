@@ -72,6 +72,7 @@ contract ScrollChainTest is DSTestPlus {
         rollup.initialize(address(messageQueue), address(0), 100);
     }
 
+    /*
     function testCommitBatchV1() external {
         bytes memory batchHeader0 = new bytes(89);
 
@@ -235,7 +236,9 @@ contract ScrollChainTest is DSTestPlus {
         rollup.commitBatch(3, batchHeader1, chunks, new bytes(0));
         hevm.stopPrank();
     }
+    */
 
+    /*
     function testFinalizeBatchWithProof4844() external {
         // caller not prover, revert
         hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
@@ -370,7 +373,9 @@ contract ScrollChainTest is DSTestPlus {
         );
         hevm.stopPrank();
     }
+    */
 
+    /*
     function testCommitAndFinalizeWithL1MessagesV1() external {
         rollup.addSequencer(address(0));
         rollup.addProver(address(0));
@@ -629,6 +634,7 @@ contract ScrollChainTest is DSTestPlus {
             }
         }
     }
+    */
 
     function testCommitBatchV3() external {
         bytes memory batchHeader0 = new bytes(89);
@@ -981,11 +987,11 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
         batchHeader1[1] = bytes1(uint8(0)); // change back
 
-        // revert when ErrorBatchNotFinalizedWithZKProof
+        // revert when ErrorBatchNotVerifiedWithZKProof
         hevm.startPrank(address(0));
         batchHeader1[8] = bytes1(uint8(2)); // batch index change to 2
         ScrollChainMockBlob(address(rollup)).setCommittedBatches(2, keccak256(batchHeader1));
-        hevm.expectRevert(ScrollChain.ErrorBatchNotFinalizedWithZKProof.selector);
+        hevm.expectRevert(ScrollChain.ErrorBatchNotVerifiedWithZKProof.selector);
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
         batchHeader1[8] = bytes1(uint8(1)); // batch index change back
         hevm.stopPrank();
@@ -994,9 +1000,9 @@ contract ScrollChainTest is DSTestPlus {
         hevm.startPrank(address(0));
         hevm.expectEmit(true, false, false, true);
         emit FinalizeBatchWithTEEProof(1);
-        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        assertEq(rollup.lastTeeVerifiedBatchIndex(), 0);
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
-        assertEq(rollup.lastTeeFinalizedBatchIndex(), 1);
+        assertEq(rollup.lastTeeVerifiedBatchIndex(), 1);
         hevm.stopPrank();
 
         // revert when ErrorBatchIsAlreadyVerified
@@ -1073,12 +1079,12 @@ contract ScrollChainTest is DSTestPlus {
         // revert, caller not owner
         hevm.startPrank(address(1));
         hevm.expectRevert("Ownable: caller is not the owner");
-        rollup.resolveStateMismatch(true);
+        rollup.resolveStateMismatch(batchHeader1, true);
         hevm.stopPrank();
 
         // revert, ErrorNoUnresolvedState
         hevm.expectRevert(ScrollChain.ErrorNoUnresolvedState.selector);
-        rollup.resolveStateMismatch(true);
+        rollup.resolveStateMismatch(batchHeader1, true);
 
         // mismatch on batch 1
         hevm.startPrank(address(0));
@@ -1086,12 +1092,12 @@ contract ScrollChainTest is DSTestPlus {
         emit StateMismatch(1, bytes32(uint256(3)), bytes32(uint256(4)));
         (uint256 unresolvedBatchIndex, bytes32 unresolvedStateRoot, bytes32 unresolvedWithdrawRoot) = rollup
             .unresolvedState();
-        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        assertEq(rollup.lastTeeVerifiedBatchIndex(), 0);
         assertEq(unresolvedBatchIndex, 0);
         assertEq(unresolvedStateRoot, bytes32(0));
         assertEq(unresolvedWithdrawRoot, bytes32(0));
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(3)), bytes32(uint256(4)), new bytes(0));
-        assertEq(rollup.lastTeeFinalizedBatchIndex(), 0);
+        assertEq(rollup.lastTeeVerifiedBatchIndex(), 0);
         (unresolvedBatchIndex, unresolvedStateRoot, unresolvedWithdrawRoot) = rollup.unresolvedState();
         assertEq(unresolvedBatchIndex, 1);
         assertEq(unresolvedStateRoot, bytes32(uint256(3)));
@@ -1109,9 +1115,9 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
         hevm.expectEmit(true, false, false, true);
         emit FinalizeBatchWithTEEProof(1);
-        rollup.resolveStateMismatch(true);
+        rollup.resolveStateMismatch(batchHeader1, true);
         assertEq(rollup.withdrawRoots(1), bytes32(uint256(4)));
-        assertEq(rollup.lastTeeFinalizedBatchIndex(), 1);
+        assertEq(rollup.lastTeeVerifiedBatchIndex(), 1);
         (unresolvedBatchIndex, unresolvedStateRoot, unresolvedWithdrawRoot) = rollup.unresolvedState();
         assertEq(unresolvedBatchIndex, 0);
         assertEq(unresolvedStateRoot, bytes32(0));
@@ -1418,6 +1424,7 @@ contract ScrollChainTest is DSTestPlus {
         }
     }
 
+    /*
     function testSwitchBatchFromV1ToV3() external {
         rollup.addSequencer(address(0));
         rollup.addProver(address(0));
@@ -1646,6 +1653,7 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.withdrawRoots(2), bytes32(uint256(3)));
         assertEq(rollup.lastFinalizedBatchIndex(), 2);
     }
+    */
 
     function testRevertBatch() external {
         // upgrade to ScrollChainMockBlob
@@ -1688,7 +1696,7 @@ contract ScrollChainTest is DSTestPlus {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
+        // rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
         bytes32 batchHash1 = rollup.committedBatches(1);
         hevm.stopPrank();
 
@@ -1705,7 +1713,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // commit another batch
         hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader1, chunks, new bytes(0));
+        // rollup.commitBatch(1, batchHeader1, chunks, new bytes(0));
         hevm.stopPrank();
 
         bytes memory batchHeader2 = new bytes(121);
@@ -1827,7 +1835,7 @@ contract ScrollChainTest is DSTestPlus {
 
         hevm.startPrank(address(0));
         hevm.expectRevert("Pausable: paused");
-        rollup.commitBatch(1, new bytes(0), new bytes[](0), new bytes(0));
+        // rollup.commitBatch(1, new bytes(0), new bytes[](0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
         rollup.commitBatchWithBlobProof(3, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();

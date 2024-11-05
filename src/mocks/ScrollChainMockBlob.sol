@@ -35,8 +35,8 @@ contract ScrollChainMockBlob is ScrollChain {
         blobVersionedHash = _blobVersionedHash;
     }
 
-    function setLastFinalizedBatchIndex(uint256 index) external {
-        lastFinalizedBatchIndex = index;
+    function setLastZkpVerifiedBatchIndex(uint256 index) external {
+        lastZkpVerifiedBatchIndex = index;
     }
 
     function setFinalizedStateRoots(uint256 index, bytes32 value) external {

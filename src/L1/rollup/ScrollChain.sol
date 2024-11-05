@@ -93,6 +93,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when reverting a finalized batch.
     error ErrorRevertFinalizedBatch();
 
+    /// @dev Thrown when reverting a unresolved state.
+    error ErrorRevertUnresolvedState();
+
     /// @dev Thrown when the given state root is zero.
     error ErrorStateRootIsZero();
 
@@ -112,7 +115,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     error ErrorFinalizationPaused();
 
     /// @dev Thrown when the batch is not finalized with zk proof.
-    error ErrorBatchNotFinalizedWithZKProof();
+    error ErrorBatchNotVerifiedWithZKProof();
+
+    /// @dev Thrown when the batch index mismatch.
+    error ErrorBatchIndexMismatch();
 
     /*************
      * Constants *
@@ -168,7 +174,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     mapping(address => bool) public isProver;
 
     /// @inheritdoc IScrollChain
-    uint256 public override lastFinalizedBatchIndex;
+    uint256 public override lastZkpVerifiedBatchIndex;
 
     /// @inheritdoc IScrollChain
     mapping(uint256 => bytes32) public override committedBatches;
@@ -180,7 +186,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     mapping(uint256 => bytes32) public override withdrawRoots;
 
     /// @inheritdoc IScrollChain
-    uint256 public override lastTeeFinalizedBatchIndex;
+    uint256 public override lastTeeVerifiedBatchIndex;
 
     /// @notice The state for mismatched batch
     UnresolvedState public unresolvedState;
@@ -254,8 +260,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     function initializeV2() external reinitializer(2) {
-        lastTeeFinalizedBatchIndex = lastFinalizedBatchIndex;
-        emit FinalizeBatchWithTEEProof(lastFinalizedBatchIndex);
+        uint256 cachedIndex = lastZkpVerifiedBatchIndex;
+        lastTeeVerifiedBatchIndex = cachedIndex;
+        emit VerifyBatchWithTee(cachedIndex);
     }
 
     /*************************
@@ -263,8 +270,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      *************************/
 
     /// @inheritdoc IScrollChain
+    function lastFinalizedBatchIndex() public view returns (uint256) {
+        return lastTeeVerifiedBatchIndex;
+    }
+
+    /// @inheritdoc IScrollChain
     function isBatchFinalized(uint256 _batchIndex) external view override returns (bool) {
-        return _batchIndex <= lastFinalizedBatchIndex;
+        return _batchIndex <= lastFinalizedBatchIndex();
     }
 
     /*****************************
@@ -459,7 +471,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (committedBatches[_lastBatchIndex + 1] != bytes32(0)) revert ErrorRevertNotStartFromEnd();
 
         // check finalization
-        if (_firstBatchIndex <= lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
+        if (_firstBatchIndex <= lastFinalizedBatchIndex()) revert ErrorRevertFinalizedBatch();
+        // check unresolved state
+        if (_firstBatchIndex <= unresolvedState.batchIndex) revert ErrorRevertUnresolvedState();
 
         // actual revert
         for (uint256 _batchIndex = _lastBatchIndex; _batchIndex >= _firstBatchIndex; --_batchIndex) {
@@ -478,7 +492,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
-    /* This function will never be used since we already upgrade to 4844. We comment out the codes for reference.
+    /* This function will never be used since we already upgrade to Curie. We comment out the codes for reference.
     /// @inheritdoc IScrollChain
     function finalizeBatchWithProof(
         bytes calldata _batchHeader,
@@ -516,6 +530,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
     */
 
+    /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
     /// @inheritdoc IScrollChain
     /// @dev Memory layout of `_blobDataProof`:
     /// ```text
@@ -525,7 +540,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// ```
     function finalizeBatchWithProof4844(
         bytes calldata _batchHeader,
-        bytes32, /*_prevStateRoot*/
+        bytes32 _prevStateRoot,
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _blobDataProof,
@@ -572,6 +587,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
+    */
 
     /// @inheritdoc IScrollChain
     function finalizeBundleWithProof(
@@ -583,22 +599,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
-        (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex,
-            uint256 _totalL1MessagesPoppedOverall
-        ) = _loadBatchHeader(_batchHeader);
+        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
 
         // retrieve finalized state root and batch hash from storage to construct the public input
-        uint256 _finalizedBatchIndex = lastFinalizedBatchIndex;
-        if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
+        uint256 _lastVerifiedBatchIndex = lastZkpVerifiedBatchIndex;
+        if (_batchIndex <= _lastVerifiedBatchIndex) revert ErrorBatchIsAlreadyVerified();
 
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
-            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
-            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
-            committedBatches[_finalizedBatchIndex], // _prevBatchHash
+            uint32(_batchIndex - _lastVerifiedBatchIndex), // numBatches
+            finalizedStateRoots[_lastVerifiedBatchIndex], // _prevStateRoot
+            committedBatches[_lastVerifiedBatchIndex], // _prevBatchHash
             _postStateRoot,
             _batchHash,
             _withdrawRoot
@@ -613,14 +624,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // store in state
         // @note we do not store intermediate finalized roots
-        lastFinalizedBatchIndex = _batchIndex;
+        lastZkpVerifiedBatchIndex = _batchIndex;
         finalizedStateRoots[_batchIndex] = _postStateRoot;
         withdrawRoots[_batchIndex] = _withdrawRoot;
 
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+        // @note we will pop finalized and non-skipped message in `finalizeBundleWithTeeProof`
+        // _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        emit VerifyBatchWithZkp(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 
     /// @inheritdoc IScrollChain
@@ -631,24 +642,33 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _teeProof
     ) external override OnlyProver whenFinalizeNotPaused {
         // compute pending batch hash and verify
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
+        (
+            uint256 batchPtr,
+            bytes32 _batchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        ) = _loadBatchHeader(_batchHeader);
 
-        // check if this batch is finalized by zk proof.
+        // Check if this state root is verified and set by zk proof.
+        // It is possible that `finalizedStateRoots[_batchIndex]` is nonzero and it is not verified by zkp.
+        // Since we may reset the `lastZkpVerifiedBatchIndex` in `resolveStateMismatch` function.
+        // However, it's still possible that the batch is "finalized" by zkp but it's in the middle of the bundle,
+        // so we do not have it stored in state. We don't consider this case here.
         bytes32 cachedStateRoot = finalizedStateRoots[_batchIndex];
-        if (cachedStateRoot == bytes32(0)) {
-            revert ErrorBatchNotFinalizedWithZKProof();
+        if (cachedStateRoot == bytes32(0) || _batchIndex > lastZkpVerifiedBatchIndex) {
+            revert ErrorBatchNotVerifiedWithZKProof();
         }
 
-        uint256 _finalizedBatchIndex = lastTeeFinalizedBatchIndex;
-        if (_batchIndex <= _finalizedBatchIndex) {
+        uint256 _lastVerifiedBatchIndex = lastTeeVerifiedBatchIndex;
+        if (_batchIndex <= _lastVerifiedBatchIndex) {
             revert ErrorBatchIsAlreadyVerified();
         }
 
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
-            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
-            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
-            committedBatches[_finalizedBatchIndex], // _prevBatchHash
+            uint32(_batchIndex - _lastVerifiedBatchIndex), // numBatches
+            finalizedStateRoots[_lastVerifiedBatchIndex], // _prevStateRoot
+            committedBatches[_lastVerifiedBatchIndex], // _prevBatchHash
             _postStateRoot,
             _batchHash,
             _withdrawRoot
@@ -666,9 +686,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             return;
         }
 
-        lastTeeFinalizedBatchIndex = _batchIndex;
+        lastTeeVerifiedBatchIndex = _batchIndex;
 
-        emit FinalizeBatchWithTEEProof(_batchIndex);
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+
+        emit VerifyBatchWithTee(_batchIndex);
+        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 
     /************************
@@ -680,19 +704,29 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev This should only be called by Security Council.
     ///
     /// @param useSGXState Whether we want to use the state root from SGX prover.
-    function resolveStateMismatch(bool useSGXState) external onlyOwner {
+    function resolveStateMismatch(bytes calldata _batchHeader, bool useSGXState) external onlyOwner {
         UnresolvedState memory state = unresolvedState;
         if (state.batchIndex == 0) {
             revert ErrorNoUnresolvedState();
         }
+        (, , uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _loadBatchHeader(_batchHeader);
+        if (_batchIndex != state.batchIndex) revert ErrorBatchIndexMismatch();
         if (useSGXState) {
             finalizedStateRoots[state.batchIndex] = state.stateRoot;
             withdrawRoots[state.batchIndex] = state.withdrawRoot;
             emit ResolveState(state.batchIndex, state.stateRoot, state.withdrawRoot);
         }
 
-        lastTeeFinalizedBatchIndex = state.batchIndex;
-        emit FinalizeBatchWithTEEProof(state.batchIndex);
+        // reset zkp verified batch index, zk prover need to reprove everything after this batch
+        lastZkpVerifiedBatchIndex = state.batchIndex;
+        lastTeeVerifiedBatchIndex = state.batchIndex;
+
+        // Pop finalized and non-skipped message from L1MessageQueue.
+        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+
+        // emit events
+        emit VerifyBatchWithTee(state.batchIndex);
+        emit FinalizeBatch(state.batchIndex, committedBatches[state.batchIndex], state.stateRoot, state.withdrawRoot);
 
         // clear state
         unresolvedState.batchIndex = 0;
@@ -794,21 +828,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit CommitBatch(_batchIndex, _batchHash);
     }
 
+    /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
     /// @dev Internal function to do common checks before actual batch finalization.
     /// @param _batchHeader The current batch header in calldata.
     /// @param _postStateRoot The state root after current batch.
     /// @return batchPtr The start memory offset of current batch in memory.
     /// @return _batchHash The hash of current batch.
     /// @return _batchIndex The index of current batch.
-    function _beforeFinalizeBatch(bytes calldata _batchHeader, bytes32 _postStateRoot)
-        internal
-        view
-        returns (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex
-        )
-    {
+    function _beforeFinalizeBatch(
+        bytes calldata _batchHeader,
+        bytes32 _postStateRoot
+    ) internal view returns (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute batch hash and verify
@@ -817,7 +847,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // avoid duplicated verification
         if (finalizedStateRoots[_batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
     }
+    */
 
+    /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
     /// @dev Internal function to do common checks after actual batch finalization.
     /// @param _totalL1MessagesPoppedOverall The total number of L1 messages popped after current batch.
     /// @param _batchIndex The index of current batch.
@@ -846,6 +878,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
+    */
 
     /// @dev Internal function to check blob versioned hash.
     /// @param _blobVersionedHash The blob versioned hash to check.
@@ -901,6 +934,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
+    /* This function will never be used since we already upgrade to Curie. We comment out the codes for reference.
     /// @dev Internal function to commit chunks with version 0
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped before the list of chunks.
     /// @param _chunks The list of chunks to commit.
@@ -946,6 +980,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             _batchDataHash := keccak256(sub(batchDataHashPtr, dataLen), dataLen)
         }
     }
+    */
 
     /// @dev Internal function to commit chunks with version 1
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped before the list of chunks.

@@ -19,16 +19,31 @@ interface IScrollChain {
     /// @param batchHash The hash of the batch
     event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
 
+    /// @notice Emitted when a batch is verified by zk proof
+    /// @param batchIndex The index of the batch.
+    /// @param batchHash The hash of the batch
+    /// @param stateRoot The state root on layer 2 after this batch.
+    /// @param withdrawRoot The merkle root on layer2 after this batch.
+    event VerifyBatchWithZkp(
+        uint256 indexed batchIndex,
+        bytes32 indexed batchHash,
+        bytes32 stateRoot,
+        bytes32 withdrawRoot
+    );
+
+    /// @notice Emitted when a batch is verified by tee proof
+    /// @dev Tee proof always comes after zk proof. If they match, the state root and withdraw root are the same.
+    ///      If they mismatch, we will emit `StateMismatch` instead. Therefore, the `stateRoot` and `withdrawRoot`
+    ///      is not included in this event.
+    /// @param batchIndex The index of the batch.
+    event VerifyBatchWithTee(uint256 indexed batchIndex);
+
     /// @notice Emitted when a batch is finalized.
     /// @param batchIndex The index of the batch.
     /// @param batchHash The hash of the batch
     /// @param stateRoot The state root on layer 2 after this batch.
     /// @param withdrawRoot The merkle root on layer2 after this batch.
     event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
-
-    /// @notice Emitted when a batch is finalized by tee proof.
-    /// @param batchIndex The index of the batch.
-    event FinalizeBatchWithTEEProof(uint256 indexed batchIndex);
 
     /// @notice Emitted when state between zk proof and tee proof mismatch
     /// @param batchIndex The index of the batch.
@@ -61,11 +76,14 @@ interface IScrollChain {
      * Public View Functions *
      *************************/
 
-    /// @return The latest finalized batch index.
+    /// @return The latest finalized batch index (both zkp and tee verified).
     function lastFinalizedBatchIndex() external view returns (uint256);
 
-    /// @return The latest finalized batch index by tee proof.
-    function lastTeeFinalizedBatchIndex() external view returns (uint256);
+    /// @return The latest verified batch index by zkp proof.
+    function lastZkpVerifiedBatchIndex() external view returns (uint256);
+
+    /// @return The latest verified batch index by tee proof.
+    function lastTeeVerifiedBatchIndex() external view returns (uint256);
 
     /// @param batchIndex The index of the batch.
     /// @return The batch hash of a committed batch.
@@ -126,6 +144,7 @@ interface IScrollChain {
     /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
     function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
 
+    /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
     /// @notice Finalize a committed batch (with blob) on layer 1.
     ///
     /// @dev Memory layout of `blobDataProof`:
@@ -147,9 +166,10 @@ interface IScrollChain {
         bytes calldata blobDataProof,
         bytes calldata aggrProof
     ) external;
+    */
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
-    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
+    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch`.
     /// @param postStateRoot The state root after current bundle.
     /// @param withdrawRoot The withdraw trie root after current batch.
     /// @param aggrProof The aggregation proof for current bundle.
@@ -161,7 +181,7 @@ interface IScrollChain {
     ) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 with TEE proof.
-    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
+    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch`.
     /// @param postStateRoot The state root after current bundle.
     /// @param withdrawRoot The withdraw trie root after current batch.
     /// @param teeProof The tee proof for current bundle.

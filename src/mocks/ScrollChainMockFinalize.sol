@@ -27,10 +27,11 @@ contract ScrollChainMockFinalize is ScrollChain {
      * Public Mutating Functions *
      *****************************/
 
+    /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
     /// @notice Finalize 4844 batch without proof, See the comments of {ScrollChain-finalizeBatchWithProof4844}.
     function finalizeBatch4844(
         bytes calldata _batchHeader,
-        bytes32, /*_prevStateRoot*/
+        bytes32 _prevStateRoot,
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _blobDataProof
@@ -54,6 +55,7 @@ contract ScrollChainMockFinalize is ScrollChain {
 
         _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
+    */
 
     /// @notice Finalize bundle without proof, See the comments of {ScrollChain-finalizeBundleWithProof}.
     function finalizeBundle(
@@ -64,20 +66,43 @@ contract ScrollChainMockFinalize is ScrollChain {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
-        (, bytes32 _batchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _loadBatchHeader(
-            _batchHeader
+        (
+            uint256 batchPtr,
+            bytes32 _batchHash,
+            uint256 _batchIndex,
+            uint256 _totalL1MessagesPoppedOverall
+        ) = _loadBatchHeader(_batchHeader);
+
+        // retrieve finalized state root and batch hash from storage to construct the public input
+        uint256 _finalizedBatchIndex = lastZkpVerifiedBatchIndex;
+        if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
+
+        bytes memory _publicInput = abi.encodePacked(
+            layer2ChainId,
+            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
+            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
+            committedBatches[_finalizedBatchIndex], // _prevBatchHash
+            _postStateRoot,
+            _batchHash,
+            _withdrawRoot
         );
-        if (_batchIndex <= lastFinalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
+
+        // @note skip verifier in mock
+        // load version from batch header, it is always the first byte.
+        // uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
+        // verify bundle, choose the correct verifier based on the last batch
+        // our off-chain service will make sure all unfinalized batches have the same batch version.
+        // IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
 
         // store in state
         // @note we do not store intermediate finalized roots
-        lastFinalizedBatchIndex = _batchIndex;
+        lastZkpVerifiedBatchIndex = _batchIndex;
         finalizedStateRoots[_batchIndex] = _postStateRoot;
         withdrawRoots[_batchIndex] = _withdrawRoot;
 
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+        // @note we will pop finalized and non-skipped message in `finalizeBundleWithTeeProof`
+        // _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        emit VerifyBatchWithZkp(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
     }
 }
