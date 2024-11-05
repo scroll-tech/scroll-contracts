@@ -715,10 +715,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             finalizedStateRoots[state.batchIndex] = state.stateRoot;
             withdrawRoots[state.batchIndex] = state.withdrawRoot;
             emit ResolveState(state.batchIndex, state.stateRoot, state.withdrawRoot);
+
+            // reset zkp verified batch index, zk prover need to reprove everything after this batch
+            lastZkpVerifiedBatchIndex = state.batchIndex;
         }
 
-        // reset zkp verified batch index, zk prover need to reprove everything after this batch
-        lastZkpVerifiedBatchIndex = state.batchIndex;
         lastTeeVerifiedBatchIndex = state.batchIndex;
 
         // Pop finalized and non-skipped message from L1MessageQueue.
