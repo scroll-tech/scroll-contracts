@@ -2,7 +2,7 @@
 /* eslint-disable node/no-missing-import */
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { hexlify, ZeroAddress } from "ethers";
+import { hexlify } from "ethers";
 import fs from "fs";
 import { ethers } from "hardhat";
 
@@ -99,7 +99,7 @@ describe("ZkEvmVerifierV2", async () => {
           layer2ChainId,
           deployer.address,
           verifier.getAddress(),
-          ZeroAddress
+          verifier.getAddress()
         );
         await admin.upgrade(chainProxy.getAddress(), chainImpl.getAddress());
 
@@ -134,7 +134,7 @@ describe("ZkEvmVerifierV2", async () => {
         const withdrawRoot = hexlify(publicInputs.subarray(140, 172));
 
         await chain.setOverrideBatchHashCheck(true);
-        await chain.setLastFinalizedBatchIndex(lastFinalizedBatchIndex);
+        await chain.setLastZkpVerifiedBatchIndex(lastFinalizedBatchIndex);
         await chain.setFinalizedStateRoots(lastFinalizedBatchIndex, prevStateRoot);
         await chain.setCommittedBatches(lastFinalizedBatchIndex, prevBatchHash);
         await chain.setCommittedBatches(batchIndex, batchHash);

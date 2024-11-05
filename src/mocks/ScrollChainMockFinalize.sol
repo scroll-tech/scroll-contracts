@@ -62,21 +62,17 @@ contract ScrollChainMockFinalize is ScrollChain {
         bytes calldata _batchHeader,
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot
-    ) external OnlyProver whenNotPaused {
+    ) external OnlyProver whenFinalizeNotPaused {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
-        (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex,
-            uint256 _totalL1MessagesPoppedOverall
-        ) = _loadBatchHeader(_batchHeader);
+        (, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
 
         // retrieve finalized state root and batch hash from storage to construct the public input
         uint256 _finalizedBatchIndex = lastZkpVerifiedBatchIndex;
         if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
 
+        /* @note skip verifier in mock
         bytes memory _publicInput = abi.encodePacked(
             layer2ChainId,
             uint32(_batchIndex - _finalizedBatchIndex), // numBatches
@@ -87,12 +83,12 @@ contract ScrollChainMockFinalize is ScrollChain {
             _withdrawRoot
         );
 
-        // @note skip verifier in mock
         // load version from batch header, it is always the first byte.
-        // uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
+        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        // IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
+        IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
+        */
 
         // store in state
         // @note we do not store intermediate finalized roots

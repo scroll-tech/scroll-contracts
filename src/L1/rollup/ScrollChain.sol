@@ -138,10 +138,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice The address of L1MessageQueue contract.
     address public immutable messageQueue;
 
-    /// @notice The address of RollupVerifier.
-    address public immutable verifier;
+    /// @notice The address of `MultipleVersionRollupVerifier` for zk proof.
+    address public immutable zkpVerifier;
 
-    /// @notice The address of RollupVerifier.
+    /// @notice The address of `MultipleVersionRollupVerifier` for tee proof.
     address public immutable teeVerifier;
 
     /***********
@@ -219,14 +219,15 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     ///
     /// @param _chainId The chain id of L2.
     /// @param _messageQueue The address of `L1MessageQueue` contract.
-    /// @param _verifier The address of zkevm verifier contract.
+    /// @param _zkpVerifier The address of zkevm verifier contract.
+    /// @param _teeVerifier The address of tee verifier contract.
     constructor(
         uint64 _chainId,
         address _messageQueue,
-        address _verifier,
+        address _zkpVerifier,
         address _teeVerifier
     ) {
-        if (_messageQueue == address(0) || _verifier == address(0)) {
+        if (_messageQueue == address(0) || _zkpVerifier == address(0) || _teeVerifier == address(0)) {
             revert ErrorZeroAddress();
         }
 
@@ -234,7 +235,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         layer2ChainId = _chainId;
         messageQueue = _messageQueue;
-        verifier = _verifier;
+        zkpVerifier = _zkpVerifier;
         teeVerifier = _teeVerifier;
     }
 
@@ -620,7 +621,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
+        IRollupVerifier(zkpVerifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
 
         // store in state
         // @note we do not store intermediate finalized roots
