@@ -20,6 +20,9 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
 
+    /// @notice Emitted when the number of messages popped exceed queue length.
+    error ErrorPopMoreThanQueued();
+
     /*************
      * Constants *
      *************/
@@ -67,6 +70,10 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @inheritdoc IL1MessageQueue
     uint256 public nextUnfinalizedQueueIndex;
 
+    /// @dev Mapping from message queue index to enqueue timestamp.
+    mapping(uint256 => uint256) private enqueueTimestamp;
+
+    // todo change gap slots
     /// @dev The storage slots for future usage.
     uint256[40] private __gap;
 
@@ -139,6 +146,22 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
      *************************/
 
     /// @inheritdoc IL1MessageQueue
+    function getFirstPendingMessageTimestamp() external view returns (uint256) {
+        uint256 length = messageQueue.length;
+        uint256 index = pendingQueueIndex;
+        if (index == length) return block.timestamp;
+        else return enqueueTimestamp[index];
+    }
+
+    /// @inheritdoc IL1MessageQueue
+    function getFirstUnfinalizedMessageTimestamp() external view returns (uint256) {
+        uint256 length = messageQueue.length;
+        uint256 index = nextUnfinalizedQueueIndex;
+        if (index == length) return block.timestamp;
+        else return enqueueTimestamp[index];
+    }
+
+    /// @inheritdoc IL1MessageQueue
     function nextCrossDomainMessageIndex() external view returns (uint256) {
         return messageQueue.length;
     }
@@ -146,6 +169,11 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @inheritdoc IL1MessageQueue
     function getCrossDomainMessage(uint256 _queueIndex) external view returns (bytes32) {
         return messageQueue[_queueIndex];
+    }
+
+    /// @inheritdoc IL1MessageQueue
+    function getMessageTimestamp(uint256 _queueIndex) external view returns (uint256) {
+        return enqueueTimestamp[_queueIndex];
     }
 
     /// @inheritdoc IL1MessageQueue
@@ -347,57 +375,15 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     }
 
     /// @inheritdoc IL1MessageQueue
-    function popCrossDomainMessage(
-        uint256 _startIndex,
-        uint256 _count,
-        uint256 _skippedBitmap
-    ) external override onlyScrollChain {
-        require(_count <= 256, "pop too many messages");
-        require(pendingQueueIndex == _startIndex, "start index mismatch");
-
+    function popCrossDomainMessage(uint256 count) external override onlyScrollChain {
         unchecked {
-            // clear extra bits in `_skippedBitmap`, and if _count = 256, it's designed to overflow.
-            uint256 mask = (1 << _count) - 1;
-            _skippedBitmap &= mask;
+            uint256 startIndex = pendingQueueIndex;
+            uint256 cachedPendingQueueIndex = startIndex + count;
+            uint256 length = messageQueue.length;
+            if (cachedPendingQueueIndex > length) revert ErrorPopMoreThanQueued();
 
-            uint256 bucket = _startIndex >> 8;
-            uint256 offset = _startIndex & 0xff;
-            skippedMessageBitmap[bucket] |= _skippedBitmap << offset;
-            if (offset + _count > 256) {
-                skippedMessageBitmap[bucket + 1] = _skippedBitmap >> (256 - offset);
-            }
-
-            pendingQueueIndex = _startIndex + _count;
+            pendingQueueIndex = cachedPendingQueueIndex;
         }
-
-        emit DequeueTransaction(_startIndex, _count, _skippedBitmap);
-    }
-
-    /// @inheritdoc IL1MessageQueue
-    /// @dev Caller should make sure `_startIndex < pendingQueueIndex` to reduce unnecessary contract call.
-    function resetPoppedCrossDomainMessage(uint256 _startIndex) external override onlyScrollChain {
-        uint256 cachedPendingQueueIndex = pendingQueueIndex;
-        if (_startIndex == cachedPendingQueueIndex) return;
-
-        require(_startIndex >= nextUnfinalizedQueueIndex, "reset finalized messages");
-        require(_startIndex < cachedPendingQueueIndex, "reset pending messages");
-
-        unchecked {
-            uint256 count = cachedPendingQueueIndex - _startIndex;
-            uint256 bucket = _startIndex >> 8;
-            uint256 offset = _startIndex & 0xff;
-            skippedMessageBitmap[bucket] &= (1 << offset) - 1;
-            uint256 numResetMessages = 256 - offset;
-            while (numResetMessages < count) {
-                bucket += 1;
-                uint256 bitmap = skippedMessageBitmap[bucket];
-                if (bitmap > 0) skippedMessageBitmap[bucket] = 0;
-                numResetMessages += 256;
-            }
-        }
-
-        pendingQueueIndex = _startIndex;
-        emit ResetDequeuedTransaction(_startIndex);
     }
 
     /// @inheritdoc IL1MessageQueue
@@ -472,6 +458,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         // compute transaction hash
         uint256 _queueIndex = messageQueue.length;
         bytes32 _hash = computeTransactionHash(_sender, _queueIndex, _value, _target, _gasLimit, _data);
+        enqueueTimestamp[_queueIndex] = block.timestamp;
         messageQueue.push(_hash);
 
         // emit event

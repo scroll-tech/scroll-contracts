@@ -62,6 +62,12 @@ interface IL1MessageQueue {
      * Public View Functions *
      *************************/
 
+    /// @notice The enqueue timestamp of first un-inclusion message.
+    function getFirstPendingMessageTimestamp() external view returns (uint256);
+
+    /// @notice The enqueue timestamp of first unfinalized message.
+    function getFirstUnfinalizedMessageTimestamp() external view returns (uint256);
+
     /// @notice The start index of all pending inclusion messages.
     function pendingQueueIndex() external view returns (uint256);
 
@@ -76,6 +82,10 @@ interface IL1MessageQueue {
     /// @notice Return the message of in `queueIndex`.
     /// @param queueIndex The index to query.
     function getCrossDomainMessage(uint256 queueIndex) external view returns (bytes32);
+
+    /// @notice Return the message enqueue timestamp of in `queueIndex`.
+    /// @param queueIndex The index to query.
+    function getMessageTimestamp(uint256 queueIndex) external view returns (uint256);
 
     /// @notice Return the amount of ETH should pay for cross domain message.
     /// @param gasLimit Gas limit required to complete the message relay on L2.
@@ -140,24 +150,8 @@ interface IL1MessageQueue {
 
     /// @notice Pop messages from queue.
     ///
-    /// @dev We can pop at most 256 messages each time. And if the message is not skipped,
-    ///      the corresponding entry will be cleared.
-    ///
-    /// @param startIndex The start index to pop.
     /// @param count The number of messages to pop.
-    /// @param skippedBitmap A bitmap indicates whether a message is skipped.
-    function popCrossDomainMessage(
-        uint256 startIndex,
-        uint256 count,
-        uint256 skippedBitmap
-    ) external;
-
-    /// @notice Reset status of popped messages.
-    ///
-    /// @dev We can only reset unfinalized popped messages.
-    ///
-    /// @param startIndex The start index to reset.
-    function resetPoppedCrossDomainMessage(uint256 startIndex) external;
+    function popCrossDomainMessage(uint256 count) external;
 
     /// @notice Finalize status of popped messages.
     /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.
