@@ -113,7 +113,8 @@ contract DeployL1BridgeContracts is Script {
             CHAIN_ID_L2,
             L1_MESSAGE_QUEUE_PROXY_ADDR,
             address(rollupVerifier),
-            address(0)
+            address(0),
+            0
         );
 
         logAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR", address(impl));

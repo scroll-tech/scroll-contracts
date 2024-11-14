@@ -18,7 +18,7 @@ contract SGXVerifierTest is DSTestPlus {
     function setUp() public {
         hevm.warp(1);
         attestationVerifier = new AttestationVerifier(address(0));
-        sgxVerifier = new SGXVerifier(address(attestationVerifier), 86400 * 7, 60);
+        sgxVerifier = new SGXVerifier(address(attestationVerifier), 86400 * 7, 60, 0);
 
         sgxVerifier.grantRole(sgxVerifier.PROVER_REGISTER_ROLE(), address(this));
     }

@@ -76,10 +76,7 @@ contract MultipleVersionRollupVerifier is IRollupVerifier, Ownable {
         return legacyVerifiers[_version].length;
     }
 
-    /// @notice Compute the verifier should be used for specific batch.
-    /// @param _version The version of verifier to query.
-    /// @param _batchIndex The batch index to query.
-    /// @return The address of verifier.
+    /// @inheritdoc IRollupVerifier
     function getVerifier(uint256 _version, uint256 _batchIndex) public view returns (address) {
         // Normally, we will use the latest verifier.
         Verifier memory _verifier = latestVerifier[_version];

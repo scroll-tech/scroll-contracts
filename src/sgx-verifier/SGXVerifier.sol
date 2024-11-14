@@ -30,6 +30,9 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     /// @dev Thrown when the prover's attestation report expired.
     error ErrorProverOutOfDate();
 
+    /// @dev Thrown when the prover is not selected one.
+    error ErrorNotSelectedProver();
+
     /*************
      * Constants *
      *************/
@@ -56,6 +59,20 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     /// @notice The maximum number of blocks allowed for the attestation report.
     uint256 public immutable maxBlockNumberDiff;
 
+    /// @notice The delay for prover to submit a proof.
+    uint256 public immutable proofSubmissionDelay;
+
+    /***********
+     * Structs *
+     ***********/
+
+    /// @param prover The address of prover.
+    /// @param expireTime The timestamp when this prover expired.
+    struct NextProver {
+        address prover;
+        uint64 expireTime;
+    }
+
     /*********************
      * Storage Variables *
      *********************/
@@ -66,6 +83,18 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     /// @notice The list of attested provers, mapping from prover address to `ProverInstance`.
     mapping(address => ProverInstance) public attestedProvers;
 
+    /// @notice The struct of next selected prover.
+    NextProver public nextProver;
+
+    /// @notice The queue for attested provers.
+    mapping(uint256 => address) public proverQueue;
+
+    /// @notice The queue head for `proverQueue`.
+    uint256 public proverQueueHead;
+
+    /// @notice The queue tail for `proverQueue`.
+    uint256 public proverQueueTail;
+
     /***************
      * Constructor *
      ***************/
@@ -73,11 +102,13 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     constructor(
         address _attestationVerifier,
         uint256 _attestValiditySeconds,
-        uint256 _maxBlockNumberDiff
+        uint256 _maxBlockNumberDiff,
+        uint256 _proofSubmissionDelay
     ) EIP712("SGXVerifier", "1") {
         attestationVerifier = _attestationVerifier;
         attestValiditySeconds = _attestValiditySeconds;
         maxBlockNumberDiff = _maxBlockNumberDiff;
+        proofSubmissionDelay = _proofSubmissionDelay;
 
         _grantRole(DEFAULT_ADMIN_ROLE, _msgSender());
     }
@@ -161,9 +192,43 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
         );
         address prover = ECDSA.recover(hash, bundleProof);
 
+        NextProver memory selectedProver = nextProver;
+        // Allow any prover when selected prover doesn't submit proof within `expireTime`.
+        if (selectedProver.prover != prover && selectedProver.expireTime > block.timestamp) {
+            revert ErrorNotSelectedProver();
+        }
+
+        // prover expired
         if (attestedProvers[prover].validUntil < block.timestamp) {
             revert ErrorProverOutOfDate();
         }
+    }
+
+    /*****************************
+     * Public Mutating Functions *
+     *****************************/
+
+    /// @inheritdoc ISGXVerifier
+    function randomSelectNextProver() external returns (address) {
+        uint256 cachedQueueHead = proverQueueHead;
+        uint256 cachedQueueTail = proverQueueTail;
+        bytes32 digest = keccak256(abi.encode(block.timestamp, block.prevrandao, blockhash(block.number - 1)));
+        while (cachedQueueHead < cachedQueueTail) {
+            uint256 size = cachedQueueTail - cachedQueueHead;
+            uint256 index = (uint256(digest) % size) + cachedQueueHead;
+            ProverInstance memory prover = attestedProvers[proverQueue[index]];
+            if (prover.validUntil > block.timestamp + proofSubmissionDelay) {
+                nextProver = NextProver(prover.addr, uint64(block.timestamp + proofSubmissionDelay));
+                break;
+            } else {
+                cachedQueueHead = index + 1;
+            }
+
+            digest = keccak256(abi.encode(digest));
+        }
+        proverQueueHead = cachedQueueHead;
+        if (cachedQueueHead == cachedQueueTail) return address(0);
+        else return nextProver.prover;
     }
 
     /************************
@@ -195,6 +260,15 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
         // This won't exceed `type(uint64).max`.
         uint256 validUntil = block.timestamp + attestValiditySeconds;
         attestedProvers[_data.addr] = ProverInstance(_data.addr, uint64(validUntil));
+
+        uint256 cachedQueueTail = proverQueueTail;
+        proverQueue[cachedQueueTail] = _data.addr;
+        proverQueueTail = cachedQueueTail + 1;
+
+        // initialize first selected prover when queue size is 1
+        if (cachedQueueTail == proverQueueHead) {
+            nextProver = NextProver(_data.addr, uint64(block.timestamp + proofSubmissionDelay));
+        }
 
         emit ProverRegistered(_data.addr, validUntil);
     }

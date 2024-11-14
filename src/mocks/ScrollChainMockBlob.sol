@@ -25,7 +25,7 @@ contract ScrollChainMockBlob is ScrollChain {
         address _messageQueue,
         address _verifier,
         address _sgxVerifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier, _sgxVerifier) {}
+    ) ScrollChain(_chainId, _messageQueue, _verifier, _sgxVerifier, 0) {}
 
     /**********************
      * Internal Functions *

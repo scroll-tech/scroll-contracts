@@ -33,4 +33,11 @@ interface ISGXVerifier is IZkEvmVerifierV2 {
         uint256 referenceBlockNumber;
         bytes32 referenceBlockHash;
     }
+
+    /*****************************
+     * Public Mutating Functions *
+     *****************************/
+
+    /// @notice Random select a prover.
+    function randomSelectNextProver() external returns (address);
 }

@@ -13,6 +13,7 @@ import {BatchHeaderV3Codec} from "../../libraries/codec/BatchHeaderV3Codec.sol";
 import {ChunkCodecV0} from "../../libraries/codec/ChunkCodecV0.sol";
 import {ChunkCodecV1} from "../../libraries/codec/ChunkCodecV1.sol";
 import {IRollupVerifier} from "../../libraries/verifier/IRollupVerifier.sol";
+import {ISGXVerifier} from "../../sgx-verifier/ISGXVerifier.sol";
 
 // solhint-disable no-inline-assembly
 // solhint-disable reason-string
@@ -93,7 +94,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when reverting a finalized batch.
     error ErrorRevertFinalizedBatch();
 
-    /// @dev Thrown when reverting a unresolved state.
+    /// @dev Thrown when reverting an unresolved state.
     error ErrorRevertUnresolvedState();
 
     /// @dev Thrown when the given state root is zero.
@@ -114,11 +115,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the finalization is paused.
     error ErrorFinalizationPaused();
 
-    /// @dev Thrown when the batch is not finalized with zk proof.
-    error ErrorBatchNotVerifiedWithZKProof();
-
     /// @dev Thrown when the batch index mismatch.
     error ErrorBatchIndexMismatch();
+
+    /// @dev Thrown when bundle size doesn't match.
+    error ErrorBundleSizeMismatch();
+
+    /// @dev Thrown when update size for finalized batch.
+    error ErrorUseFinalizedBatch();
+
+    /// @dev Thrown when batch index is smaller than previous `BundleSizeStruct.batchIndex`.
+    error ErrorBatchIndexSmallerThanPreviousOne();
+
+    /// @dev Thrown when batch index delta is not multiple of previous `BundleSizeStruct.bundleSize`.
+    error ErrorBatchIndexDeltaNotMultipleOfBundleSize();
 
     /*************
      * Constants *
@@ -144,14 +154,39 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice The address of `MultipleVersionRollupVerifier` for tee proof.
     address public immutable teeVerifier;
 
+    /// @notice The timestamp to delay proof when we only has one proof type.
+    /// @dev This is enabled after Euclid upgrade.
+    uint256 public proofDelayTimestamp;
+
+    /*********
+     * Enums *
+     *********/
+
+    enum ProofType {
+        ZkProof,
+        TeeProof
+    }
+
     /***********
      * Structs *
      ***********/
 
+    /// @param proofType The type of proof for the state roots.
+    /// @param batchIndex The index of mismatched batch.
+    /// @param stateRoot The mismatched state root.
+    /// @param withdrawRoot The mismatched withdraw root.
     struct UnresolvedState {
-        uint256 batchIndex;
+        ProofType proofType;
+        uint248 batchIndex;
         bytes32 stateRoot;
         bytes32 withdrawRoot;
+    }
+
+    /// @param bundleSize The number of batches in each bundle in current setting.
+    /// @param batchIndex The start batch index for current setting.
+    struct BundleSizeStruct {
+        uint128 bundleSize;
+        uint128 batchIndex;
     }
 
     /*************
@@ -185,11 +220,30 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     mapping(uint256 => bytes32) public override withdrawRoots;
 
+    /// @notice Mapping from batch index to batch committed timestamp.
+    /// @dev This is enabled after Euclid upgrade.
+    mapping(uint256 => uint256) public batchCommittedTimestamp;
+
     /// @inheritdoc IScrollChain
+    /// @dev This is enabled after Euclid upgrade.
     uint256 public override lastTeeVerifiedBatchIndex;
 
-    /// @notice The state for mismatched batch
+    /// @notice The mask for enabled proof types.
+    /// @dev This is enabled after Euclid upgrade.
+    uint256 public enabledProofTypeMask;
+
+    /// @notice The state for mismatched batch.
+    /// @dev This is enabled after Euclid upgrade.
     UnresolvedState public unresolvedState;
+
+    /// @notice The state for bundle size.
+    /// @dev This is enabled after Euclid upgrade.
+    /// @dev Assume the list is `[(s[1], b[1]), (s[2], b[2]), ..., (s[n], b[n])]`,  where `s[i]` is the bundle size
+    ///      and `b[i]` is the start batch index. Then for each `i > 1`, we should have `b[i] > b[i - 1]` and
+    ///      `(b[i] - b[i - 1]) % s[i - 1] = 0`.
+    ///      If a bundle has end batch range `[x, y]`, we need to find last `i` such that `y > b[i]`. And the following
+    ///      should be satisfied: `(y - b[i]) % s[i] = 0` and `y - x + 1 = s[i]`.
+    BundleSizeStruct[] public bundleSize;
 
     /**********************
      * Function Modifiers *
@@ -206,8 +260,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         _;
     }
 
-    modifier whenFinalizeNotPaused() {
+    modifier whenFinalizeNotPaused(ProofType proofType) {
+        // check we have unresolved state.
         if (unresolvedState.batchIndex > 0) revert ErrorFinalizationPaused();
+        // check whether security council paused this proof type.
+        if (((enabledProofTypeMask >> uint256(proofType)) & 1) == 0) revert ErrorFinalizationPaused();
         _;
     }
 
@@ -225,7 +282,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint64 _chainId,
         address _messageQueue,
         address _zkpVerifier,
-        address _teeVerifier
+        address _teeVerifier,
+        uint256 _proofDelayTimestamp
     ) {
         if (_messageQueue == address(0) || _zkpVerifier == address(0) || _teeVerifier == address(0)) {
             revert ErrorZeroAddress();
@@ -237,6 +295,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         messageQueue = _messageQueue;
         zkpVerifier = _zkpVerifier;
         teeVerifier = _teeVerifier;
+        proofDelayTimestamp = _proofDelayTimestamp;
     }
 
     /// @notice Initialize the storage of ScrollChain.
@@ -260,10 +319,23 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit UpdateMaxNumTxInChunk(0, _maxNumTxInChunk);
     }
 
-    function initializeV2() external reinitializer(2) {
+    function initializeV2(uint128 _bundleSize) external reinitializer(2) {
+        // initialize tee proof state
         uint256 cachedIndex = lastZkpVerifiedBatchIndex;
         lastTeeVerifiedBatchIndex = cachedIndex;
-        emit VerifyBatchWithTee(cachedIndex);
+        emit VerifyBatchWithTee(
+            cachedIndex,
+            committedBatches[cachedIndex],
+            finalizedStateRoots[cachedIndex],
+            withdrawRoots[cachedIndex]
+        );
+
+        // initialize the first element in the array
+        bundleSize.push(BundleSizeStruct(_bundleSize, uint128(cachedIndex)));
+        emit InitializeBundleSize(_bundleSize, cachedIndex);
+
+        // initialize proof type mask
+        _enableProofTypes(3);
     }
 
     /*************************
@@ -272,12 +344,50 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     function lastFinalizedBatchIndex() public view returns (uint256) {
-        return lastTeeVerifiedBatchIndex;
+        uint256 cachedLastTeeVerifiedBatchIndex = lastTeeVerifiedBatchIndex;
+        uint256 cachedLastZkpVerifiedBatchIndex = lastZkpVerifiedBatchIndex;
+        uint256 mask = enabledProofTypeMask;
+        // the value of mask is 1, 2, or 3
+        if (mask == 1) return cachedLastZkpVerifiedBatchIndex;
+        else if (mask == 2) return cachedLastTeeVerifiedBatchIndex;
+        else {
+            return
+                cachedLastTeeVerifiedBatchIndex < cachedLastZkpVerifiedBatchIndex
+                    ? cachedLastTeeVerifiedBatchIndex
+                    : cachedLastZkpVerifiedBatchIndex;
+        }
     }
 
     /// @inheritdoc IScrollChain
     function isBatchFinalized(uint256 _batchIndex) external view override returns (bool) {
-        return _batchIndex <= lastFinalizedBatchIndex();
+        uint256 mask = enabledProofTypeMask;
+        if (mask == 1 || mask == 2) {
+            // add delay when we only have one proof enable
+            return
+                _batchIndex <= lastFinalizedBatchIndex() &&
+                block.timestamp >= batchCommittedTimestamp[_batchIndex] + proofDelayTimestamp;
+        } else {
+            return _batchIndex <= lastFinalizedBatchIndex();
+        }
+    }
+
+    /// @dev Get bundle size with given end batch index.
+    /// @param batchIndex The end batch index of given bundle.
+    /// @return size The size of the given bundle.
+    function getBundleSizeGivenEndBatchIndex(uint256 batchIndex) public view returns (uint256) {
+        uint256 index = bundleSize.length;
+        // Usually the last item in the array is what we want, loop here won't cause much gas.
+        while (index > 0) {
+            unchecked {
+                index -= 1;
+            }
+            BundleSizeStruct memory s = bundleSize[index];
+            if (batchIndex > s.batchIndex) {
+                return s.bundleSize;
+            }
+        }
+        // It means the batch index is before Euclid upgrade, just return zero.
+        return 0;
     }
 
     /*****************************
@@ -493,7 +603,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
-    /* This function will never be used since we already upgrade to Curie. We comment out the codes for reference.
+    /* This function will never be used since we already upgrade to Bernoulli. We comment out the codes for reference.
     /// @inheritdoc IScrollChain
     function finalizeBatchWithProof(
         bytes calldata _batchHeader,
@@ -596,43 +706,29 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _aggrProof
-    ) external override OnlyProver whenFinalizeNotPaused {
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
-
-        // compute pending batch hash and verify
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex, ) = _loadBatchHeader(_batchHeader);
-
-        // retrieve finalized state root and batch hash from storage to construct the public input
-        uint256 _lastVerifiedBatchIndex = lastZkpVerifiedBatchIndex;
-        if (_batchIndex <= _lastVerifiedBatchIndex) revert ErrorBatchIsAlreadyVerified();
-
-        bytes memory _publicInput = abi.encodePacked(
-            layer2ChainId,
-            uint32(_batchIndex - _lastVerifiedBatchIndex), // numBatches
-            finalizedStateRoots[_lastVerifiedBatchIndex], // _prevStateRoot
-            committedBatches[_lastVerifiedBatchIndex], // _prevBatchHash
+    ) external override OnlyProver whenFinalizeNotPaused(ProofType.ZkProof) {
+        // verify bundle logic
+        (uint256 _batchIndex, bytes32 _batchHash, uint256 _totalL1MessagesPoppedOverall) = _verifyBundle(
+            ProofType.ZkProof,
+            _batchHeader,
             _postStateRoot,
-            _batchHash,
-            _withdrawRoot
+            _withdrawRoot,
+            _aggrProof
         );
 
-        // load version from batch header, it is always the first byte.
-        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
-
-        // verify bundle, choose the correct verifier based on the last batch
-        // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(zkpVerifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
-
-        // store in state
-        // @note we do not store intermediate finalized roots
+        // verify successfully, record state and emit event first
         lastZkpVerifiedBatchIndex = _batchIndex;
-        finalizedStateRoots[_batchIndex] = _postStateRoot;
-        withdrawRoots[_batchIndex] = _withdrawRoot;
-
-        // @note we will pop finalized and non-skipped message in `finalizeBundleWithTeeProof`
-        // _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
-
         emit VerifyBatchWithZkp(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+
+        // post actions after bundle verification
+        _afterVerifyBundle(
+            ProofType.ZkProof,
+            _batchIndex,
+            _batchHash,
+            _postStateRoot,
+            _withdrawRoot,
+            _totalL1MessagesPoppedOverall
+        );
     }
 
     /// @inheritdoc IScrollChain
@@ -641,59 +737,29 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _teeProof
-    ) external override OnlyProver whenFinalizeNotPaused {
-        // compute pending batch hash and verify
-        (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex,
-            uint256 _totalL1MessagesPoppedOverall
-        ) = _loadBatchHeader(_batchHeader);
-
-        // Check if this state root is verified and set by zk proof.
-        // It is possible that `finalizedStateRoots[_batchIndex]` is nonzero and it is not verified by zkp.
-        // Since we may reset the `lastZkpVerifiedBatchIndex` in `resolveStateMismatch` function.
-        // However, it's still possible that the batch is "finalized" by zkp but it's in the middle of the bundle,
-        // so we do not have it stored in state. We don't consider this case here.
-        bytes32 cachedStateRoot = finalizedStateRoots[_batchIndex];
-        if (cachedStateRoot == bytes32(0) || _batchIndex > lastZkpVerifiedBatchIndex) {
-            revert ErrorBatchNotVerifiedWithZKProof();
-        }
-
-        uint256 _lastVerifiedBatchIndex = lastTeeVerifiedBatchIndex;
-        if (_batchIndex <= _lastVerifiedBatchIndex) {
-            revert ErrorBatchIsAlreadyVerified();
-        }
-
-        bytes memory _publicInput = abi.encodePacked(
-            layer2ChainId,
-            uint32(_batchIndex - _lastVerifiedBatchIndex), // numBatches
-            finalizedStateRoots[_lastVerifiedBatchIndex], // _prevStateRoot
-            committedBatches[_lastVerifiedBatchIndex], // _prevBatchHash
+    ) external override whenFinalizeNotPaused(ProofType.TeeProof) {
+        // verify bundle logic
+        (uint256 _batchIndex, bytes32 _batchHash, uint256 _totalL1MessagesPoppedOverall) = _verifyBundle(
+            ProofType.TeeProof,
+            _batchHeader,
             _postStateRoot,
-            _batchHash,
-            _withdrawRoot
+            _withdrawRoot,
+            _teeProof
         );
 
-        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
-        IRollupVerifier(teeVerifier).verifyBundleProof(batchVersion, _batchIndex, _teeProof, _publicInput);
-
-        // check withdraw root and state root match with zk proof
-        if (withdrawRoots[_batchIndex] != _withdrawRoot || cachedStateRoot != _postStateRoot) {
-            unresolvedState.batchIndex = _batchIndex;
-            unresolvedState.stateRoot = _postStateRoot;
-            unresolvedState.withdrawRoot = _withdrawRoot;
-            emit StateMismatch(_batchIndex, _postStateRoot, _withdrawRoot);
-            return;
-        }
-
+        // verify successfully, record state and emit event first
         lastTeeVerifiedBatchIndex = _batchIndex;
+        emit VerifyBatchWithTee(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
 
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
-
-        emit VerifyBatchWithTee(_batchIndex);
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        // post actions after bundle verification
+        _afterVerifyBundle(
+            ProofType.TeeProof,
+            _batchIndex,
+            _batchHash,
+            _postStateRoot,
+            _withdrawRoot,
+            _totalL1MessagesPoppedOverall
+        );
     }
 
     /************************
@@ -704,36 +770,59 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     ///
     /// @dev This should only be called by Security Council.
     ///
-    /// @param useSGXState Whether we want to use the state root from SGX prover.
-    function resolveStateMismatch(bytes calldata _batchHeader, bool useSGXState) external onlyOwner {
+    /// @param useUnresolvedState Whether we want to use the state root from unresolved one.
+    function resolveStateMismatch(bytes calldata _batchHeader, bool useUnresolvedState) external onlyOwner {
         UnresolvedState memory state = unresolvedState;
         if (state.batchIndex == 0) {
             revert ErrorNoUnresolvedState();
         }
         (, , uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _loadBatchHeader(_batchHeader);
         if (_batchIndex != state.batchIndex) revert ErrorBatchIndexMismatch();
-        if (useSGXState) {
+
+        if (useUnresolvedState) {
             finalizedStateRoots[state.batchIndex] = state.stateRoot;
             withdrawRoots[state.batchIndex] = state.withdrawRoot;
-            emit ResolveState(state.batchIndex, state.stateRoot, state.withdrawRoot);
-
-            // reset zkp verified batch index, zk prover need to reprove everything after this batch
-            lastZkpVerifiedBatchIndex = state.batchIndex;
+            if (state.proofType == ProofType.ZkProof) {
+                // reset tee verified batch index, tee prover need to reprove everything after this batch
+                lastTeeVerifiedBatchIndex = state.batchIndex;
+                // disable tee proof
+                enabledProofTypeMask ^= 2;
+            } else {
+                // reset zkp verified batch index, zk prover need to reprove everything after this batch
+                lastZkpVerifiedBatchIndex = state.batchIndex;
+                // disable zkp proof
+                enabledProofTypeMask ^= 1;
+            }
+        } else {
+            if (state.proofType == ProofType.TeeProof) {
+                // reset tee verified batch index, tee prover need to reprove everything after this batch
+                lastTeeVerifiedBatchIndex = state.batchIndex;
+                // disable tee proof
+                enabledProofTypeMask ^= 2;
+            } else {
+                // reset zkp verified batch index, zk prover need to reprove everything after this batch
+                lastZkpVerifiedBatchIndex = state.batchIndex;
+                // disable zkp proof
+                enabledProofTypeMask ^= 1;
+            }
         }
 
-        lastTeeVerifiedBatchIndex = state.batchIndex;
+        // emit resolve event
+        emit ResolveState(state.batchIndex, finalizedStateRoots[state.batchIndex], withdrawRoots[state.batchIndex]);
 
         // Pop finalized and non-skipped message from L1MessageQueue.
         _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
 
-        // emit events
-        emit VerifyBatchWithTee(state.batchIndex);
-        emit FinalizeBatch(state.batchIndex, committedBatches[state.batchIndex], state.stateRoot, state.withdrawRoot);
+        // emit finalize event
+        emit FinalizeBatch(
+            state.batchIndex,
+            committedBatches[state.batchIndex],
+            finalizedStateRoots[state.batchIndex],
+            withdrawRoots[state.batchIndex]
+        );
 
         // clear state
-        unresolvedState.batchIndex = 0;
-        unresolvedState.stateRoot = bytes32(0);
-        unresolvedState.withdrawRoot = bytes32(0);
+        delete unresolvedState;
     }
 
     /// @notice Add an account to the sequencer list.
@@ -794,9 +883,45 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
+    /// @notice Update the bundle size
+    /// @param size The new bundle size.
+    /// @param batchIndex The start batch index for new bundle size.
+    function updateBundleSize(uint128 size, uint128 batchIndex) external onlyOwner {
+        if (batchIndex <= lastTeeVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
+        if (batchIndex <= lastZkpVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
+
+        BundleSizeStruct memory last = bundleSize[bundleSize.length - 1];
+        if (batchIndex <= last.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
+        if ((batchIndex - last.batchIndex) % last.bundleSize != 0) {
+            revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
+        }
+
+        last.bundleSize = size;
+        last.batchIndex = batchIndex;
+        bundleSize.push(last);
+
+        emit ChangeBundleSize(size, batchIndex);
+    }
+
+    /// @notice Enable proof types.
+    /// @param mask The mask for new enabled proof types.
+    function enableProofTypes(uint256 mask) external onlyOwner {
+        _enableProofTypes(mask);
+    }
+
     /**********************
      * Internal Functions *
      **********************/
+
+    /// @dev Internal function to enable proof types.
+    /// @param mask The mask for new enabled proof types.
+    function _enableProofTypes(uint256 mask) internal {
+        uint256 oldMask = enabledProofTypeMask;
+        uint256 newMask = oldMask | mask;
+        enabledProofTypeMask = newMask;
+
+        emit EnableProofTypes(oldMask, newMask);
+    }
 
     /// @dev Internal function to do common checks before actual batch committing.
     /// @param _parentBatchHeader The parent batch header in calldata.
@@ -827,7 +952,108 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _batchHash The hash of current batch.
     function _afterCommitBatch(uint256 _batchIndex, bytes32 _batchHash) private {
         committedBatches[_batchIndex] = _batchHash;
+        batchCommittedTimestamp[_batchIndex] = block.timestamp;
         emit CommitBatch(_batchIndex, _batchHash);
+    }
+
+    /// @dev Internal function to verify bundle.
+    /// @param _proofType The proof type (zk proof or tee proof).
+    /// @param _batchHeader The batch header bytes in calldata.
+    /// @param _postStateRoot The state root after this bundle.
+    /// @param _withdrawRoot The withdraw root after this bundle.
+    /// @param _bundleProof The proof for bundle.
+    function _verifyBundle(
+        ProofType _proofType,
+        bytes calldata _batchHeader,
+        bytes32 _postStateRoot,
+        bytes32 _withdrawRoot,
+        bytes calldata _bundleProof
+    )
+        internal
+        returns (
+            uint256 _batchIndex,
+            bytes32 _batchHash,
+            uint256 _totalL1MessagesPoppedOverall
+        )
+    {
+        uint256 _lastVerifiedBatchIndex = _proofType == ProofType.ZkProof
+            ? lastZkpVerifiedBatchIndex
+            : lastTeeVerifiedBatchIndex;
+        uint256 batchPtr;
+        // compute pending batch hash and verify
+        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = _loadBatchHeader(_batchHeader);
+
+        // check bundle size
+        uint256 numBatches = getBundleSizeGivenEndBatchIndex(_batchIndex);
+        if (_batchIndex != _lastVerifiedBatchIndex + numBatches) revert ErrorBundleSizeMismatch();
+
+        // construct the public input
+        bytes memory _publicInput = abi.encodePacked(
+            layer2ChainId,
+            uint32(numBatches), // numBatches
+            finalizedStateRoots[_lastVerifiedBatchIndex], // _prevStateRoot
+            committedBatches[_lastVerifiedBatchIndex], // _prevBatchHash
+            _postStateRoot,
+            _batchHash,
+            _withdrawRoot
+        );
+
+        // load version from batch header, it is always the first byte.
+        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
+
+        // verify bundle, choose the correct verifier based on the last batch
+        // our off-chain service will make sure all unfinalized batches have the same batch version.
+        IRollupVerifier(_proofType == ProofType.ZkProof ? zkpVerifier : teeVerifier).verifyBundleProof(
+            batchVersion,
+            _batchIndex,
+            _bundleProof,
+            _publicInput
+        );
+
+        // random select next prover for tee proof
+        if (_proofType == ProofType.TeeProof) {
+            ISGXVerifier(IRollupVerifier(teeVerifier).getVerifier(batchVersion, _batchIndex)).randomSelectNextProver();
+        }
+    }
+
+    /// @dev Internal function to do actions after bundle verification,  including state recording and
+    ///      state match checking.
+    /// @param _proofType The proof type (zk proof or tee proof).
+    /// @param _batchIndex The last batch index of this bundle.
+    /// @param _batchHash The hash of the batch.
+    /// @param _postStateRoot The state root after this bundle.
+    /// @param _withdrawRoot The withdraw root after this bundle.
+    /// @param _totalL1MessagesPoppedOverall The total number l1 messages popped after this bundle.
+    function _afterVerifyBundle(
+        ProofType _proofType,
+        uint256 _batchIndex,
+        bytes32 _batchHash,
+        bytes32 _postStateRoot,
+        bytes32 _withdrawRoot,
+        uint256 _totalL1MessagesPoppedOverall
+    ) internal {
+        uint256 counterpartVerifiedBatchIndex = _proofType == ProofType.ZkProof
+            ? lastTeeVerifiedBatchIndex
+            : lastZkpVerifiedBatchIndex;
+        if (_batchIndex <= counterpartVerifiedBatchIndex) {
+            // The zk proof is behind tee proof, we compare state roots here
+            if (_postStateRoot != finalizedStateRoots[_batchIndex] || withdrawRoots[_batchIndex] != _withdrawRoot) {
+                unresolvedState.proofType = _proofType;
+                unresolvedState.batchIndex = uint248(_batchIndex);
+                unresolvedState.stateRoot = _postStateRoot;
+                unresolvedState.withdrawRoot = _withdrawRoot;
+                emit StateMismatch(_batchIndex, _postStateRoot, _withdrawRoot);
+            } else {
+                // state roots matched, mark bundle finalized.
+                _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+                emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+            }
+        } else {
+            // The current proof is ahead counterpart proof, we record state roots here.
+            // And we do not store intermediate finalized roots.
+            finalizedStateRoots[_batchIndex] = _postStateRoot;
+            withdrawRoots[_batchIndex] = _withdrawRoot;
+        }
     }
 
     /* This function will never be used since we already upgrade to Darwin. We comment out the codes for reference.
@@ -936,7 +1162,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
-    /* This function will never be used since we already upgrade to Curie. We comment out the codes for reference.
+    /* This function will never be used since we already upgrade to Bernoulli. We comment out the codes for reference.
     /// @dev Internal function to commit chunks with version 0
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped before the list of chunks.
     /// @param _chunks The list of chunks to commit.

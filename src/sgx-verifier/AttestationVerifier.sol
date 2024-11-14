@@ -28,7 +28,7 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
     /// @dev Thrown when the MrSigner from the attestation report is invalid.
     error ErrorInvalidMrSigner();
 
-    /// @dev Thrown when the MrSigner from the attestation report is invalid.
+    /// @dev Thrown when the MrEnclave from the attestation report is invalid.
     error ErrorInvalidMrEnclave();
 
     /***********************
