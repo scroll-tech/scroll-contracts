@@ -98,6 +98,16 @@ get_source_code_name() {
   fi
 }
 
+function is_predeploy_contract() {
+  local contract_name="$1"
+
+  if [[ "$contract_name" == "L2MessageQueue" || "$contract_name" == "L1GasPriceOracle" || "$contract_name" == "Whitelist" || "$contract_name" == "WrappedEther" || "$contract_name" == "L2TxFeeVault" ]]; then
+    return 0  # True
+  else
+    return 1  # False
+  fi
+}
+
 # read the file line by line
 while IFS= read -r line; do
   extract_contract_info "$line"
@@ -105,12 +115,12 @@ while IFS= read -r line; do
   # get contracts deployment layer
   if [[ "$contract_name" =~ ^L1 ]]; then
     layer="L1"
-  elif [[ "$contract_name" =~ ^L2 ]]; then
-    layer="L2"
     # specially handle contract_name L1_GAS_PRICE_ORACLE_ADDR
     if [[ "$contract_name" == "L1_GAS_PRICE_ORACLE_ADDR" ]]; then
-      layer="L1"
+      layer="L2"
     fi
+  elif [[ "$contract_name" =~ ^L2 ]]; then
+    layer="L2"
   else
     echo "wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
     continue
@@ -120,7 +130,7 @@ while IFS= read -r line; do
 
   # skip if source_code_name or contract_addr is empty
   if [[ -z $source_code_name || -z $contract_addr ]]; then
-    echo "empty source_code_name: $source_code_name or contract_addr: $contract_addr"
+    echo "empty source_code_name $source_code_name or contract_addr $contract_addr"
     continue
   fi
 
@@ -145,6 +155,9 @@ while IFS= read -r line; do
     elif [[ "$VERIFIER_TYPE_L2" == "sourcify" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2 --verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    if ! is_predeploy_contract "$source_code_name"; then
+        string="$EXTRA_PARAMS\" --guess-constructor-args\""
+    fi
+    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --skip-is-verified-check $EXTRA_PARAMS
   fi
 done < ./volume/config-contracts.toml
