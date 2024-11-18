@@ -12,17 +12,12 @@ interface ISGXVerifier is IZkEvmVerifierV2 {
     /// @notice Emitted when a prover submit a valid attestation report.
     event ProverRegistered(address indexed prover, uint256 validUntil);
 
+    /// @notice Emitted when a prover is selected to prove for next bundle.
+    event ProverSelected(address indexed prover, uint256 validUntil);
+
     /***********
      * Structs *
      ***********/
-
-    /// @dev Compiler will pack this into single `uint256`.
-    /// @param addr The address of the prover.
-    /// @param validUntil The expire timestamp of the report.
-    struct ProverInstance {
-        address addr;
-        uint64 validUntil;
-    }
 
     /// @dev The struct for report data.
     /// @param addr The address of the prover.

@@ -70,6 +70,7 @@ contract ScrollChainTest is DSTestPlus {
             address(new ScrollChain(233, address(messageQueue), address(zkpVerifier), address(teeVerifier), 0))
         );
         rollup.initialize(address(messageQueue), address(zkpVerifier), 100);
+        rollup.initializeV2(1);
     }
 
     function testInitialized() external {
@@ -982,6 +983,7 @@ contract ScrollChainTest is DSTestPlus {
             }
         }
 
+        rollup.updateBundleSize(2, 1);
         // finalize batch1 and batch2 together
         assertBoolEq(rollup.isBatchFinalized(1), false);
         assertBoolEq(rollup.isBatchFinalized(2), false);
@@ -1231,6 +1233,10 @@ contract ScrollChainTest is DSTestPlus {
         rollup.commitBatch(1, new bytes(0), new bytes[](0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
         rollup.commitBatchWithBlobProof(3, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert("Pausable: paused");
+        rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+        hevm.expectRevert("Pausable: paused");
+        rollup.finalizeBundleWithTeeProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
         hevm.stopPrank();
 
         // unpause
@@ -1328,4 +1334,6 @@ contract ScrollChainTest is DSTestPlus {
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(_logic, address(admin), new bytes(0));
         return address(proxy);
     }
+
+    function _commitBatches(uint256 numBatches, bool withL1Message) internal {}
 }

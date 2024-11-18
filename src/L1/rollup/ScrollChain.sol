@@ -130,6 +130,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when batch index delta is not multiple of previous `BundleSizeStruct.bundleSize`.
     error ErrorBatchIndexDeltaNotMultipleOfBundleSize();
 
+    /// @dev Thrown when the proof type mask is greater than 3.
+    error ErrorInvalidProofTypeMask();
+
     /*************
      * Constants *
      *************/
@@ -154,9 +157,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice The address of `MultipleVersionRollupVerifier` for tee proof.
     address public immutable teeVerifier;
 
-    /// @notice The timestamp to delay proof when we only has one proof type.
+    /// @notice The duration to delay proof when we only has one proof type.
     /// @dev This is enabled after Euclid upgrade.
-    uint256 public proofDelayTimestamp;
+    uint256 public emergencyFinalizationDelay;
 
     /*********
      * Enums *
@@ -283,7 +286,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         address _messageQueue,
         address _zkpVerifier,
         address _teeVerifier,
-        uint256 _proofDelayTimestamp
+        uint256 _emergencyFinalizationDelay
     ) {
         if (_messageQueue == address(0) || _zkpVerifier == address(0) || _teeVerifier == address(0)) {
             revert ErrorZeroAddress();
@@ -295,7 +298,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         messageQueue = _messageQueue;
         zkpVerifier = _zkpVerifier;
         teeVerifier = _teeVerifier;
-        proofDelayTimestamp = _proofDelayTimestamp;
+        emergencyFinalizationDelay = _emergencyFinalizationDelay;
     }
 
     /// @notice Initialize the storage of ScrollChain.
@@ -365,7 +368,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             // add delay when we only have one proof enable
             return
                 _batchIndex <= lastFinalizedBatchIndex() &&
-                block.timestamp >= batchCommittedTimestamp[_batchIndex] + proofDelayTimestamp;
+                block.timestamp >= batchCommittedTimestamp[_batchIndex] + emergencyFinalizationDelay;
         } else {
             return _batchIndex <= lastFinalizedBatchIndex();
         }
@@ -706,7 +709,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _aggrProof
-    ) external override OnlyProver whenFinalizeNotPaused(ProofType.ZkProof) {
+    ) external override OnlyProver whenNotPaused whenFinalizeNotPaused(ProofType.ZkProof) {
         // verify bundle logic
         (uint256 _batchIndex, bytes32 _batchHash, uint256 _totalL1MessagesPoppedOverall) = _verifyBundle(
             ProofType.ZkProof,
@@ -737,7 +740,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot,
         bytes calldata _teeProof
-    ) external override whenFinalizeNotPaused(ProofType.TeeProof) {
+    ) external override whenNotPaused whenFinalizeNotPaused(ProofType.TeeProof) {
         // verify bundle logic
         (uint256 _batchIndex, bytes32 _batchHash, uint256 _totalL1MessagesPoppedOverall) = _verifyBundle(
             ProofType.TeeProof,
@@ -887,20 +890,37 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param size The new bundle size.
     /// @param batchIndex The start batch index for new bundle size.
     function updateBundleSize(uint128 size, uint128 batchIndex) external onlyOwner {
-        if (batchIndex <= lastTeeVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
-        if (batchIndex <= lastZkpVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
+        uint256 cachedLastTeeVerifiedBatchIndex = lastTeeVerifiedBatchIndex;
+        uint256 cachedLastZkpVerifiedBatchIndex = lastZkpVerifiedBatchIndex;
+        if (batchIndex <= cachedLastTeeVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
+        if (batchIndex <= cachedLastZkpVerifiedBatchIndex) revert ErrorUseFinalizedBatch();
 
-        BundleSizeStruct memory last = bundleSize[bundleSize.length - 1];
-        if (batchIndex <= last.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
-        if ((batchIndex - last.batchIndex) % last.bundleSize != 0) {
-            revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
+        uint256 index = bundleSize.length - 1;
+        BundleSizeStruct memory last = bundleSize[index];
+        if (last.batchIndex > cachedLastTeeVerifiedBatchIndex && last.batchIndex > cachedLastZkpVerifiedBatchIndex) {
+            // last is future batch index, we override the last one
+            BundleSizeStruct memory prev = bundleSize[index - 1];
+            if (batchIndex <= prev.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
+            if ((batchIndex - prev.batchIndex) % prev.bundleSize != 0) {
+                revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
+            }
+            last.bundleSize = size;
+            last.batchIndex = batchIndex;
+            bundleSize[index] = last;
+        } else {
+            // last is past batch index, we append a new one
+            if (batchIndex <= last.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
+            if ((batchIndex - last.batchIndex) % last.bundleSize != 0) {
+                revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
+            }
+
+            index += 1;
+            last.bundleSize = size;
+            last.batchIndex = batchIndex;
+            bundleSize.push(last);
         }
 
-        last.bundleSize = size;
-        last.batchIndex = batchIndex;
-        bundleSize.push(last);
-
-        emit ChangeBundleSize(size, batchIndex);
+        emit ChangeBundleSize(index, size, batchIndex);
     }
 
     /// @notice Enable proof types.
@@ -916,6 +936,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Internal function to enable proof types.
     /// @param mask The mask for new enabled proof types.
     function _enableProofTypes(uint256 mask) internal {
+        if (mask > 3) revert ErrorInvalidProofTypeMask();
+
         uint256 oldMask = enabledProofTypeMask;
         uint256 newMask = oldMask | mask;
         enabledProofTypeMask = newMask;

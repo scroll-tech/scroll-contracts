@@ -129,6 +129,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
             address(new ScrollChainMockBlob(1233, address(messageQueue), address(zkpVerifier), address(teeVerifier)))
         );
         rollup.initialize(address(messageQueue), address(0), 44);
+        rollup.initializeV2(1);
 
         // Setup whitelist
         address[] memory _accounts = new address[](1);
@@ -181,5 +182,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
+
+        rollup.lastFinalizedBatchIndex();
     }
 }

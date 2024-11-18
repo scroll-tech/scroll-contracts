@@ -159,12 +159,13 @@ contract AttestationVerifier is Ownable, IAttestationVerifier {
             revert ErrorInvalidReport();
         }
 
-        // @dev Below codes can be further optimized with assembly codes, but not necessary.
-        // @note The actual offsets are `64`, `128` and `320`, but we have extra 13 bytes at the beginning.
-        // The offsets used here become `77`, `141` and `333`.
-        mrEnclave = bytes32(rawEnclaveReport.substring(77, 32));
-        mrSigner = bytes32(rawEnclaveReport.substring(141, 32));
-        reportUserData = rawEnclaveReport.substring(333, 64).readBytes32(32);
+        // @note The actual offsets are `64+32`, `128+32` and `320+32`, but we have extra 13 bytes at the beginning.
+        // The offsets used here become `77+32`, `141+32` and `333+32`.
+        assembly {
+            mrEnclave := mload(add(rawEnclaveReport, 109))
+            mrSigner := mload(add(rawEnclaveReport, 173))
+            reportUserData := mload(add(rawEnclaveReport, 397))
+        }
     }
 
     /* for reference

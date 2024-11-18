@@ -40,6 +40,9 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     /// @dev The role for prover registration.
     bytes32 public PROVER_REGISTER_ROLE = keccak256("PROVER_REGISTER_ROLE");
 
+    /// @dev The role for next prover selection.
+    bytes32 public PROVER_SELECTION_ROLE = keccak256("PROVER_SELECTION_ROLE");
+
     /// @dev type hash for struct `ProveBundleSignatureData`.
     bytes32 private constant _BUNDLE_PAYLOAD_TYPEHASH =
         keccak256(
@@ -80,8 +83,8 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
     /// @notice The list of attested reports, mapping from report hash to attested status.
     mapping(bytes32 => bool) public attestedReports;
 
-    /// @notice The list of attested provers, mapping from prover address to `ProverInstance`.
-    mapping(address => ProverInstance) public attestedProvers;
+    /// @notice Mapping from attested prover address to expired timestamp.
+    mapping(address => uint256) public attestedProverExpireTime;
 
     /// @notice The struct of next selected prover.
     NextProver public nextProver;
@@ -199,7 +202,7 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
         }
 
         // prover expired
-        if (attestedProvers[prover].validUntil < block.timestamp) {
+        if (attestedProverExpireTime[prover] < block.timestamp) {
             revert ErrorProverOutOfDate();
         }
     }
@@ -209,16 +212,18 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
      *****************************/
 
     /// @inheritdoc ISGXVerifier
-    function randomSelectNextProver() external returns (address) {
+    function randomSelectNextProver() external onlyRole(PROVER_SELECTION_ROLE) returns (address) {
         uint256 cachedQueueHead = proverQueueHead;
         uint256 cachedQueueTail = proverQueueTail;
         bytes32 digest = keccak256(abi.encode(block.timestamp, block.prevrandao, blockhash(block.number - 1)));
+        // The expected number of randoms is `O(log(proverQueueTail - proverQueueHead))`.
         while (cachedQueueHead < cachedQueueTail) {
             uint256 size = cachedQueueTail - cachedQueueHead;
             uint256 index = (uint256(digest) % size) + cachedQueueHead;
-            ProverInstance memory prover = attestedProvers[proverQueue[index]];
-            if (prover.validUntil > block.timestamp + proofSubmissionDelay) {
-                nextProver = NextProver(prover.addr, uint64(block.timestamp + proofSubmissionDelay));
+            address proverAddr = proverQueue[index];
+            uint256 validUntil = attestedProverExpireTime[proverAddr];
+            if (validUntil > block.timestamp + proofSubmissionDelay) {
+                _selectProver(proverAddr, block.timestamp + proofSubmissionDelay);
                 break;
             } else {
                 cachedQueueHead = index + 1;
@@ -259,7 +264,7 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
 
         // This won't exceed `type(uint64).max`.
         uint256 validUntil = block.timestamp + attestValiditySeconds;
-        attestedProvers[_data.addr] = ProverInstance(_data.addr, uint64(validUntil));
+        attestedProverExpireTime[_data.addr] = validUntil;
 
         uint256 cachedQueueTail = proverQueueTail;
         proverQueue[cachedQueueTail] = _data.addr;
@@ -267,7 +272,7 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
 
         // initialize first selected prover when queue size is 1
         if (cachedQueueTail == proverQueueHead) {
-            nextProver = NextProver(_data.addr, uint64(block.timestamp + proofSubmissionDelay));
+            _selectProver(_data.addr, block.timestamp + proofSubmissionDelay);
         }
 
         emit ProverRegistered(_data.addr, validUntil);
@@ -290,5 +295,12 @@ contract SGXVerifier is AccessControlEnumerable, EIP712, ISGXVerifier {
         if (blockhash(blockNumber) != blockHash) {
             revert ErrorBlockHashMismatch();
         }
+    }
+
+    /// @dev Internal function to select one prover with expire time.
+    function _selectProver(address proverAddr, uint256 expireAt) private {
+        nextProver = NextProver(proverAddr, uint64(expireAt));
+
+        emit ProverSelected(proverAddr, expireAt);
     }
 }

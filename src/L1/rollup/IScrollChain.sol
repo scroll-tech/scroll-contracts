@@ -32,9 +32,6 @@ interface IScrollChain {
     );
 
     /// @notice Emitted when a batch is verified by tee proof
-    /// @dev Tee proof always comes after zk proof. If they match, the state root and withdraw root are the same.
-    ///      If they mismatch, we will emit `StateMismatch` instead. Therefore, the `stateRoot` and `withdrawRoot`
-    ///      is not included in this event.
     /// @param batchIndex The index of the batch.
     /// @param batchHash The hash of the batch
     /// @param stateRoot The state root on layer 2 after this batch.
@@ -86,9 +83,10 @@ interface IScrollChain {
     event InitializeBundleSize(uint256 size, uint256 index);
 
     /// @notice Emitted when bundle size updated.
+    /// @param index The array index of bundle size array.
     /// @param size The size of bundle (i.e. number of batches in bundle).
-    /// @param index The start batch index for this size.
-    event ChangeBundleSize(uint256 size, uint256 index);
+    /// @param batchIndex The start batch index for this size.
+    event ChangeBundleSize(uint256 index, uint256 size, uint256 batchIndex);
 
     /// @notice Emitted when enable new proof types.
     /// @param oldMask The previous enabled proof types.
@@ -99,7 +97,7 @@ interface IScrollChain {
      * Public View Functions *
      *************************/
 
-    /// @return The latest finalized batch index (both zkp and tee verified).
+    /// @return The latest finalized batch index.
     function lastFinalizedBatchIndex() external view returns (uint256);
 
     /// @return The latest verified batch index by zkp proof.
