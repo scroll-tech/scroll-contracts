@@ -98,6 +98,16 @@ get_source_code_name() {
   fi
 }
 
+function is_predeploy_contract() {
+  local contract_name="$1"
+
+  if [[ "$contract_name" == "L2MessageQueue" || "$contract_name" == "L1GasPriceOracle" || "$contract_name" == "Whitelist" || "$contract_name" == "WrappedEther" || "$contract_name" == "L2TxFeeVault" ]]; then
+    return 0  # True
+  else
+    return 1  # False
+  fi
+}
+
 # read the file line by line
 while IFS= read -r line; do
   extract_contract_info "$line"
@@ -136,7 +146,7 @@ while IFS= read -r line; do
     elif [[ "$VERIFIER_TYPE_L1" == "sourcify" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L1 --verifier-url $EXPLORER_URI_L1 --verifier $VERIFIER_TYPE_L1"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    # forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L1 --chain-id $CHAIN_ID_L1 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
   elif [[ "$layer" == "L2" ]]; then
     if [[ "$VERIFIER_TYPE_L2" == "etherscan" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2"
@@ -145,6 +155,10 @@ while IFS= read -r line; do
     elif [[ "$VERIFIER_TYPE_L2" == "sourcify" ]]; then
       EXTRA_PARAMS="--api-key $EXPLORER_API_KEY_L2 --verifier-url $EXPLORER_URI_L2 --verifier $VERIFIER_TYPE_L2"
     fi
-    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --guess-constructor-args --skip-is-verified-check $EXTRA_PARAMS
+    if ! is_predeploy_contract "$source_code_name"; then
+        string="$EXTRA_PARAMS\" --guess-constructor-args\""
+    fi
+    echo "forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --skip-is-verified-check $EXTRA_PARAMS"
+    forge verify-contract $contract_addr $source_code_name --rpc-url $RPC_URI_L2 --chain-id $CHAIN_ID_L2 --watch --skip-is-verified-check $EXTRA_PARAMS
   fi
 done < ./volume/config-contracts.toml
