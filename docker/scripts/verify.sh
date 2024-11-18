@@ -105,12 +105,12 @@ while IFS= read -r line; do
   # get contracts deployment layer
   if [[ "$contract_name" =~ ^L1 ]]; then
     layer="L1"
-  elif [[ "$contract_name" =~ ^L2 ]]; then
-    layer="L2"
     # specially handle contract_name L1_GAS_PRICE_ORACLE_ADDR
     if [[ "$contract_name" == "L1_GAS_PRICE_ORACLE_ADDR" ]]; then
-      layer="L1"
+      layer="L2"
     fi
+  elif [[ "$contract_name" =~ ^L2 ]]; then
+    layer="L2"
   else
     echo "wrong contract name, not starts with L1 or L2, contract_name: $contract_name"
     continue
@@ -120,7 +120,7 @@ while IFS= read -r line; do
 
   # skip if source_code_name or contract_addr is empty
   if [[ -z $source_code_name || -z $contract_addr ]]; then
-    echo "empty source_code_name: $source_code_name or contract_addr: $contract_addr"
+    echo "empty source_code_name $source_code_name or contract_addr $contract_addr"
     continue
   fi
 
