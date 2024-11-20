@@ -84,3 +84,5 @@ forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --sig "run(st
 ```bash
 ./docker/scripts/deploy.sh
 ```
+
+scroll-sdk-test
