@@ -99,12 +99,14 @@ describe("ZkEvmVerifierV2", async () => {
           layer2ChainId,
           deployer.address,
           verifier.getAddress(),
-          verifier.getAddress()
+          verifier.getAddress(),
+          0
         );
         await admin.upgrade(chainProxy.getAddress(), chainImpl.getAddress());
 
         chain = await ethers.getContractAt("ScrollChainMockBlob", await chainProxy.getAddress(), deployer);
         await chain.initialize(deployer.address, deployer.address, 100);
+        await chain.initializeV2(Number(BigInt(hexlify(publicInputs.subarray(8, 12)))));
         await chain.addProver(deployer.address);
       });
 

@@ -124,9 +124,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when update size for finalized batch.
     error ErrorUseFinalizedBatch();
 
-    /// @dev Thrown when batch index is smaller than previous `BundleSizeStruct.batchIndex`.
-    error ErrorBatchIndexSmallerThanPreviousOne();
-
     /// @dev Thrown when batch index delta is not multiple of previous `BundleSizeStruct.bundleSize`.
     error ErrorBatchIndexDeltaNotMultipleOfBundleSize();
 
@@ -159,7 +156,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @notice The duration to delay proof when we only has one proof type.
     /// @dev This is enabled after Euclid upgrade.
-    uint256 public emergencyFinalizationDelay;
+    uint256 public immutable emergencyFinalizationDelay;
 
     /*********
      * Enums *
@@ -900,7 +897,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (last.batchIndex > cachedLastTeeVerifiedBatchIndex && last.batchIndex > cachedLastZkpVerifiedBatchIndex) {
             // last is future batch index, we override the last one
             BundleSizeStruct memory prev = bundleSize[index - 1];
-            if (batchIndex <= prev.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
+            // since prev.batchIndex <= max(lastTeeVerifiedBatchIndex, lastZkpVerifiedBatchIndex)
+            // we always have batchIndex > prev.batchIndex
             if ((batchIndex - prev.batchIndex) % prev.bundleSize != 0) {
                 revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
             }
@@ -909,7 +907,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             bundleSize[index] = last;
         } else {
             // last is past batch index, we append a new one
-            if (batchIndex <= last.batchIndex) revert ErrorBatchIndexSmallerThanPreviousOne();
+            // since batchIndex > max(lastTeeVerifiedBatchIndex, lastZkpVerifiedBatchIndex) and
+            // last.batchIndex <= max(lastTeeVerifiedBatchIndex, lastZkpVerifiedBatchIndex)
+            // we always have batchIndex > last.batchIndex
             if ((batchIndex - last.batchIndex) % last.bundleSize != 0) {
                 revert ErrorBatchIndexDeltaNotMultipleOfBundleSize();
             }
@@ -1054,27 +1054,49 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 _withdrawRoot,
         uint256 _totalL1MessagesPoppedOverall
     ) internal {
-        uint256 counterpartVerifiedBatchIndex = _proofType == ProofType.ZkProof
-            ? lastTeeVerifiedBatchIndex
-            : lastZkpVerifiedBatchIndex;
-        if (_batchIndex <= counterpartVerifiedBatchIndex) {
-            // The zk proof is behind tee proof, we compare state roots here
-            if (_postStateRoot != finalizedStateRoots[_batchIndex] || withdrawRoots[_batchIndex] != _withdrawRoot) {
-                unresolvedState.proofType = _proofType;
-                unresolvedState.batchIndex = uint248(_batchIndex);
-                unresolvedState.stateRoot = _postStateRoot;
-                unresolvedState.withdrawRoot = _withdrawRoot;
-                emit StateMismatch(_batchIndex, _postStateRoot, _withdrawRoot);
+        bool counterpartProofEnabled;
+        {
+            uint256 mask = enabledProofTypeMask;
+            mask ^= 1 << uint256(uint8(_proofType));
+            counterpartProofEnabled = mask > 0;
+        }
+        bool overrideStateRoot = false;
+        bool finalizeBundle = false;
+        if (counterpartProofEnabled) {
+            uint256 counterpartVerifiedBatchIndex = _proofType == ProofType.ZkProof
+                ? lastTeeVerifiedBatchIndex
+                : lastZkpVerifiedBatchIndex;
+            if (_batchIndex <= counterpartVerifiedBatchIndex) {
+                // The current proof is behind counterpart proof, we compare state roots here
+                if (_postStateRoot != finalizedStateRoots[_batchIndex] || withdrawRoots[_batchIndex] != _withdrawRoot) {
+                    unresolvedState.proofType = _proofType;
+                    unresolvedState.batchIndex = uint248(_batchIndex);
+                    unresolvedState.stateRoot = _postStateRoot;
+                    unresolvedState.withdrawRoot = _withdrawRoot;
+                    emit StateMismatch(_batchIndex, _postStateRoot, _withdrawRoot);
+                } else {
+                    finalizeBundle = true;
+                }
             } else {
-                // state roots matched, mark bundle finalized.
-                _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
-                emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+                overrideStateRoot = true;
             }
         } else {
-            // The current proof is ahead counterpart proof, we record state roots here.
-            // And we do not store intermediate finalized roots.
+            overrideStateRoot = true;
+            finalizeBundle = true;
+        }
+        // override state root, when
+        // 1. we only has this type proof enabled; or
+        // 2. current proof ahead counterpart proof.
+        if (overrideStateRoot) {
             finalizedStateRoots[_batchIndex] = _postStateRoot;
             withdrawRoots[_batchIndex] = _withdrawRoot;
+        }
+        // finalize bundle, when
+        // 1. we only has this type proof enabled; or
+        // 2. current proof behind counterpart proof and state root matches.
+        if (finalizeBundle) {
+            _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+            emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
         }
     }
 

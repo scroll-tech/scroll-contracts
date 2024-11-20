@@ -24,8 +24,9 @@ contract ScrollChainMockBlob is ScrollChain {
         uint64 _chainId,
         address _messageQueue,
         address _verifier,
-        address _sgxVerifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier, _sgxVerifier, 0) {}
+        address _sgxVerifier,
+        uint256 _delay
+    ) ScrollChain(_chainId, _messageQueue, _verifier, _sgxVerifier, _delay) {}
 
     /**********************
      * Internal Functions *
@@ -39,6 +40,10 @@ contract ScrollChainMockBlob is ScrollChain {
         lastZkpVerifiedBatchIndex = index;
     }
 
+    function setLastTeeVerifiedBatchIndex(uint256 index) external {
+        lastTeeVerifiedBatchIndex = index;
+    }
+
     function setFinalizedStateRoots(uint256 index, bytes32 value) external {
         finalizedStateRoots[index] = value;
     }
@@ -49,6 +54,14 @@ contract ScrollChainMockBlob is ScrollChain {
 
     function setOverrideBatchHashCheck(bool status) external {
         overrideBatchHashCheck = status;
+    }
+
+    function setEnabledProofTypeMask(uint256 mask) external {
+        enabledProofTypeMask = mask;
+    }
+
+    function setBatchCommittedTimestamp(uint256 index, uint256 timestamp) external {
+        batchCommittedTimestamp[index] = timestamp;
     }
 
     function _getBlobVersionedHash() internal virtual override returns (bytes32 _blobVersionedHash) {

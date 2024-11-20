@@ -126,7 +126,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChainMockBlob(1233, address(messageQueue), address(zkpVerifier), address(teeVerifier)))
+            address(new ScrollChainMockBlob(1233, address(messageQueue), address(zkpVerifier), address(teeVerifier), 0))
         );
         rollup.initialize(address(messageQueue), address(0), 44);
         rollup.initializeV2(1);
