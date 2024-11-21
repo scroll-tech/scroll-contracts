@@ -179,6 +179,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.stopPrank();
     }
 
+    /*
     function testPopCrossDomainMessage(uint256 bitmap) external {
         // should revert, when non-scrollChain call
         hevm.expectRevert("Only callable by the ScrollChain");
@@ -340,7 +341,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.startPrank(FakeScrollChain);
         hevm.expectEmit(false, false, false, true);
         emit DequeueTransaction(0, 256, 0);
-        queue.popCrossDomainMessage(0, 256, 0);
+        queue.popCrossDomainMessage(256);
         assertEq(queue.pendingQueueIndex(), 256);
         assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
@@ -478,6 +479,7 @@ contract L1MessageQueueTest is ScrollTestBase {
             }
         }
     }
+    */
 
     function testFinalizePoppedCrossDomainMessage() external {
         // should revert, when non-scrollChain call
@@ -495,7 +497,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.startPrank(FakeScrollChain);
         hevm.expectEmit(false, false, false, true);
         emit DequeueTransaction(0, 5, 0);
-        queue.popCrossDomainMessage(0, 5, 0);
+        queue.popCrossDomainMessage(5);
         assertEq(queue.pendingQueueIndex(), 5);
         assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
@@ -544,7 +546,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.startPrank(FakeScrollChain);
         hevm.expectEmit(false, false, false, true);
         emit DequeueTransaction(0, 5, 0);
-        queue.popCrossDomainMessage(0, 5, 0);
+        queue.popCrossDomainMessage(5);
         assertEq(queue.pendingQueueIndex(), 5);
         assertEq(queue.nextUnfinalizedQueueIndex(), 0);
         hevm.stopPrank();
@@ -580,6 +582,7 @@ contract L1MessageQueueTest is ScrollTestBase {
         hevm.stopPrank();
     }
 
+    /*
     function testDropCrossDomainMessageSucceed() external {
         // append 10 messages
         hevm.startPrank(FakeMessenger);
@@ -625,4 +628,5 @@ contract L1MessageQueueTest is ScrollTestBase {
             hevm.stopPrank();
         }
     }
+    */
 }

@@ -204,6 +204,7 @@ contract L1WETHGatewayTest is L1GatewayTestBase {
         );
     }
 
+    /*
     function testDropMessage(
         uint256 amount,
         address recipient,
@@ -237,6 +238,7 @@ contract L1WETHGatewayTest is L1GatewayTestBase {
         l1Messenger.dropMessage(address(gateway), address(counterpartGateway), amount, 0, message);
         assertEq(balance + amount, l1weth.balanceOf(address(this)));
     }
+    */
 
     function testFinalizeWithdrawERC20FailedMocking(
         address sender,

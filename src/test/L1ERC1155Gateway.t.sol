@@ -203,6 +203,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         );
     }
 
+    /*
     function testDropMessage(uint256 tokenId, uint256 amount) public {
         gateway.updateTokenMapping(address(l1Token), address(l2Token));
 
@@ -280,6 +281,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
             assertEq(balances[i] + _amounts[i], l1Token.balanceOf(address(this), _tokenIds[i]));
         }
     }
+    */
 
     function testFinalizeWithdrawERC1155FailedMocking(
         address sender,

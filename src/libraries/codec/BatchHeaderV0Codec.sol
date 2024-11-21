@@ -59,6 +59,15 @@ library BatchHeaderV0Codec {
         }
     }
 
+    /// @notice Get the version of the batch header from calldata.
+    /// @param header The the batch header in calldata.
+    /// @return _version The version of the batch header.
+    function getVersion(bytes calldata header) internal pure returns (uint256 _version) {
+        assembly {
+            _version := shr(248, calldataload(header.offset))
+        }
+    }
+
     /// @notice Get the batch index of the batch.
     /// @param batchPtr The start memory offset of the batch header in memory.
     /// @return _batchIndex The batch index of the batch.

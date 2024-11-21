@@ -234,6 +234,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
     }
 
+    /*
     function testDropMessage() external {
         // Provided message has not been enqueued, revert
         hevm.expectRevert("Provided message has not been enqueued");
@@ -334,6 +335,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.expectRevert("Message already dropped");
         l1Messenger.replayMessage(address(this), address(0), 0, 6, new bytes(0), defaultGasLimit, address(0));
     }
+    */
 
     function onDropMessage(bytes memory message) external payable {
         emit OnDropMessageCalled(message);

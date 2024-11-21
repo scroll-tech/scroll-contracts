@@ -138,11 +138,11 @@ contract InitializeL1ScrollOwner is Script {
         bytes4[] memory _selectors;
 
         // no delay, scroll multisig and emergency multisig
-        _selectors = new bytes4[](4);
-        _selectors[0] = ScrollChain.revertBatch.selector;
-        _selectors[1] = ScrollChain.removeSequencer.selector;
-        _selectors[2] = ScrollChain.removeProver.selector;
-        _selectors[3] = ScrollChain.setPause.selector;
+        _selectors = new bytes4[](3);
+        // _selectors[0] = ScrollChain.revertBatch.selector;
+        _selectors[0] = ScrollChain.removeSequencer.selector;
+        _selectors[1] = ScrollChain.removeProver.selector;
+        _selectors[2] = ScrollChain.setPause.selector;
         owner.updateAccess(L1_SCROLL_CHAIN_PROXY_ADDR, _selectors, SCROLL_MULTISIG_NO_DELAY_ROLE, true);
         owner.updateAccess(L1_SCROLL_CHAIN_PROXY_ADDR, _selectors, EMERGENCY_MULTISIG_NO_DELAY_ROLE, true);
 
@@ -154,7 +154,7 @@ contract InitializeL1ScrollOwner is Script {
 
         // delay 7 day, scroll multisig
         _selectors = new bytes4[](1);
-        _selectors[0] = ScrollChain.updateMaxNumTxInChunk.selector;
+        // _selectors[0] = ScrollChain.updateMaxNumTxInChunk.selector;
         owner.updateAccess(L1_SCROLL_CHAIN_PROXY_ADDR, _selectors, TIMELOCK_7DAY_DELAY_ROLE, true);
     }
 

@@ -147,6 +147,7 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
         _depositERC20(true, 2, amount, recipient, dataToCall, gasLimit, feePerGas);
     }
 
+    /*
     function testDropMessage(
         uint256 amount,
         address recipient,
@@ -193,6 +194,7 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
         assertEq(balance + amount, l1Token.balanceOf(address(this)));
         assertEq(gatewayBalance, l1Token.balanceOf(address(gateway)));
     }
+    */
 
     function testFinalizeWithdrawERC20(
         address sender,

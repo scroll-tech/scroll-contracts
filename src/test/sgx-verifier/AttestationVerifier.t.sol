@@ -5,16 +5,21 @@ pragma solidity =0.8.24;
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {AttestationVerifier} from "../../sgx-verifier/AttestationVerifier.sol";
+import {ISGXVerifier} from "../../sgx-verifier/ISGXVerifier.sol";
+
+import {MockDcapAttestation} from "../mocks/MockDcapAttestation.sol";
 
 contract AttestationVerifierTest is DSTestPlus {
     event UpdateMrSigner(bytes32 indexed mrSigner, bool status);
     event UpdateMrEnclave(bytes32 indexed mrEnclave, bool status);
 
+    MockDcapAttestation private dcap;
     AttestationVerifier private attestationVerifier;
 
     function setUp() public {
         hevm.warp(1);
-        attestationVerifier = new AttestationVerifier(address(0));
+        dcap = new MockDcapAttestation();
+        attestationVerifier = new AttestationVerifier(address(dcap));
     }
 
     function testUpdateMrSigner(bytes32[] memory signers) external {
@@ -102,6 +107,41 @@ contract AttestationVerifierTest is DSTestPlus {
     }
 
     function testVerifyAttestation() external {
-        // todo
+        bytes32 hash = 0x1d541a57a16735fca3a2ef49ce5711705a71c26119b5043aeaab70adfcb3868d;
+
+        // revert ErrorInvalidReport
+        dcap.setValue(false, new bytes(0));
+        hevm.expectRevert(AttestationVerifier.ErrorInvalidReport.selector);
+        attestationVerifier.verifyAttestation(new bytes(0), hash);
+        dcap.setValue(true, new bytes(0));
+        hevm.expectRevert(AttestationVerifier.ErrorInvalidReport.selector);
+        attestationVerifier.verifyAttestation(new bytes(0), hash);
+
+        // the value comes from 0x76A3657F2d6c5C66733e9b69ACaDadCd0B68788b.verifyAndAttestOnChain
+        dcap.setValue(
+            true,
+            hex"0003000000000100606a0000000e0e100fffff0100000000000000000000000000000000000000000000000000000000000000000000000000000000000500000000000000e700000000000000de424a88451579c00ad51d75c8f938b3f0bcb42fbb6840ac542f81a90a12dbcf00000000000000000000000000000000000000000000000000000000000000001d7b598f382a365d445d477f0df30bbe13a9a2276c75c9b002dba6a9a925c7030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001d541a57a16735fca3a2ef49ce5711705a71c26119b5043aeaab70adfcb3868d"
+        );
+
+        // revert ErrorReportDataMismatch
+        hevm.expectRevert(AttestationVerifier.ErrorReportDataMismatch.selector);
+        attestationVerifier.verifyAttestation(new bytes(0), bytes32(0));
+
+        // MrEnclave = 0xde424a88451579c00ad51d75c8f938b3f0bcb42fbb6840ac542f81a90a12dbcf
+        // revert ErrorInvalidMrEnclave
+        hevm.expectRevert(AttestationVerifier.ErrorInvalidMrEnclave.selector);
+        attestationVerifier.verifyAttestation(new bytes(0), hash);
+
+        attestationVerifier.updateMrEnclave(0xde424a88451579c00ad51d75c8f938b3f0bcb42fbb6840ac542f81a90a12dbcf, true);
+
+        // MrSigner = 0x1d7b598f382a365d445d477f0df30bbe13a9a2276c75c9b002dba6a9a925c703
+        // revert ErrorInvalidMrSigner
+        hevm.expectRevert(AttestationVerifier.ErrorInvalidMrSigner.selector);
+        attestationVerifier.verifyAttestation(new bytes(0), hash);
+
+        attestationVerifier.updateMrSigner(0x1d7b598f382a365d445d477f0df30bbe13a9a2276c75c9b002dba6a9a925c703, true);
+
+        // succeed
+        attestationVerifier.verifyAttestation(new bytes(0), hash);
     }
 }

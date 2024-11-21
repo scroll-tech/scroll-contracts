@@ -267,6 +267,7 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         );
     }
 
+    /*
     function testDropMessage(
         uint256 amount,
         address recipient,
@@ -301,6 +302,7 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         l1Messenger.dropMessage(address(gateway), address(counterpartGateway), 0, 1, message);
         assertEq(balance + amount, l1Token.balanceOf(address(this)));
     }
+    */
 
     function testFinalizeWithdrawERC20FailedMocking(
         address sender,

@@ -32,11 +32,16 @@ interface IScrollChain {
     );
 
     /// @notice Emitted when a batch is verified by tee proof
-    /// @dev Tee proof always comes after zk proof. If they match, the state root and withdraw root are the same.
-    ///      If they mismatch, we will emit `StateMismatch` instead. Therefore, the `stateRoot` and `withdrawRoot`
-    ///      is not included in this event.
     /// @param batchIndex The index of the batch.
-    event VerifyBatchWithTee(uint256 indexed batchIndex);
+    /// @param batchHash The hash of the batch
+    /// @param stateRoot The state root on layer 2 after this batch.
+    /// @param withdrawRoot The merkle root on layer2 after this batch.
+    event VerifyBatchWithTee(
+        uint256 indexed batchIndex,
+        bytes32 indexed batchHash,
+        bytes32 stateRoot,
+        bytes32 withdrawRoot
+    );
 
     /// @notice Emitted when a batch is finalized.
     /// @param batchIndex The index of the batch.
@@ -72,11 +77,27 @@ interface IScrollChain {
     /// @param newMaxNumTxInChunk The new value of `maxNumTxInChunk`.
     event UpdateMaxNumTxInChunk(uint256 oldMaxNumTxInChunk, uint256 newMaxNumTxInChunk);
 
+    /// @notice Emitted when bundle size initialized.
+    /// @param size The size of bundle (i.e. number of batches in bundle).
+    /// @param index The start batch index for this size.
+    event InitializeBundleSize(uint256 size, uint256 index);
+
+    /// @notice Emitted when bundle size updated.
+    /// @param index The array index of bundle size array.
+    /// @param size The size of bundle (i.e. number of batches in bundle).
+    /// @param batchIndex The start batch index for this size.
+    event ChangeBundleSize(uint256 index, uint256 size, uint256 batchIndex);
+
+    /// @notice Emitted when enable new proof types.
+    /// @param oldMask The previous enabled proof types.
+    /// @param newMask The current enabled proof types.
+    event EnableProofTypes(uint256 oldMask, uint256 newMask);
+
     /*************************
      * Public View Functions *
      *************************/
 
-    /// @return The latest finalized batch index (both zkp and tee verified).
+    /// @return The latest finalized batch index.
     function lastFinalizedBatchIndex() external view returns (uint256);
 
     /// @return The latest verified batch index by zkp proof.
@@ -85,18 +106,30 @@ interface IScrollChain {
     /// @return The latest verified batch index by tee proof.
     function lastTeeVerifiedBatchIndex() external view returns (uint256);
 
+    /// @notice Return the batch hash for a given batch.
+    ///
     /// @param batchIndex The index of the batch.
     /// @return The batch hash of a committed batch.
     function committedBatches(uint256 batchIndex) external view returns (bytes32);
 
+    /// @notice Return the finalized state root for a given batch.
+    ///
+    /// @dev Users should call `isBatchFinalized(batchIndex)` before call this function.
+    ///
     /// @param batchIndex The index of the batch.
     /// @return The state root of a committed batch.
     function finalizedStateRoots(uint256 batchIndex) external view returns (bytes32);
 
+    /// @notice Return the finalized withdraw root for a given batch.
+    ///
+    /// @dev Users should call `isBatchFinalized(batchIndex)` before call this function.
+    ///
     /// @param batchIndex The index of the batch.
     /// @return The message root of a committed batch.
     function withdrawRoots(uint256 batchIndex) external view returns (bytes32);
 
+    /// @notice Return whether a batch is finalized.
+    ///
     /// @param batchIndex The index of the batch.
     /// @return Whether the batch is finalized by batch index.
     function isBatchFinalized(uint256 batchIndex) external view returns (bool);

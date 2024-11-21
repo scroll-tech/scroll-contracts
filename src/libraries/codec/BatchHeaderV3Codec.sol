@@ -14,7 +14,7 @@ pragma solidity ^0.8.24;
 ///   * dataHash                32          bytes32     25      The data hash of the batch
 ///   * blobVersionedHash       32          bytes32     57      The versioned hash of the blob with this batch’s data
 ///   * parentBatchHash         32          bytes32     89      The parent batch hash
-///   * lastBlockTimestamp      8           uint64      121     A bitmap to indicate which L1 messages are skipped in the batch
+///   * lastBlockTimestamp      8           uint64      121     The timestamp of the last block in this batch
 ///   * blobDataProof           64          bytes64     129     The blob data proof: z (32), y (32)
 /// ```
 /// The codes for `version`, `batchIndex`, `l1MessagePopped`, `totalL1MessagePopped`, `dataHash` and `computeBatchHash`
@@ -27,6 +27,15 @@ library BatchHeaderV3Codec {
 
     /// @dev The length of fixed parts of the batch header.
     uint256 internal constant BATCH_HEADER_FIXED_LENGTH = 193;
+
+    /// @notice Alloc memory for batch header.
+    /// @return batchPtr The start memory offset of the batch header in memory.
+    function alloc() internal pure returns (uint256 batchPtr) {
+        assembly {
+            batchPtr := mload(0x40)
+            mstore(0x40, add(batchPtr, BATCH_HEADER_FIXED_LENGTH))
+        }
+    }
 
     /// @notice Load batch header in calldata to memory.
     /// @param _batchHeader The encoded batch header bytes in calldata.

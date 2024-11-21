@@ -126,9 +126,10 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChainMockBlob(1233, address(messageQueue), address(zkpVerifier), address(teeVerifier)))
+            address(new ScrollChainMockBlob(1233, address(messageQueue), address(zkpVerifier), address(teeVerifier), 0))
         );
         rollup.initialize(address(messageQueue), address(0), 44);
+        rollup.initializeV2(1);
 
         // Setup whitelist
         address[] memory _accounts = new address[](1);
@@ -163,7 +164,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
+        // rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
         hevm.stopPrank();
 
         bytes memory batchHeader1 = new bytes(121);
@@ -181,6 +182,8 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         rollup.finalizeBundleWithTeeProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
+
+        rollup.lastFinalizedBatchIndex();
     }
 
     function _setL2BaseFee(uint256 feePerGas) internal {

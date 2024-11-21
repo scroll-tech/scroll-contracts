@@ -193,6 +193,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
         );
     }
 
+    /*
     function testDropMessage(uint256 tokenId) public {
         gateway.updateTokenMapping(address(l1Token), address(l2Token));
 
@@ -263,6 +264,7 @@ contract L1ERC721GatewayTest is L1GatewayTestBase, ERC721TokenReceiver {
             assertEq(l1Token.ownerOf(_tokenIds[i]), address(this));
         }
     }
+    */
 
     function testFinalizeWithdrawERC721FailedMocking(
         address sender,

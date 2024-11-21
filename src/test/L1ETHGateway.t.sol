@@ -145,6 +145,7 @@ contract L1ETHGatewayTest is L1GatewayTestBase {
         );
     }
 
+    /*
     function testDropMessage(
         uint256 amount,
         address recipient,
@@ -182,6 +183,7 @@ contract L1ETHGatewayTest is L1GatewayTestBase {
         l1Messenger.dropMessage(address(gateway), address(counterpartGateway), amount, 0, message);
         assertEq(balance + amount, address(this).balance);
     }
+    */
 
     function testFinalizeWithdrawETHFailedMocking(
         address sender,

@@ -21,7 +21,7 @@ contract ScrollChainMockFinalize is ScrollChain {
         uint64 _chainId,
         address _messageQueue,
         address _verifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier, address(0)) {}
+    ) ScrollChain(_chainId, _messageQueue, _verifier, address(0), 0) {}
 
     /*****************************
      * Public Mutating Functions *
@@ -62,7 +62,7 @@ contract ScrollChainMockFinalize is ScrollChain {
         bytes calldata _batchHeader,
         bytes32 _postStateRoot,
         bytes32 _withdrawRoot
-    ) external OnlyProver whenFinalizeNotPaused {
+    ) external OnlyProver {
         if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         // compute pending batch hash and verify
