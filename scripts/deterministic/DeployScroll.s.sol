@@ -1369,7 +1369,7 @@ contract DeployScroll is DeterministicDeployment {
             if (l1MessengerBalance < amountToLock) {
                 uint256 amountToSend = amountToLock - l1MessengerBalance;
                 (bool sent, bytes memory data) = payable(L1_SCROLL_MESSENGER_PROXY_ADDR).call{value: amountToSend}("");
-                require(sent, "[ERROR] failed to loken tokens on layer 1");
+                require(sent, "[ERROR] failed to lock tokens on layer 1");
             }
         } else {
             uint256 l1GasTokenGatewayBalance = IERC20Metadata(L1_GAS_TOKEN_ADDR).balanceOf(
