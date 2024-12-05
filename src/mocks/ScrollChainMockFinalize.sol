@@ -27,34 +27,6 @@ contract ScrollChainMockFinalize is ScrollChain {
      * Public Mutating Functions *
      *****************************/
 
-    /// @notice Finalize 4844 batch without proof, See the comments of {ScrollChain-finalizeBatchWithProof4844}.
-    function finalizeBatch4844(
-        bytes calldata _batchHeader,
-        bytes32, /*_prevStateRoot*/
-        bytes32 _postStateRoot,
-        bytes32 _withdrawRoot,
-        bytes calldata _blobDataProof
-    ) external OnlyProver whenNotPaused {
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) = _beforeFinalizeBatch(
-            _batchHeader,
-            _postStateRoot
-        );
-
-        // verify blob versioned hash
-        bytes32 _blobVersionedHash = BatchHeaderV1Codec.getBlobVersionedHash(batchPtr);
-        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
-
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        uint256 _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
-        _popL1MessagesMemory(
-            BatchHeaderV1Codec.getSkippedBitmapPtr(batchPtr),
-            _totalL1MessagesPoppedOverall,
-            BatchHeaderV0Codec.getL1MessagePopped(batchPtr)
-        );
-
-        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
-    }
-
     /// @notice Finalize bundle without proof, See the comments of {ScrollChain-finalizeBundleWithProof}.
     function finalizeBundle(
         bytes calldata _batchHeader,

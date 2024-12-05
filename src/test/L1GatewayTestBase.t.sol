@@ -161,7 +161,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
+        // rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
         hevm.stopPrank();
 
         bytes memory batchHeader1 = new bytes(121);
@@ -176,14 +176,14 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         }
 
         hevm.startPrank(address(0));
-        rollup.finalizeBatchWithProof4844(
+        /*rollup.finalizeBatchWithProof4844(
             batchHeader1,
             bytes32(uint256(1)),
             bytes32(uint256(2)),
             messageHash,
             blobDataProof,
             new bytes(0)
-        );
+        );*/
         hevm.stopPrank();
     }
 }

@@ -68,19 +68,6 @@ interface IScrollChain {
      * Public Mutating Functions *
      *****************************/
 
-    /// @notice Commit a batch of transactions on layer 1.
-    ///
-    /// @param version The version of current batch.
-    /// @param parentBatchHeader The header of parent batch, see the comments of `BatchHeaderV0Codec`.
-    /// @param chunks The list of encoded chunks, see the comments of `ChunkCodec`.
-    /// @param skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
-    function commitBatch(
-        uint8 version,
-        bytes calldata parentBatchHeader,
-        bytes[] memory chunks,
-        bytes calldata skippedL1MessageBitmap
-    ) external;
-
     /// @notice Commit a batch of transactions on layer 1 with blob data proof.
     ///
     /// @dev Memory layout of `blobDataProof`:
@@ -107,28 +94,6 @@ interface IScrollChain {
     /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
     function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
 
-    /// @notice Finalize a committed batch (with blob) on layer 1.
-    ///
-    /// @dev Memory layout of `blobDataProof`:
-    /// |    z    |    y    | kzg_commitment | kzg_proof |
-    /// |---------|---------|----------------|-----------|
-    /// | bytes32 | bytes32 |    bytes48     |  bytes48  |
-    ///
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch.
-    /// @param prevStateRoot The state root of parent batch.
-    /// @param postStateRoot The state root of current batch.
-    /// @param withdrawRoot The withdraw trie root of current batch.
-    /// @param blobDataProof The proof for blob data.
-    /// @param aggrProof The aggregation proof for current batch.
-    function finalizeBatchWithProof4844(
-        bytes calldata batchHeader,
-        bytes32 prevStateRoot,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot,
-        bytes calldata blobDataProof,
-        bytes calldata aggrProof
-    ) external;
-
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
     /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
     /// @param postStateRoot The state root after current bundle.
@@ -140,4 +105,37 @@ interface IScrollChain {
         bytes32 withdrawRoot,
         bytes calldata aggrProof
     ) external;
+
+    /// @param The struct for batch committing.
+    /// @param version The version of current batch.
+    /// @param parentBatchHeader The header of parent batch, see the comments of `BatchHeaderV0Codec`.
+    /// @param chunks The list of encoded chunks, see the comments of `ChunkCodec`.
+    /// @param blobDataProof The proof for blob data.
+    struct CommitStruct {
+        uint8 version;
+        bytes parentBatchHeader;
+        bytes[] chunks;
+        bytes skippedL1MessageBitmap;
+        bytes blobDataProof;
+    }
+
+    /// @param The struct for batch finalization.
+    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch`.
+    /// @param postStateRoot The state root after current batch.
+    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param zkProof The zk proof for current batch (single-batch bundle).
+    /// @param teeProof The tee proof for current batch (single-batch bundle).
+    struct FinalizeStruct {
+        bytes batchHeader;
+        bytes32 postStateRoot;
+        bytes32 withdrawRoot;
+        bytes zkProof;
+        bytes teeProof;
+    }
+
+    /// @notice Commit a batch of transactions on layer 1 with blob data proof and finalize it.
+    /// @param commitStruct The data needed for commit.
+    /// @param finalizeStruct The data needed for finalize.
+    function commitAndFinalizeBatch(CommitStruct calldata commitStruct, FinalizeStruct calldata finalizeStruct)
+        external;
 }

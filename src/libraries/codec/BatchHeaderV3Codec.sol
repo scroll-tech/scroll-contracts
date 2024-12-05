@@ -46,6 +46,15 @@ library BatchHeaderV3Codec {
         }
     }
 
+    /// @notice Get the blob versioned hash of the batch header.
+    /// @param batchPtr The start memory offset of the batch header in memory.
+    /// @return _lastBlockTimestamp The timestamp of the last block in this batch.
+    function getLastBlockTimestamp(uint256 batchPtr) internal pure returns (uint256 _lastBlockTimestamp) {
+        assembly {
+            _lastBlockTimestamp := mload(shr(192, add(batchPtr, 121)))
+        }
+    }
+
     /// @notice Store the last block timestamp of batch header.
     /// @param batchPtr The start memory offset of the batch header in memory.
     /// @param _lastBlockTimestamp The timestamp of the last block in this batch.
