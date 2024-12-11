@@ -124,13 +124,11 @@ interface IScrollChain {
     /// @param postStateRoot The state root after current batch.
     /// @param withdrawRoot The withdraw trie root after current batch.
     /// @param zkProof The zk proof for current batch (single-batch bundle).
-    /// @param teeProof The tee proof for current batch (single-batch bundle).
     struct FinalizeStruct {
         bytes batchHeader;
         bytes32 postStateRoot;
         bytes32 withdrawRoot;
         bytes zkProof;
-        bytes teeProof;
     }
 
     /// @notice Commit a batch of transactions on layer 1 with blob data proof and finalize it.

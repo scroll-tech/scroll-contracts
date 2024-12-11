@@ -257,7 +257,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 step <<= 1;
             }
             step >>= 1;
-            while (step > 1) {
+            while (step > 0) {
                 if (committedBatches[index + step] != bytes32(0)) {
                     index += step;
                 }
@@ -362,6 +362,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(
                 _totalL1MessagesPoppedOverallFirstBatch - l1MessagePoppedFirstBatch
             );
+        }
+
+        // update lastCommittedBatchIndex
+        unchecked {
+            enforcedBatchParameters.lastCommittedBatchIndex = uint64(_firstBatchIndex - 1);
         }
     }
 
@@ -556,21 +561,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
-    /// @dev Internal function to get the blob versioned hash.
+    /// @dev Internal function to get and check the blob versioned hash.
+    /// @param _blobDataProof The blob data proof passing to point evaluation precompile.
     /// @return _blobVersionedHash The retrieved blob versioned hash.
-    function _checkAndGetBlobVersionedHash(bytes calldata _blobDataProof)
+    function _getAndCheckBlobVersionedHash(bytes calldata _blobDataProof)
         internal
-        virtual
         returns (bytes32 _blobVersionedHash)
     {
-        bytes32 _secondBlob;
-        // Get blob's versioned hash
-        assembly {
-            _blobVersionedHash := blobhash(0)
-            _secondBlob := blobhash(1)
-        }
-        if (_blobVersionedHash == bytes32(0)) revert ErrorNoBlobFound();
-        if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
+        _blobVersionedHash = _getBlobVersionedHash();
 
         // Calls the point evaluation precompile and verifies the output
         (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
@@ -581,6 +579,19 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
         (, uint256 result) = abi.decode(data, (uint256, uint256));
         if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
+    }
+
+    /// @dev Internal function to get the blob versioned hash.
+    /// @return _blobVersionedHash The retrieved blob versioned hash.
+    function _getBlobVersionedHash() internal virtual returns (bytes32 _blobVersionedHash) {
+        bytes32 _secondBlob;
+        // Get blob's versioned hash
+        assembly {
+            _blobVersionedHash := blobhash(0)
+            _secondBlob := blobhash(1)
+        }
+        if (_blobVersionedHash == bytes32(0)) revert ErrorNoBlobFound();
+        if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
     /// @dev Internal function to commit a batch.
@@ -639,7 +650,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
 
         // verify blob versioned hash
-        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _checkAndGetBlobVersionedHash(_blobDataProof));
+        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _getAndCheckBlobVersionedHash(_blobDataProof));
         BatchHeaderV1Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
 
         uint256 lastBlockTimestamp;
