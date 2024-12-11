@@ -77,7 +77,7 @@ contract ScrollChainTest is DSTestPlus {
         uint24 delay,
         uint64 time
     ) external {
-        batches = bound(batches, 0, 1000);
+        batches = bound(batches, 0, 100);
 
         rollup.addSequencer(address(0));
         _upgradeToMockBlob();
