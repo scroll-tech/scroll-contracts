@@ -8,7 +8,7 @@ import {EIP712Upgradeable} from "@openzeppelin/contracts-upgradeable/utils/crypt
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import {IL1MessageQueue} from "../rollup/IL1MessageQueue.sol";
+import {IL1MessageQueueV2} from "../rollup/IL1MessageQueueV2.sol";
 
 // solhint-disable reason-string
 
@@ -182,7 +182,7 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
         address _messageQueue = messageQueue;
 
         // charge fee
-        uint256 _fee = IL1MessageQueue(_messageQueue).estimateCrossDomainMessageFee(_gasLimit);
+        uint256 _fee = IL1MessageQueueV2(_messageQueue).estimateCrossDomainMessageFee(_gasLimit);
         require(msg.value >= _fee, "Insufficient value for fee");
         if (_fee > 0) {
             (bool _success, ) = feeVault.call{value: _fee}("");
@@ -190,7 +190,7 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
         }
 
         // append transaction
-        IL1MessageQueue(_messageQueue).appendEnforcedTransaction(_sender, _target, _value, _gasLimit, _data);
+        IL1MessageQueueV2(_messageQueue).appendEnforcedTransaction(_sender, _target, _value, _gasLimit, _data);
 
         // refund fee to `_refundAddress`
         unchecked {

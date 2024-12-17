@@ -7,7 +7,7 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {EnforcedTxGateway} from "../L1/gateways/EnforcedTxGateway.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
 import {L1ScrollMessenger} from "../L1/L1ScrollMessenger.sol";
@@ -59,7 +59,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
     uint32 internal constant defaultGasLimit = 1000000;
 
     L1ScrollMessenger internal l1Messenger;
-    L1MessageQueueWithGasPriceOracle internal messageQueue;
+    L1MessageQueueV1WithGasPriceOracle internal messageQueue;
     L2GasPriceOracle internal gasOracle;
     EnforcedTxGateway internal enforcedTxGateway;
     ScrollChainMockBlob internal rollup;
@@ -86,7 +86,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
 
         // deploy proxy and contracts in L1
         l1Messenger = L1ScrollMessenger(payable(_deployProxy(address(0))));
-        messageQueue = L1MessageQueueWithGasPriceOracle(_deployProxy(address(0)));
+        messageQueue = L1MessageQueueV1WithGasPriceOracle(_deployProxy(address(0)));
         rollup = ScrollChainMockBlob(_deployProxy(address(0)));
         enforcedTxGateway = EnforcedTxGateway(_deployProxy(address(new EnforcedTxGateway())));
         gasOracle = L2GasPriceOracle(_deployProxy(address(new L2GasPriceOracle())));
@@ -107,10 +107,10 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         gasOracle.initialize(1, 2, 1, 1);
         gasOracle.updateWhitelist(address(whitelist));
 
-        // Upgrade the L1MessageQueueWithGasPriceOracle implementation and initialize
+        // Upgrade the L1MessageQueueV1WithGasPriceOracle implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(messageQueue)),
-            address(new L1MessageQueueWithGasPriceOracle(address(l1Messenger), address(rollup), address(1)))
+            address(new L1MessageQueueV1WithGasPriceOracle(address(l1Messenger), address(rollup), address(1)))
         );
         messageQueue.initialize(
             address(l1Messenger),

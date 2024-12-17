@@ -5,7 +5,8 @@ pragma solidity =0.8.24;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
-import {IL1MessageQueue} from "./IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
+import {IL1MessageQueueV2} from "./IL1MessageQueueV2.sol";
 import {IScrollChain} from "./IScrollChain.sol";
 import {BatchHeaderV0Codec} from "../../libraries/codec/BatchHeaderV0Codec.sol";
 import {BatchHeaderV1Codec} from "../../libraries/codec/BatchHeaderV1Codec.sol";
@@ -121,7 +122,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     uint64 public immutable layer2ChainId;
 
     /// @notice The address of L1MessageQueue contract.
-    address public immutable messageQueue;
+    address public immutable messageQueueV1;
 
     /// @notice The address of RollupVerifier.
     address public immutable verifier;
@@ -179,21 +180,21 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice Constructor for `ScrollChain` implementation contract.
     ///
     /// @param _chainId The chain id of L2.
-    /// @param _messageQueue The address of `L1MessageQueue` contract.
+    /// @param _messageQueueV1 The address of `L1MessageQueueV1` contract.
     /// @param _verifier The address of zkevm verifier contract.
     constructor(
         uint64 _chainId,
-        address _messageQueue,
+        address _messageQueueV1,
         address _verifier
     ) {
-        if (_messageQueue == address(0) || _verifier == address(0)) {
+        if (_messageQueueV1 == address(0) || _verifier == address(0)) {
             revert ErrorZeroAddress();
         }
 
         _disableInitializers();
 
         layer2ChainId = _chainId;
-        messageQueue = _messageQueue;
+        messageQueueV1 = _messageQueueV1;
         verifier = _verifier;
     }
 
@@ -432,7 +433,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // `getL1MessagePopped` codes are the same in V0, V1, V2, V3
         uint256 l1MessagePoppedFirstBatch = BatchHeaderV0Codec.getL1MessagePopped(firstBatchPtr);
         unchecked {
-            IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(
+            IL1MessageQueueV1(messageQueueV1).resetPoppedCrossDomainMessage(
                 _totalL1MessagesPoppedOverallFirstBatch - l1MessagePoppedFirstBatch
             );
         }
@@ -1110,7 +1111,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap
     ) internal view returns (uint256) {
         if (_numL1Messages == 0) return _ptr;
-        IL1MessageQueue _messageQueue = IL1MessageQueue(messageQueue);
+        IL1MessageQueueV1 _messageQueue = IL1MessageQueueV1(messageQueueV1);
 
         unchecked {
             uint256 _bitmap;
@@ -1150,7 +1151,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     function _finalizePoppedL1Messages(uint256 totalL1MessagesPoppedOverall) internal {
         if (totalL1MessagesPoppedOverall > 0) {
             unchecked {
-                IL1MessageQueue(messageQueue).finalizePoppedCrossDomainMessage(totalL1MessagesPoppedOverall);
+                IL1MessageQueueV1(messageQueueV1).finalizePoppedCrossDomainMessage(totalL1MessagesPoppedOverall);
             }
         }
     }
@@ -1217,7 +1218,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                     }
                     bitmapPtr := add(bitmapPtr, 0x20)
                 }
-                IL1MessageQueue(messageQueue).popCrossDomainMessage(startIndex, _count, bitmap);
+                IL1MessageQueueV1(messageQueueV1).popCrossDomainMessage(startIndex, _count, bitmap);
                 startIndex += 256;
             }
         }

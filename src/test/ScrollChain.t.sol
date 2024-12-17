@@ -9,7 +9,7 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ITransparentUpgradeableProxy, TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
+import {L1MessageQueueV1} from "../L1/rollup/L1MessageQueueV1.sol";
 import {ScrollChain, IScrollChain} from "../L1/rollup/ScrollChain.sol";
 import {BatchHeaderV0Codec} from "../libraries/codec/BatchHeaderV0Codec.sol";
 import {BatchHeaderV1Codec} from "../libraries/codec/BatchHeaderV1Codec.sol";
@@ -37,20 +37,20 @@ contract ScrollChainTest is DSTestPlus {
     EmptyContract private placeholder;
 
     ScrollChain private rollup;
-    L1MessageQueue internal messageQueue;
+    L1MessageQueueV1 internal messageQueue;
     MockRollupVerifier internal verifier;
 
     function setUp() public {
         placeholder = new EmptyContract();
         admin = new ProxyAdmin();
-        messageQueue = L1MessageQueue(_deployProxy(address(0)));
+        messageQueue = L1MessageQueueV1(_deployProxy(address(0)));
         rollup = ScrollChain(_deployProxy(address(0)));
         verifier = new MockRollupVerifier();
 
-        // Upgrade the L1MessageQueue implementation and initialize
+        // Upgrade the L1MessageQueueV1 implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(messageQueue)),
-            address(new L1MessageQueue(address(this), address(rollup), address(1)))
+            address(new L1MessageQueueV1(address(this), address(rollup), address(1)))
         );
         messageQueue.initialize(address(this), address(rollup), address(0), address(0), 10000000);
         // Upgrade the ScrollChain implementation and initialize
@@ -188,7 +188,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -254,7 +254,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -386,7 +386,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -738,7 +738,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -804,7 +804,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -902,7 +902,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -1202,7 +1202,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -1414,7 +1414,7 @@ contract ScrollChainTest is DSTestPlus {
         // upgrade to ScrollChainMockBlob
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
-            rollup.messageQueue(),
+            rollup.messageQueueV1(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));

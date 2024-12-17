@@ -15,7 +15,7 @@ import {L1ERC1155Gateway} from "../../src/L1/gateways/L1ERC1155Gateway.sol";
 import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
 import {L1ETHGateway} from "../../src/L1/gateways/L1ETHGateway.sol";
 import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
 import {L1ScrollMessenger} from "../../src/L1/L1ScrollMessenger.sol";
 import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gateway.sol";
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
@@ -115,7 +115,7 @@ contract DeployL1BridgeContracts is Script {
     }
 
     function deployL1MessageQueue() internal {
-        L1MessageQueueWithGasPriceOracle impl = new L1MessageQueueWithGasPriceOracle(
+        L1MessageQueueV1WithGasPriceOracle impl = new L1MessageQueueV1WithGasPriceOracle(
             L1_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             address(enforcedTxGateway)

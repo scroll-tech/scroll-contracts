@@ -3,26 +3,62 @@
 pragma solidity =0.8.24;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {BitMapsUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/structs/BitMapsUpgradeable.sol";
-
-import {IL2GasPriceOracle} from "./IL2GasPriceOracle.sol";
-import {IL1MessageQueue} from "./IL1MessageQueue.sol";
 
 import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol";
+import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
+import {IL1MessageQueueV2} from "./IL1MessageQueueV2.sol";
 
 // solhint-disable no-empty-blocks
 // solhint-disable no-inline-assembly
 // solhint-disable reason-string
 
-/// @title L1MessageQueue
+/// @title L1MessageQueueV2
 /// @notice This contract will hold all L1 to L2 messages.
 /// Each appended message is assigned with a unique and increasing `uint256` index.
-contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
-    using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
+contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
+    /**********
+     * Errors *
+     **********/
+
+    /// @dev Thrown when caller is not `L1ScrollMessenger` contract.
+    error ErrorCallerIsNotMessenger();
+
+    /// @dev Thrown when caller is not `ScrollChain` contract.
+    error ErrorCallerIsNotScrollChain();
+
+    /// @dev Thrown when caller is not `EnforcedTxGateway` contract.
+    error ErrorCallerIsNotEnforcedTxGateway();
+
+    /// @dev Thrown when sender is not an EOA in enforced transaction.
+    error ErrorCallerIsNotEOA();
+
+    /// @dev Thrown when `ScrollChain` finalize old message queue index.
+    error ErrorFinalizedIndexTooSmall();
+
+    /// @dev Thrown when `ScrollChain` finalize future massage queue index.
+    error ErrorFinalizedIndexTooLarge();
+
+    /// @dev Thrown when the given gas limit exceeds capacity.
+    error ErrorGasLimitExceeded();
+
+    /// @dev Thrown when the given gas limit is below intrinsic gas.
+    error ErrorGasLimitBelowIntrinsicGas();
 
     /*************
      * Constants *
      *************/
+
+    /// @notice The intrinsic gas for transaction.
+    uint256 private constant INTRINSIC_GAS_TX = 21000;
+
+    /// @notice The appropriate intrinsic gas for each byte.
+    uint256 private constant APPROPRIATE_INTRINSIC_GAS_PER_BYTE = 16;
+
+    uint256 private constant PRECISION = 1e18;
+
+    /***********************
+     * Immutable Variables *
+     ***********************/
 
     /// @notice The address of L1ScrollMessenger contract.
     address public immutable messenger;
@@ -33,51 +69,42 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @notice The address EnforcedTxGateway contract.
     address public immutable enforcedTxGateway;
 
-    /*************
-     * Variables *
-     *************/
+    /// @notice The address of L1MessageQueueV1 contract.
+    address public immutable messageQueueV1;
 
-    /// @dev The storage slot used as L1ScrollMessenger contract, which is deprecated now.
-    address private __messenger;
+    /***********
+     * Structs *
+     ***********/
 
-    /// @dev The storage slot used as ScrollChain contract, which is deprecated now.
-    address private __scrollChain;
+    struct L2BaseFeeParameters {
+        uint128 overhead;
+        uint128 scalar;
+    }
 
-    /// @dev The storage slot used as EnforcedTxGateway contract, which is deprecated now.
-    address private __enforcedTxGateway;
+    /*********************
+     * Storage Variables *
+     *********************/
 
-    /// @notice The address of GasOracle contract.
-    address public gasOracle;
+    /// @dev The list of queued cross domain messages.
+    mapping(uint256 => bytes32) private messageRollingHashes;
 
-    /// @notice The list of queued cross domain messages.
-    bytes32[] public messageQueue;
+    /// @inheritdoc IL1MessageQueueV2
+    uint256 public nextCrossDomainMessageIndex;
 
-    /// @inheritdoc IL1MessageQueue
-    uint256 public pendingQueueIndex;
+    /// @inheritdoc IL1MessageQueueV2
+    uint256 public nextUnfinalizedQueueIndex;
 
     /// @notice The max gas limit of L1 transactions.
     uint256 public maxGasLimit;
 
-    /// @dev The bitmap for dropped messages, where `droppedMessageBitmap[i]` keeps the bits from `[i*256, (i+1)*256)`.
-    BitMapsUpgradeable.BitMap private droppedMessageBitmap;
-
-    /// @dev The bitmap for skipped messages, where `skippedMessageBitmap[i]` keeps the bits from `[i*256, (i+1)*256)`.
-    mapping(uint256 => uint256) private skippedMessageBitmap;
-
-    /// @inheritdoc IL1MessageQueue
-    uint256 public nextUnfinalizedQueueIndex;
+    L2BaseFeeParameters public l2BaseFeeParameters;
 
     /// @dev The storage slots for future usage.
-    uint256[40] private __gap;
+    uint256[45] private __gap;
 
     /**********************
      * Function Modifiers *
      **********************/
-
-    modifier onlyMessenger() {
-        require(_msgSender() == messenger, "Only callable by the L1ScrollMessenger");
-        _;
-    }
 
     modifier onlyScrollChain() {
         require(_msgSender() == scrollChain, "Only callable by the ScrollChain");
@@ -93,76 +120,62 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @param _messenger The address of `L1ScrollMessenger` contract.
     /// @param _scrollChain The address of `ScrollChain` contract.
     /// @param _enforcedTxGateway The address of `EnforcedTxGateway` contract.
+    /// @param _messageQueueV1 The address of `L1MessageQueueV1` contract.
     constructor(
         address _messenger,
         address _scrollChain,
-        address _enforcedTxGateway
+        address _enforcedTxGateway,
+        address _messageQueueV1
     ) {
-        if (_messenger == address(0) || _scrollChain == address(0) || _enforcedTxGateway == address(0)) {
-            revert ErrorZeroAddress();
-        }
-
         _disableInitializers();
 
         messenger = _messenger;
         scrollChain = _scrollChain;
         enforcedTxGateway = _enforcedTxGateway;
+        messageQueueV1 = _messageQueueV1;
     }
 
     /// @notice Initialize the storage of L1MessageQueue.
     ///
-    /// @dev The parameters `_messenger`, `_scrollChain` and `_enforcedTxGateway` are no longer used.
-    ///
-    /// @param _messenger The address of `L1ScrollMessenger` contract.
-    /// @param _scrollChain The address of `ScrollChain` contract.
-    /// @param _enforcedTxGateway The address of `EnforcedTxGateway` contract.
-    /// @param _gasOracle The address of `GasOracle` contract.
     /// @param _maxGasLimit The maximum gas limit allowed in single transaction.
-    function initialize(
-        address _messenger,
-        address _scrollChain,
-        address _enforcedTxGateway,
-        address _gasOracle,
-        uint256 _maxGasLimit
-    ) external initializer {
+    function initialize(uint256 _maxGasLimit, L2BaseFeeParameters memory _params) external initializer {
         OwnableUpgradeable.__Ownable_init();
-        gasOracle = _gasOracle;
-        maxGasLimit = _maxGasLimit;
 
-        __messenger = _messenger;
-        __scrollChain = _scrollChain;
-        __enforcedTxGateway = _enforcedTxGateway;
+        _updateL2BaseFeeParameters(_params.overhead, _params.scalar);
+        _updateMaxGasLimit(_maxGasLimit);
+
+        uint256 _nextCrossDomainMessageIndex = IL1MessageQueueV1(messageQueueV1).nextCrossDomainMessageIndex();
+        nextCrossDomainMessageIndex = _nextCrossDomainMessageIndex;
+        nextUnfinalizedQueueIndex = _nextCrossDomainMessageIndex;
     }
 
     /*************************
      * Public View Functions *
      *************************/
 
-    /// @inheritdoc IL1MessageQueue
-    function nextCrossDomainMessageIndex() external view returns (uint256) {
-        return messageQueue.length;
+    /// @inheritdoc IL1MessageQueueV2
+    function estimatedL2BaseFee() public view returns (uint256) {
+        L2BaseFeeParameters memory parameters = l2BaseFeeParameters;
+        // this is unlikely to happen, use unchecked here
+        unchecked {
+            return (block.basefee * parameters.scalar) / PRECISION + parameters.overhead;
+        }
     }
 
-    /// @inheritdoc IL1MessageQueue
-    function getCrossDomainMessage(uint256 _queueIndex) external view returns (bytes32) {
-        return messageQueue[_queueIndex];
+    /// @inheritdoc IL1MessageQueueV2
+    function estimateCrossDomainMessageFee(uint256 _gasLimit) external view returns (uint256) {
+        return _gasLimit * estimatedL2BaseFee();
     }
 
-    /// @inheritdoc IL1MessageQueue
-    function estimateCrossDomainMessageFee(uint256 _gasLimit) external view virtual override returns (uint256) {
-        address _oracle = gasOracle;
-        if (_oracle == address(0)) return 0;
-        return IL2GasPriceOracle(_oracle).estimateCrossDomainMessageFee(_gasLimit);
+    /// @inheritdoc IL1MessageQueueV2
+    function calculateIntrinsicGasFee(bytes calldata _calldata) public pure returns (uint256) {
+        // no way this can overflow `uint256`
+        unchecked {
+            return INTRINSIC_GAS_TX + _calldata.length * APPROPRIATE_INTRINSIC_GAS_PER_BYTE;
+        }
     }
 
-    /// @inheritdoc IL1MessageQueue
-    function calculateIntrinsicGasFee(bytes calldata _calldata) public view virtual override returns (uint256) {
-        address _oracle = gasOracle;
-        if (_oracle == address(0)) return 0;
-        return IL2GasPriceOracle(_oracle).calculateIntrinsicGasFee(_calldata);
-    }
-
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV2
     function computeTransactionHash(
         address _sender,
         uint256 _queueIndex,
@@ -170,7 +183,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         address _target,
         uint256 _gasLimit,
         bytes calldata _data
-    ) public pure override returns (bytes32) {
+    ) public pure returns (bytes32) {
         // We use EIP-2718 to encode the L1 message, and the encoding of the message is
         //      `TransactionType || TransactionPayload`
         // where
@@ -296,165 +309,97 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         return hash;
     }
 
-    /// @inheritdoc IL1MessageQueue
-    function isMessageSkipped(uint256 _queueIndex) external view returns (bool) {
-        if (_queueIndex >= pendingQueueIndex) return false;
-
-        return _isMessageSkipped(_queueIndex);
-    }
-
-    /// @inheritdoc IL1MessageQueue
-    function isMessageDropped(uint256 _queueIndex) external view returns (bool) {
-        // it should be a skipped message first.
-        return _isMessageSkipped(_queueIndex) && droppedMessageBitmap.get(_queueIndex);
-    }
-
     /*****************************
      * Public Mutating Functions *
      *****************************/
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV2
     function appendCrossDomainMessage(
         address _target,
         uint256 _gasLimit,
         bytes calldata _data
-    ) external override onlyMessenger {
+    ) external {
+        if (_msgSender() != messenger) revert ErrorCallerIsNotMessenger();
+
         // validate gas limit
         _validateGasLimit(_gasLimit, _data);
 
         // do address alias to avoid replay attack in L2.
-        address _sender = AddressAliasHelper.applyL1ToL2Alias(_msgSender());
-
-        _queueTransaction(_sender, _target, 0, _gasLimit, _data);
+        _queueTransaction(AddressAliasHelper.applyL1ToL2Alias(_msgSender()), _target, 0, _gasLimit, _data);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV2
     function appendEnforcedTransaction(
         address _sender,
         address _target,
         uint256 _value,
         uint256 _gasLimit,
         bytes calldata _data
-    ) external override {
-        require(_msgSender() == enforcedTxGateway, "Only callable by the EnforcedTxGateway");
+    ) external {
+        if (_msgSender() != enforcedTxGateway) revert ErrorCallerIsNotEnforcedTxGateway();
         // We will check it in EnforcedTxGateway, just in case.
-        require(_sender.code.length == 0, "only EOA");
+        if (_sender.code.length > 0) revert ErrorCallerIsNotEOA();
 
         // validate gas limit
         _validateGasLimit(_gasLimit, _data);
-
         _queueTransaction(_sender, _target, _value, _gasLimit, _data);
     }
 
-    /// @inheritdoc IL1MessageQueue
-    function popCrossDomainMessage(
-        uint256 _startIndex,
-        uint256 _count,
-        uint256 _skippedBitmap
-    ) external override onlyScrollChain {
-        require(_count <= 256, "pop too many messages");
-        require(pendingQueueIndex == _startIndex, "start index mismatch");
+    /// @inheritdoc IL1MessageQueueV2
+    function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne) external onlyScrollChain {
+        if (_msgSender() != enforcedTxGateway) revert ErrorCallerIsNotScrollChain();
 
-        unchecked {
-            // clear extra bits in `_skippedBitmap`, and if _count = 256, it's designed to overflow.
-            uint256 mask = (1 << _count) - 1;
-            _skippedBitmap &= mask;
-
-            uint256 bucket = _startIndex >> 8;
-            uint256 offset = _startIndex & 0xff;
-            skippedMessageBitmap[bucket] |= _skippedBitmap << offset;
-            if (offset + _count > 256) {
-                skippedMessageBitmap[bucket + 1] = _skippedBitmap >> (256 - offset);
-            }
-
-            pendingQueueIndex = _startIndex + _count;
-        }
-
-        emit DequeueTransaction(_startIndex, _count, _skippedBitmap);
-    }
-
-    /// @inheritdoc IL1MessageQueue
-    /// @dev Caller should make sure `_startIndex < pendingQueueIndex` to reduce unnecessary contract call.
-    function resetPoppedCrossDomainMessage(uint256 _startIndex) external override onlyScrollChain {
-        uint256 cachedPendingQueueIndex = pendingQueueIndex;
-        if (_startIndex == cachedPendingQueueIndex) return;
-
-        require(_startIndex >= nextUnfinalizedQueueIndex, "reset finalized messages");
-        require(_startIndex < cachedPendingQueueIndex, "reset pending messages");
-
-        unchecked {
-            uint256 count = cachedPendingQueueIndex - _startIndex;
-            uint256 bucket = _startIndex >> 8;
-            uint256 offset = _startIndex & 0xff;
-            skippedMessageBitmap[bucket] &= (1 << offset) - 1;
-            uint256 numResetMessages = 256 - offset;
-            while (numResetMessages < count) {
-                bucket += 1;
-                uint256 bitmap = skippedMessageBitmap[bucket];
-                if (bitmap > 0) skippedMessageBitmap[bucket] = 0;
-                numResetMessages += 256;
-            }
-        }
-
-        pendingQueueIndex = _startIndex;
-        emit ResetDequeuedTransaction(_startIndex);
-    }
-
-    /// @inheritdoc IL1MessageQueue
-    function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne)
-        external
-        override
-        onlyScrollChain
-    {
         uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
         if (_newFinalizedQueueIndexPlusOne == cachedFinalizedQueueIndexPlusOne) return;
-        require(_newFinalizedQueueIndexPlusOne > cachedFinalizedQueueIndexPlusOne, "finalized index too small");
-        require(_newFinalizedQueueIndexPlusOne <= pendingQueueIndex, "finalized index too large");
+        if (_newFinalizedQueueIndexPlusOne < cachedFinalizedQueueIndexPlusOne) revert ErrorFinalizedIndexTooSmall();
+        if (_newFinalizedQueueIndexPlusOne > nextCrossDomainMessageIndex) revert ErrorFinalizedIndexTooLarge();
 
         nextUnfinalizedQueueIndex = _newFinalizedQueueIndexPlusOne;
         unchecked {
-            emit FinalizedDequeuedTransaction(_newFinalizedQueueIndexPlusOne - 1);
+            // emit FinalizedDequeuedTransaction(_newFinalizedQueueIndexPlusOne - 1);
         }
-    }
-
-    /// @inheritdoc IL1MessageQueue
-    function dropCrossDomainMessage(uint256 _index) external onlyMessenger {
-        require(_index < nextUnfinalizedQueueIndex, "cannot drop pending message");
-
-        require(_isMessageSkipped(_index), "drop non-skipped message");
-        require(!droppedMessageBitmap.get(_index), "message already dropped");
-        droppedMessageBitmap.set(_index);
-
-        emit DropTransaction(_index);
     }
 
     /************************
      * Restricted Functions *
      ************************/
 
-    /// @notice Update the address of gas oracle.
-    /// @dev This function can only called by contract owner.
-    /// @param _newGasOracle The address to update.
-    function updateGasOracle(address _newGasOracle) external onlyOwner {
-        address _oldGasOracle = gasOracle;
-        gasOracle = _newGasOracle;
-
-        emit UpdateGasOracle(_oldGasOracle, _newGasOracle);
+    /// @notice Update the parameters for l2 base fee formula.
+    /// @param overhead The value of overhead in l2 base fee formula.
+    /// @param scalar The value of scalar in l2 base fee formula.
+    function updateL2BaseFeeParameters(uint128 overhead, uint128 scalar) external onlyOwner {
+        _updateL2BaseFeeParameters(overhead, scalar);
     }
 
     /// @notice Update the max gas limit.
-    /// @dev This function can only called by contract owner.
     /// @param _newMaxGasLimit The new max gas limit.
     function updateMaxGasLimit(uint256 _newMaxGasLimit) external onlyOwner {
-        uint256 _oldMaxGasLimit = maxGasLimit;
-        maxGasLimit = _newMaxGasLimit;
-
-        emit UpdateMaxGasLimit(_oldMaxGasLimit, _newMaxGasLimit);
+        _updateMaxGasLimit(_newMaxGasLimit);
     }
 
     /**********************
      * Internal Functions *
      **********************/
+
+    /// @dev Internal function to update the parameters for l2 base fee formula.
+    /// @param overhead The value of overhead in l2 base fee formula.
+    /// @param scalar The value of scalar in l2 base fee formula.
+    function _updateL2BaseFeeParameters(uint128 overhead, uint128 scalar) internal {
+        l2BaseFeeParameters = L2BaseFeeParameters(overhead, scalar);
+
+        emit UpdateL2BaseFeeParameters(overhead, scalar);
+    }
+
+    /// @dev Internal function to update the max gas limit.
+    /// @param _newMaxGasLimit The new max gas limit.
+    function _updateMaxGasLimit(uint256 _newMaxGasLimit) internal {
+        if (_newMaxGasLimit < INTRINSIC_GAS_TX) revert ErrorGasLimitBelowIntrinsicGas();
+
+        uint256 _oldMaxGasLimit = maxGasLimit;
+        maxGasLimit = _newMaxGasLimit;
+
+        emit UpdateMaxGasLimit(_oldMaxGasLimit, _newMaxGasLimit);
+    }
 
     /// @dev Internal function to queue a L1 transaction.
     /// @param _sender The address of sender who will initiate this transaction in L2.
@@ -470,25 +415,60 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         bytes calldata _data
     ) internal {
         // compute transaction hash
-        uint256 _queueIndex = messageQueue.length;
+        uint256 _queueIndex = nextCrossDomainMessageIndex;
         bytes32 _hash = computeTransactionHash(_sender, _queueIndex, _value, _target, _gasLimit, _data);
-        messageQueue.push(_hash);
+        unchecked {
+            (bytes32 _rollingHash, ) = _loadAndDecodeRollingHash(_queueIndex - 1);
+            _rollingHash = _efficientHash(_rollingHash, _hash);
+            messageRollingHashes[_queueIndex] = _encodeRollingHash(_rollingHash, block.timestamp);
+            nextCrossDomainMessageIndex = _queueIndex + 1;
+        }
 
         // emit event
-        emit QueueTransaction(_sender, _target, _value, uint64(_queueIndex), _gasLimit, _data);
+        // emit QueueTransaction(_sender, _target, _value, uint64(_queueIndex), _gasLimit, _data);
     }
 
+    /// @dev Internal function to validate given gas limit.
+    /// @param _gasLimit The value of given gas limit.
+    /// @param _calldata The calldata for this message.
     function _validateGasLimit(uint256 _gasLimit, bytes calldata _calldata) internal view {
-        require(_gasLimit <= maxGasLimit, "Gas limit must not exceed maxGasLimit");
+        if (_gasLimit > maxGasLimit) revert ErrorGasLimitExceeded();
         // check if the gas limit is above intrinsic gas
         uint256 intrinsicGas = calculateIntrinsicGasFee(_calldata);
-        require(_gasLimit >= intrinsicGas, "Insufficient gas limit, must be above intrinsic gas");
+        if (_gasLimit < intrinsicGas) revert ErrorGasLimitBelowIntrinsicGas();
     }
 
-    /// @dev Returns whether the bit at `index` is set.
-    function _isMessageSkipped(uint256 index) internal view returns (bool) {
-        uint256 bucket = index >> 8;
-        uint256 mask = 1 << (index & 0xff);
-        return skippedMessageBitmap[bucket] & mask != 0;
+    /// @dev Internal function to load rolling hash from storage.
+    /// @param index The index of message to query.
+    /// @return hash The rolling hash at the given index.
+    /// @return enqueueTimestamp The enqueue timestamp of the message at the given index.
+    function _loadAndDecodeRollingHash(uint256 index) internal view returns (bytes32 hash, uint256 enqueueTimestamp) {
+        hash = messageRollingHashes[index];
+        assembly {
+            enqueueTimestamp := and(hash, 0xfffffffff)
+            hash := shl(36, shr(36, hash))
+        }
+    }
+
+    /// @dev Internal function to encode rolling hash with enqueue timestamp.
+    /// @param hash The rolling hash.
+    /// @param enqueueTimestamp The enqueue timestamp.
+    /// @return The encoded rolling hash for storage.
+    function _encodeRollingHash(bytes32 hash, uint256 enqueueTimestamp) internal pure returns (bytes32) {
+        assembly {
+            // clear last 36 bits and then encode timestamp to it.
+            hash := or(enqueueTimestamp, shl(36, shr(36, hash)))
+        }
+        return hash;
+    }
+
+    /// @dev Internal function to compute keccak256 of two `bytes32` in gas efficient way.
+    function _efficientHash(bytes32 a, bytes32 b) private pure returns (bytes32 value) {
+        // solhint-disable-next-line no-inline-assembly
+        assembly {
+            mstore(0x00, a)
+            mstore(0x20, b)
+            value := keccak256(0x00, 0x40)
+        }
     }
 }

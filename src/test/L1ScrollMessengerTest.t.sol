@@ -5,7 +5,6 @@ pragma solidity =0.8.24;
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {EnforcedTxGateway} from "../L1/gateways/EnforcedTxGateway.sol";
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
 import {IScrollChain, ScrollChain} from "../L1/rollup/ScrollChain.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
