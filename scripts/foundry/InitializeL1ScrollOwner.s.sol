@@ -21,8 +21,6 @@ import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {ScrollOwner} from "../../src/misc/ScrollOwner.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 
-import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
-
 
 // solhint-disable max-states-count
 // solhint-disable state-visibility
@@ -88,8 +86,7 @@ contract InitializeL1ScrollOwner is Script {
         configL1CustomERC20Gateway();
         configL1ERC721Gateway();
         configL1ERC1155Gateway();        
-        configSystemContract();
-
+    
         configL1USDCGateway();
         configEnforcedTxGateway();
 
@@ -278,22 +275,5 @@ contract InitializeL1ScrollOwner is Script {
         _selectors[0] = EnforcedTxGateway.setPause.selector;
         owner.updateAccess(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR, _selectors, SCROLL_MULTISIG_NO_DELAY_ROLE, true);
         owner.updateAccess(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR, _selectors, EMERGENCY_MULTISIG_NO_DELAY_ROLE, true);
-    }
-
-    function configSystemContract() internal {
-        // If we already have deployed it, just do:
-        SystemConfig sys = SystemConfig(SYSTEM_CONTRACT_ADDR);
-
-        // sys has a normal constructor that set the "owner" to `ScrollOwner`.
-        // Now we want to let the Security Council call `addSigner(...)` with no delay.
-        bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = sys.updateSigner.selector;
-
-        owner.updateAccess(
-            SYSTEM_CONTRACT_ADDR,        // the system contract
-            selectors,                   // array of function selectors (onlyOwner)
-            SECURITY_COUNCIL_NO_DELAY_ROLE,
-            true
-        );
     }
 }
