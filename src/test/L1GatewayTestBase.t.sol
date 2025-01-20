@@ -161,29 +161,24 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
+        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
 
-        bytes memory batchHeader1 = new bytes(121);
+        bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
+            mstore8(add(batchHeader1, 0x20), 3) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
-            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 9)), shl(192, 0)) // l1MessagePopped
+            mstore(add(batchHeader1, add(0x20, 17)), shl(192, 0)) // totalL1MessagePopped
             mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
+            mstore(add(batchHeader1, add(0x20, 57)), 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757) // blobVersionedHash
             mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
+            mstore(add(batchHeader1, add(0x20, 121)), 0) // lastBlockTimestamp
+            mcopy(add(batchHeader1, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
         }
 
         hevm.startPrank(address(0));
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            messageHash,
-            blobDataProof,
-            new bytes(0)
-        );
+        rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
     }
 }

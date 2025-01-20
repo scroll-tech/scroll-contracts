@@ -105,6 +105,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the given address is `address(0)`.
     error ErrorZeroAddress();
 
+    /// @dev Thrown when commit old batch after Euclid fork is enabled.
+    error ErrorEuclidForkEnabled();
+
     /*************
      * Constants *
      *************/
@@ -281,13 +284,23 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             revert ErrorIncorrectBatchVersion();
         }
 
-        _commitBatchFromV2ToV5(_version, _parentBatchHeader, _chunks, _skippedL1MessageBitmap, _blobDataProof);
+        uint256 batchIndex = _commitBatchFromV2ToV5(
+            _version,
+            _parentBatchHeader,
+            _chunks,
+            _skippedL1MessageBitmap,
+            _blobDataProof
+        );
+        // Don't allow to call this function after Euclid upgrade.
+        // This check is to avoid sequencer committing wrong batch due to human error.
+        uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+        if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
     }
 
     /// @inheritdoc IScrollChain
     function commitEuclidInitialBatch(bytes calldata parentBatchHeader) external override OnlySequencer {
         // only commit once
-        if (initialEuclidBatchIndex != 0) revert();
+        if (initialEuclidBatchIndex != 0) revert ErrorBatchIsAlreadyCommitted();
 
         // load information from parent batch header
         (, bytes32 parentBatchHash, uint256 batchIndex, uint256 totalL1MessagesPoppedOverall) = _loadBatchHeader(
@@ -331,7 +344,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata blobDataProof
     ) external override OnlySequencer whenNotPaused {
         // only accept version >= 5
-        if (version <= 5) {
+        if (version < 5) {
             revert ErrorIncorrectBatchVersion();
         }
 
@@ -443,7 +456,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
 
         // construct the public input
-        bytes memory publicInputs = abi.encodePacked(
+        bytes memory publicInput = abi.encodePacked(
             uint256(layer2ChainId),
             finalizedStateRoots[prevBatchIndex], // _prevStateRoot
             committedBatches[prevBatchIndex], // _prevBatchHash
@@ -454,7 +467,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInputs);
+        IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInput);
 
         // actions after verification
         _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
@@ -641,6 +654,26 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
+    /// @dev Internal function to get and check the blob versioned hash.
+    /// @param _blobDataProof The blob data proof passing to point evaluation precompile.
+    /// @return _blobVersionedHash The retrieved blob versioned hash.
+    function _getAndCheckBlobVersionedHash(bytes calldata _blobDataProof)
+        internal
+        returns (bytes32 _blobVersionedHash)
+    {
+        _blobVersionedHash = _getBlobVersionedHash();
+
+        // Calls the point evaluation precompile and verifies the output
+        (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
+            abi.encodePacked(_blobVersionedHash, _blobDataProof)
+        );
+        // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
+        // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+        if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
+        (, uint256 result) = abi.decode(data, (uint256, uint256));
+        if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
+    }
+
     /// @dev Internal function to get the blob versioned hash.
     /// @return _blobVersionedHash The retrieved blob versioned hash.
     function _getBlobVersionedHash() internal virtual returns (bytes32 _blobVersionedHash) {
@@ -660,7 +693,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes[] memory _chunks,
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
-    ) internal {
+    ) internal returns (uint256) {
         // allocate memory of batch header and store entries if necessary, the order matters
         // @note why store entries if necessary, to avoid stack overflow problem.
         // The codes for `version`, `batchIndex`, `l1MessagePopped`, `totalL1MessagePopped` and `dataHash`
@@ -703,9 +736,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
 
         // verify blob versioned hash
-        bytes32 _blobVersionedHash = _getBlobVersionedHash();
-        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
-        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _blobVersionedHash);
+        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _getAndCheckBlobVersionedHash(_blobDataProof));
         BatchHeaderV1Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
 
         uint256 lastBlockTimestamp;
@@ -723,6 +754,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
 
         _afterCommitBatch(_batchIndex, _batchHash);
+
+        return _batchIndex;
     }
 
     /// @dev Internal function to commit chunks with version 1
