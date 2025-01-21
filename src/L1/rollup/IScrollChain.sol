@@ -90,14 +90,6 @@ interface IScrollChain {
 
     function commitEuclidInitialBatch(bytes calldata parentBatchHeader) external;
 
-    function commitBatchPostEuclid(
-        uint8 version,
-        bytes calldata parentBatchHeader,
-        bytes[] memory chunks,
-        bytes calldata skippedL1MessageBitmap,
-        bytes calldata blobDataProof
-    ) external;
-
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
     /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.

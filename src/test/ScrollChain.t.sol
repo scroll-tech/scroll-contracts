@@ -90,29 +90,33 @@ contract ScrollChainTest is DSTestPlus {
 
         // caller not sequencer, revert
         hevm.expectRevert(ScrollChain.ErrorCallerIsNotSequencer.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         rollup.addSequencer(address(0));
 
         // revert when ErrorIncorrectBatchVersion
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
         rollup.commitBatchWithBlobProof(2, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
+        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
+        rollup.commitBatchWithBlobProof(5, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorBatchIsEmpty
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorBatchIsEmpty.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorBatchHeaderV3LengthMismatch
         bytes memory header = new bytes(192);
         assembly {
-            mstore8(add(header, 0x20), 3) // version
+            mstore8(add(header, 0x20), 4) // version
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(BatchHeaderV3Codec.ErrorBatchHeaderV3LengthMismatch.selector);
-        rollup.commitBatchWithBlobProof(3, header, new bytes[](1), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, header, new bytes[](1), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorIncorrectBatchHash
@@ -121,7 +125,7 @@ contract ScrollChainTest is DSTestPlus {
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](1), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](1), new bytes(0), new bytes(0));
         hevm.stopPrank();
         assembly {
             mstore(add(batchHeader0, add(0x20, 25)), 1) // change back
@@ -135,7 +139,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ChunkCodecV1.ErrorNoBlockInChunkV1.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // invalid chunk length, revert
@@ -144,7 +148,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ChunkCodecV1.ErrorIncorrectChunkLengthV1.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // cannot skip last L1 message, revert
@@ -157,7 +161,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorLastL1MessageSkipped.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, bitmap, new bytes(0));
         hevm.stopPrank();
 
         // num txs less than num L1 msgs, revert
@@ -170,7 +174,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorNumTxsLessThanNumL1Msgs.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, bitmap, new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorNoBlobFound
@@ -180,7 +184,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorNoBlobFound.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // @note we cannot check `ErrorFoundMultipleBlobs` here
@@ -204,13 +208,13 @@ contract ScrollChainTest is DSTestPlus {
         // revert when ErrorCallPointEvaluationPrecompileFailed
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorCallPointEvaluationPrecompileFailed.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         bytes32 batchHash0 = rollup.committedBatches(0);
         bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
             mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
             mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
@@ -225,14 +229,14 @@ contract ScrollChainTest is DSTestPlus {
         // succeed
         hevm.startPrank(address(0));
         assertEq(rollup.committedBatches(1), bytes32(0));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
         assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
 
         // revert when ErrorBatchIsAlreadyCommitted
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
     }
 
@@ -270,7 +274,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 batchHash0 = rollup.committedBatches(0);
         bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
             mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
             mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
@@ -288,7 +292,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         assertEq(rollup.committedBatches(1), bytes32(0));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
         assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
 
@@ -301,7 +305,7 @@ contract ScrollChainTest is DSTestPlus {
         // revert when ErrorBatchHeaderV3LengthMismatch
         bytes memory header = new bytes(192);
         assembly {
-            mstore8(add(header, 0x20), 3) // version
+            mstore8(add(header, 0x20), 4) // version
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(BatchHeaderV3Codec.ErrorBatchHeaderV3LengthMismatch.selector);
@@ -394,7 +398,7 @@ contract ScrollChainTest is DSTestPlus {
         //   07e1bede8c5047cf8ca7ac84f5390837fb6224953af83d7e967488fa63a2065e
         batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex = 1
             mstore(add(batchHeader1, add(0x20, 9)), shl(192, 1)) // l1MessagePopped = 1
             mstore(add(batchHeader1, add(0x20, 17)), shl(192, 1)) // totalL1MessagePopped = 1
@@ -417,7 +421,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.startPrank(address(0));
         hevm.expectEmit(true, true, false, true);
         emit CommitBatch(1, keccak256(batchHeader1));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, bitmap, blobDataProof);
         hevm.stopPrank();
         assertBoolEq(rollup.isBatchFinalized(1), false);
         bytes32 batchHash1 = rollup.committedBatches(1);
@@ -476,7 +480,7 @@ contract ScrollChainTest is DSTestPlus {
         //  8a59f0de6f1071c0f48d6a49d9b794008d28b63cc586da0f44f8b2b4e13cb231
         batchHeader2 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader2, 0x20), 3) // version
+            mstore8(add(batchHeader2, 0x20), 4) // version
             mstore(add(batchHeader2, add(0x20, 1)), shl(192, 2)) // batchIndex = 2
             mstore(add(batchHeader2, add(0x20, 9)), shl(192, 264)) // l1MessagePopped = 264
             mstore(add(batchHeader2, add(0x20, 17)), shl(192, 265)) // totalL1MessagePopped = 265
@@ -522,19 +526,19 @@ contract ScrollChainTest is DSTestPlus {
         rollup.updateMaxNumTxInChunk(2); // 3 - 1
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof); // first chunk with too many txs
+        rollup.commitBatchWithBlobProof(4, batchHeader1, chunks, bitmap, blobDataProof); // first chunk with too many txs
         hevm.stopPrank();
         rollup.updateMaxNumTxInChunk(185); // 5+10+300 - 2 - 127
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof); // second chunk with too many txs
+        rollup.commitBatchWithBlobProof(4, batchHeader1, chunks, bitmap, blobDataProof); // second chunk with too many txs
         hevm.stopPrank();
 
         rollup.updateMaxNumTxInChunk(186);
         hevm.startPrank(address(0));
         hevm.expectEmit(true, true, false, true);
         emit CommitBatch(2, keccak256(batchHeader2));
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader1, chunks, bitmap, blobDataProof);
         hevm.stopPrank();
         assertBoolEq(rollup.isBatchFinalized(2), false);
         bytes32 batchHash2 = rollup.committedBatches(2);
@@ -759,8 +763,6 @@ contract ScrollChainTest is DSTestPlus {
         hevm.expectRevert("Pausable: paused");
         rollup.commitBatchWithBlobProof(4, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
-        rollup.commitBatchPostEuclid(5, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
-        hevm.expectRevert("Pausable: paused");
         rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
         rollup.finalizeBundlePostEuclid(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
@@ -974,7 +976,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 dataHash = keccak256(abi.encode(keccak256(chunkData)));
         header = new bytes(193);
         assembly {
-            mstore8(add(header, 0x20), 3) // version
+            mstore8(add(header, 0x20), 4) // version
             mstore(add(header, add(0x20, 1)), shl(192, index)) // batchIndex
             mstore(add(header, add(0x20, 9)), shl(192, numL1Message)) // l1MessagePopped
             mstore(add(header, add(0x20, 17)), shl(192, totalL1MessagePopped)) // totalL1MessagePopped
@@ -1002,7 +1004,7 @@ contract ScrollChainTest is DSTestPlus {
         }
         hevm.expectEmit(true, true, false, true);
         emit CommitBatch(index, keccak256(header));
-        rollup.commitBatchWithBlobProof(3, parentHeader, chunks, bitmap, blobDataProof);
+        rollup.commitBatchWithBlobProof(4, parentHeader, chunks, bitmap, blobDataProof);
         hevm.stopPrank();
         assertBoolEq(rollup.isBatchFinalized(1), false);
         assertEq(rollup.committedBatches(index), keccak256(header));

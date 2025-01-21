@@ -161,12 +161,12 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
 
         bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
             mstore(add(batchHeader1, add(0x20, 9)), shl(192, 0)) // l1MessagePopped
             mstore(add(batchHeader1, add(0x20, 17)), shl(192, 0)) // totalL1MessagePopped

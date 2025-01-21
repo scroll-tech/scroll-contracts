@@ -279,12 +279,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
     ) external override OnlySequencer whenNotPaused {
-        // only accept version 3 and 4
-        if (_version <= 2 || _version > 4) {
+        // only accept version 4 and >= 6
+        if (_version < 6 && _version != 4) {
             revert ErrorIncorrectBatchVersion();
         }
 
-        uint256 batchIndex = _commitBatchFromV2ToV5(
+        uint256 batchIndex = _commitBatchFromV2ToV6(
             _version,
             _parentBatchHeader,
             _chunks,
@@ -293,8 +293,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
         // Don't allow to call this function after Euclid upgrade.
         // This check is to avoid sequencer committing wrong batch due to human error.
-        uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
-        if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
+        if (_version == 4) {
+            uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+            if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
+        }
     }
 
     /// @inheritdoc IScrollChain
@@ -319,7 +321,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             // complexity.
             mstore(0x40, add(batchPtr, 89))
         }
-        BatchHeaderV0Codec.storeVersion(batchPtr, 0); // use version=0 as an initial batch
+        BatchHeaderV0Codec.storeVersion(batchPtr, 5); // use version=5 as an initial batch, but the logic matches V0
         BatchHeaderV0Codec.storeBatchIndex(batchPtr, batchIndex); // the new batch index
         BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, 0); // l1MessagePopped = 0 (since this "empty" migration batch has no txs)
         BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, totalL1MessagesPoppedOverall); // totalL1MessagesPopped
@@ -333,22 +335,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         initialEuclidBatchIndex = batchIndex;
         committedBatches[batchIndex] = batchHash;
         emit CommitBatch(batchIndex, batchHash);
-    }
-
-    /// @inheritdoc IScrollChain
-    function commitBatchPostEuclid(
-        uint8 version,
-        bytes calldata parentBatchHeader,
-        bytes[] memory chunks,
-        bytes calldata skippedL1MessageBitmap,
-        bytes calldata blobDataProof
-    ) external override OnlySequencer whenNotPaused {
-        // only accept version >= 5
-        if (version < 5) {
-            revert ErrorIncorrectBatchVersion();
-        }
-
-        _commitBatchFromV2ToV5(version, parentBatchHeader, chunks, skippedL1MessageBitmap, blobDataProof);
     }
 
     /// @inheritdoc IScrollChain
@@ -371,14 +357,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_firstBatchIndex <= lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
+        uint256 _initialEuclidBatchIndex = initialEuclidBatchIndex;
         for (uint256 _batchIndex = _lastBatchIndex; _batchIndex >= _firstBatchIndex; --_batchIndex) {
             bytes32 _batchHash = committedBatches[_batchIndex];
             committedBatches[_batchIndex] = bytes32(0);
 
+            // also revert initial Euclid batch
+            if (_initialEuclidBatchIndex == _batchIndex) {
+                initialEuclidBatchIndex = 0;
+            }
+
             emit RevertBatch(_batchIndex, _batchHash);
         }
 
-        // `getL1MessagePopped` codes are the same in V0, V1, V2, V3
+        // `getL1MessagePopped` codes are the same in V0~V6
         uint256 l1MessagePoppedFirstBatch = BatchHeaderV0Codec.getL1MessagePopped(firstBatchPtr);
         unchecked {
             IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(
@@ -687,7 +679,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
-    function _commitBatchFromV2ToV5(
+    function _commitBatchFromV2ToV6(
         uint8 _version,
         bytes calldata _parentBatchHeader,
         bytes[] memory _chunks,
@@ -829,7 +821,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         uint256 _length;
-        if (version == 0) {
+        // V0 and V5 share the same codec
+        if (version == 0 || version == 5) {
             (batchPtr, _length) = BatchHeaderV0Codec.loadAndValidate(_batchHeader);
         } else if (version <= 2) {
             (batchPtr, _length) = BatchHeaderV1Codec.loadAndValidate(_batchHeader);
@@ -837,7 +830,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             (batchPtr, _length) = BatchHeaderV3Codec.loadAndValidate(_batchHeader);
         }
 
-        // the code for compute batch hash is the same for V0, V1, V2, V3
+        // the code for compute batch hash is the same for V0~V6
         // also the `_batchIndex` and `_totalL1MessagesPoppedOverall`.
         _batchHash = BatchHeaderV0Codec.computeBatchHash(batchPtr, _length);
         _batchIndex = BatchHeaderV0Codec.getBatchIndex(batchPtr);
