@@ -99,8 +99,6 @@ contract ScrollChainTest is DSTestPlus {
         rollup.commitBatchWithBlobProof(2, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
         rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
-        rollup.commitBatchWithBlobProof(5, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorBatchIsEmpty

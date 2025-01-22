@@ -88,8 +88,6 @@ interface IScrollChain {
         bytes calldata blobDataProof
     ) external;
 
-    function commitEuclidInitialBatch(bytes calldata parentBatchHeader) external;
-
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
     /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
