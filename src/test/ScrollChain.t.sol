@@ -596,8 +596,52 @@ contract ScrollChainTest is DSTestPlus {
     function testCommitBatchV5() external {
         bytes[] memory headers = _prepareFinalizeBundle();
 
+        // revert when ErrorV5BatchNotContainsOnlyOneChunk
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneChunk.selector); // 0 chunk
+        rollup.commitBatchWithBlobProof(5, headers[10], new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneChunk.selector); // 2 chunks
+        rollup.commitBatchWithBlobProof(5, headers[10], new bytes[](2), new bytes(0), new bytes(0));
+        hevm.stopPrank();
+
+        bytes[] memory chunks = new bytes[](1);
+        // revert when ErrorV5BatchNotContainsOnlyOneBlock
+        hevm.startPrank(address(0));
+        chunks[0] = new bytes(1);
+        hevm.expectRevert(ChunkCodecV1.ErrorNoBlockInChunkV1.selector); // 1 chunk, 0 block
+        rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+        for (uint256 i = 2; i < 256; ++i) {
+            chunks[0] = new bytes(1 + 60 * i);
+            chunks[0][0] = bytes1(uint8(i));
+            hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneBlock.selector); // 1 chunk, i block
+            rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+        }
+        hevm.stopPrank();
+
+        // revert when ErrorV5BatchContainsTransactions
+        hevm.startPrank(address(0));
+        for (uint256 x = 0; x < 5; ++x) {
+            for (uint256 y = 0; y < 5; ++y) {
+                if (x + y == 0) continue;
+                bytes memory chunk = new bytes(1 + 60);
+                chunk[0] = bytes1(uint8(1));
+                uint256 blockPtr;
+                assembly {
+                    blockPtr := add(chunk, 0x21)
+                    mstore(add(blockPtr, 56), shl(240, add(x, y)))
+                    mstore(add(blockPtr, 58), shl(240, y))
+                }
+                assertEq(x + y, ChunkCodecV1.getNumTransactions(blockPtr));
+                assertEq(y, ChunkCodecV1.getNumL1Messages(blockPtr));
+                chunks[0] = chunk;
+                hevm.expectRevert(ScrollChain.ErrorV5BatchContainsTransactions.selector); // 1 chunk, 1 nonempty block
+                rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+            }
+        }
+        hevm.stopPrank();
+
         assertEq(rollup.initialEuclidBatchIndex(), 0);
-        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0, 0);
         assertEq(rollup.initialEuclidBatchIndex(), 11);
 
         // revert when commit again
@@ -611,18 +655,18 @@ contract ScrollChainTest is DSTestPlus {
         bytes[] memory headers = _prepareFinalizeBundle();
 
         assertEq(rollup.initialEuclidBatchIndex(), 0);
-        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0, 0);
         assertEq(rollup.initialEuclidBatchIndex(), 11);
 
         // revert when caller is not owner
         hevm.startPrank(address(1));
         hevm.expectRevert("Ownable: caller is not the owner");
-        rollup.finalizeEuclidInitialBatch(bytes32(0), bytes32(0));
+        rollup.finalizeEuclidInitialBatch(bytes32(0));
         hevm.stopPrank();
 
         // revert when ErrorStateRootIsZero
         hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
-        rollup.finalizeEuclidInitialBatch(bytes32(0), bytes32(0));
+        rollup.finalizeEuclidInitialBatch(bytes32(0));
 
         // finalize first 9 batches
         hevm.startPrank(address(0));
@@ -633,7 +677,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // revert when ErrorNotAllV4BatchFinalized
         hevm.expectRevert(ScrollChain.ErrorNotAllV4BatchFinalized.selector);
-        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        rollup.finalizeEuclidInitialBatch(keccak256("011"));
 
         // finalize batch 10
         hevm.startPrank(address(0));
@@ -641,26 +685,32 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.lastFinalizedBatchIndex(), 10);
         hevm.stopPrank();
 
-        // succeed
+        // revert when try to finalize batch 11 in finalizeBundleWithProof
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorFinalizeEuclidBatchWithZkTrieRoot.selector);
+        rollup.finalizeBundleWithProof(v5Header, keccak256("010"), keccak256("110"), new bytes(0));
+        hevm.stopPrank();
+
+        // succeed, withdraw root should be same as batch 10
         assertEq(rollup.finalizedStateRoots(11), 0);
         assertEq(rollup.withdrawRoots(11), 0);
         assertEq(rollup.lastFinalizedBatchIndex(), 10);
         hevm.expectEmit(true, true, true, true);
-        emit FinalizeBatch(11, keccak256(v5Header), keccak256("011"), keccak256("111"));
-        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        emit FinalizeBatch(11, keccak256(v5Header), keccak256("011"), keccak256("110"));
+        rollup.finalizeEuclidInitialBatch(keccak256("011"));
         assertEq(rollup.finalizedStateRoots(11), keccak256("011"));
-        assertEq(rollup.withdrawRoots(11), keccak256("111"));
+        assertEq(rollup.withdrawRoots(11), keccak256("110"));
 
         // revert when ErrorStateRootIsZero
         hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
-        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        rollup.finalizeEuclidInitialBatch(keccak256("011"));
     }
 
     function testFinalizeBundlePostEuclid() external {
         bytes[] memory headers = _prepareFinalizeBundle();
 
         assertEq(rollup.initialEuclidBatchIndex(), 0);
-        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0, 0);
         assertEq(rollup.initialEuclidBatchIndex(), 11);
 
         for (uint256 i = 1; i <= 10; ++i) {
@@ -675,14 +725,14 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(messageQueue.nextUnfinalizedQueueIndex(), 10);
 
         assertBoolEq(rollup.isBatchFinalized(11), false);
-        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        rollup.finalizeEuclidInitialBatch(keccak256("011"));
         assertBoolEq(rollup.isBatchFinalized(11), true);
         assertEq(rollup.lastFinalizedBatchIndex(), 11);
 
         // commit 3 v6 batches
-        bytes memory v6Header1 = _commitBatch(6, v5Header, 1);
-        bytes memory v6Header2 = _commitBatch(6, v6Header1, 2);
-        bytes memory v6Header3 = _commitBatch(6, v6Header2, 3);
+        bytes memory v6Header1 = _commitBatch(6, v5Header, 1, 1);
+        bytes memory v6Header2 = _commitBatch(6, v6Header1, 2, 1);
+        bytes memory v6Header3 = _commitBatch(6, v6Header2, 3, 1);
 
         // revert when ErrorCallerIsNotProver
         hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
@@ -1026,11 +1076,11 @@ contract ScrollChainTest is DSTestPlus {
         headers[0] = _commitGenesisBatch();
         // commit 5 batches, each has 2 l1 messages
         for (uint256 i = 1; i <= 5; ++i) {
-            headers[i] = _commitBatch(4, headers[i - 1], 2);
+            headers[i] = _commitBatch(4, headers[i - 1], 2, 1);
         }
         // commit 5 batches, each has 0 l1 message
         for (uint256 i = 6; i <= 10; ++i) {
-            headers[i] = _commitBatch(4, headers[i - 1], 0);
+            headers[i] = _commitBatch(4, headers[i - 1], 0, 1);
         }
     }
 
@@ -1046,7 +1096,8 @@ contract ScrollChainTest is DSTestPlus {
     function _constructBatchStruct(
         uint8 version,
         bytes memory parentHeader,
-        uint256 numL1Message
+        uint256 numL1Message,
+        uint256 numL2Transaction
     )
         internal
         view
@@ -1077,7 +1128,7 @@ contract ScrollChainTest is DSTestPlus {
         //   hex(index)                                                         // timestamp
         //   0000000000000000000000000000000000000000000000000000000000000000   // baseFee
         //   0000000000000000                                                   // gasLimit
-        //   hex(1 + numL1Message)                                              // numTransactions
+        //   hex(numL2Transaction + numL1Message)                               // numTransactions
         //   ...                                                                // l1 messages
         // data hash for chunk0
         //   keccak256(chunk0)
@@ -1101,7 +1152,7 @@ contract ScrollChainTest is DSTestPlus {
         assembly {
             mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
             mstore(add(chunk0, add(0x21, 8)), shl(192, index)) // timestamp = 0x123
-            mstore(add(chunk0, add(0x21, 56)), shl(240, add(numL1Message, 1))) // numTransactions = 1 + numL1Message
+            mstore(add(chunk0, add(0x21, 56)), shl(240, add(numL1Message, numL2Transaction))) // numTransactions = numL2Transaction + numL1Message
             mstore(add(chunk0, add(0x21, 58)), shl(240, numL1Message)) // numL1Messages
         }
         chunks[0] = chunk0;
@@ -1128,7 +1179,8 @@ contract ScrollChainTest is DSTestPlus {
     function _commitBatch(
         uint8 version,
         bytes memory parentHeader,
-        uint256 numL1Message
+        uint256 numL1Message,
+        uint256 numL2Transaction
     ) internal returns (bytes memory) {
         (
             bytes memory bitmap,
@@ -1137,7 +1189,7 @@ contract ScrollChainTest is DSTestPlus {
             uint256 index,
             uint256 totalL1MessagePopped,
             bytes memory header
-        ) = _constructBatchStruct(version, parentHeader, numL1Message);
+        ) = _constructBatchStruct(version, parentHeader, numL1Message, numL2Transaction);
         hevm.startPrank(address(0));
         if (numL1Message > 0) {
             hevm.expectEmit(false, false, false, true);

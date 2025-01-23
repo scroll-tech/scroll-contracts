@@ -108,8 +108,7 @@ interface IScrollChain {
 
     /// @notice Finalize the initial Euclid batch.
     /// @param postStateRoot The state root after current batch.
-    /// @param withdrawRoot The withdraw trie root after current batch.
-    function finalizeEuclidInitialBatch(bytes32 postStateRoot, bytes32 withdrawRoot) external;
+    function finalizeEuclidInitialBatch(bytes32 postStateRoot) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after Euclid upgrade.
     /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.

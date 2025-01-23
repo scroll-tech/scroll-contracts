@@ -108,7 +108,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when commit old batch after Euclid fork is enabled.
     error ErrorEuclidForkEnabled();
 
+    /// @dev Thrown when SC finalize V5 batch before all v4 batches are finalized.
     error ErrorNotAllV4BatchFinalized();
+
+    /// @dev Thrown when prover finalize V5/V6 batches in zk trie logic.
+    error ErrorFinalizeEuclidBatchWithZkTrieRoot();
+
+    /// @dev Thrown when the committed v5 batch doesn't contain only one chunk.
+    error ErrorV5BatchNotContainsOnlyOneChunk();
+
+    /// @dev Thrown when the committed v5 batch doesn't contain only one block.
+    error ErrorV5BatchNotContainsOnlyOneBlock();
+
+    /// @dev Thrown when the committed v5 batch contains some transactions (L1 or L2).
+    error ErrorV5BatchContainsTransactions();
 
     /*************
      * Constants *
@@ -162,6 +175,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     mapping(uint256 => bytes32) public override withdrawRoots;
 
+    /// @notice The index of first Euclid batch.
     uint256 public initialEuclidBatchIndex;
 
     /**********************
@@ -275,7 +289,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// in `L1MessageQueue`. If one of V0/V1/V2 batches not finalized, `L1MessageQueue.pendingQueueIndex` will not
     /// match `parentBatchHeader.totalL1MessagePopped` and thus revert.
     ///
-    /// @dev For `_version=5`, we only use `_parentBatchHeader` and others will be ignored.
+    /// @dev This function now only accept batches with version >= 4. And for `_version=5`, we should make sure this
+    /// batch contains only one empty block, since it is the Euclid initial batch for zkt/mpt transition.
     function commitBatchWithBlobProof(
         uint8 _version,
         bytes calldata _parentBatchHeader,
@@ -283,8 +298,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
     ) external override OnlySequencer whenNotPaused {
-        // only accept version >= 4
         if (_version < 4) {
+            // only accept version >= 4
             revert ErrorIncorrectBatchVersion();
         } else if (_version == 5) {
             // only commit once for Euclid initial batch
@@ -292,7 +307,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
         // @note We suppose to check v6 batches cannot be committed without initial Euclid Batch.
         // However it will introduce extra sload (2000 gas), we let the sequencer to do this check offchain.
-        // Even if the sequencer commits v6 batches without v5 batch, we can still revert it.
+        // Even if the sequencer commits v6 batches without v5 batch, the security council can still revert it.
 
         uint256 batchIndex = _commitBatchFromV2ToV6(
             _version,
@@ -355,6 +370,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
+    /// @dev This function only finalize batches version <= 4.
     function finalizeBundleWithProof(
         bytes calldata batchHeader,
         bytes32 postStateRoot,
@@ -369,6 +385,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             uint256 totalL1MessagesPoppedOverall,
             uint256 prevBatchIndex
         ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
+
+        uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+        if (euclidForkBatchIndex > 0 && batchIndex >= euclidForkBatchIndex) {
+            revert ErrorFinalizeEuclidBatchWithZkTrieRoot();
+        }
 
         bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,
@@ -390,7 +411,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     /// @dev This function will only allow security council to call once.
-    function finalizeEuclidInitialBatch(bytes32 postStateRoot, bytes32 withdrawRoot) external override onlyOwner {
+    function finalizeEuclidInitialBatch(bytes32 postStateRoot) external override onlyOwner {
         if (postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         uint256 batchIndex = initialEuclidBatchIndex;
@@ -401,6 +422,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // update storage
         lastFinalizedBatchIndex = batchIndex;
+        bytes32 withdrawRoot = withdrawRoots[batchIndex - 1];
         finalizedStateRoots[batchIndex] = postStateRoot;
         withdrawRoots[batchIndex] = withdrawRoot;
 
@@ -408,6 +430,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
+    /// @dev This function only finalize batches version >= 6. If prover try to finalize v4, v5, v6 batches
+    /// together, the verifier should revert. So we don't do any extra checks in this function.
     function finalizeBundlePostEuclid(
         bytes calldata batchHeader,
         bytes32 postStateRoot,
@@ -531,7 +555,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (committedBatches[_batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
     }
 
-    /// @dev Internal function to do common checks after actual batch committing.
+    /// @dev Internal function to do common actions after actual batch committing.
     /// @param _batchIndex The index of current batch.
     /// @param _batchHash The hash of current batch.
     function _afterCommitBatch(uint256 _batchIndex, bytes32 _batchHash) private {
@@ -539,6 +563,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit CommitBatch(_batchIndex, _batchHash);
     }
 
+    /// @dev Internal function to do common actions before actual batch finalization.
     function _beforeFinalizeBatch(bytes calldata batchHeader, bytes32 postStateRoot)
         internal
         view
@@ -563,6 +588,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         version = BatchHeaderV0Codec.getVersion(batchPtr);
     }
 
+    /// @dev Internal function to do common actions after actual batch finalization.
     function _afterFinalizeBatch(
         uint256 batchIndex,
         bytes32 batchHash,
@@ -655,6 +681,23 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
+    /// @dev We make sure v5 batch only contains one empty block here.
+    function _validateV5Batch(bytes[] memory chunks) internal pure {
+        if (chunks.length != 1) revert ErrorV5BatchNotContainsOnlyOneChunk();
+        bytes memory chunk = chunks[0];
+        uint256 chunkPtr;
+        uint256 blockPtr;
+        assembly {
+            chunkPtr := add(chunk, 0x20) // skip chunkLength
+            blockPtr := add(chunkPtr, 1)
+        }
+
+        uint256 numBlocks = ChunkCodecV1.validateChunkLength(chunkPtr, chunk.length);
+        if (numBlocks != 1) revert ErrorV5BatchNotContainsOnlyOneBlock();
+        uint256 numTransactions = ChunkCodecV1.getNumTransactions(blockPtr);
+        if (numTransactions != 0) revert ErrorV5BatchContainsTransactions();
+    }
+
     /// @dev Internal function to commit batches from V2 to V6 (except V5, since it is Euclid initial batch)
     function _commitBatchFromV2ToV6(
         uint8 _version,
@@ -663,18 +706,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
     ) internal returns (uint256) {
+        // do extra checks for batch v5.
+        if (_version == 5) {
+            _validateV5Batch(_chunks);
+        }
+
         // allocate memory of batch header and store entries if necessary, the order matters
         // @note why store entries if necessary, to avoid stack overflow problem.
         // The codes for `version`, `batchIndex`, `l1MessagePopped`, `totalL1MessagePopped` and `dataHash`
         // are the same as `BatchHeaderV0Codec`.
         // The codes for `blobVersionedHash`, and `parentBatchHash` are the same as `BatchHeaderV1Codec`.
-        uint256 batchPtr;
-        assembly {
-            batchPtr := mload(0x40)
-            // This is `BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH`, use `193` here to reduce code
-            // complexity. Be careful that the length may changed in future versions.
-            mstore(0x40, add(batchPtr, 193))
-        }
+        uint256 batchPtr = BatchHeaderV3Codec.allocate();
         BatchHeaderV0Codec.storeVersion(batchPtr, _version);
 
         (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
@@ -683,7 +725,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
         BatchHeaderV0Codec.storeBatchIndex(batchPtr, _batchIndex);
 
-        // versions 2 and 3 both use ChunkCodecV1
+        // versions 2 to 6 both use ChunkCodecV1
         (bytes32 _dataHash, uint256 _totalL1MessagesPoppedInBatch) = _commitChunksV1(
             _totalL1MessagesPoppedOverall,
             _chunks,
@@ -716,7 +758,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         BatchHeaderV3Codec.storeLastBlockTimestamp(batchPtr, lastBlockTimestamp);
         BatchHeaderV3Codec.storeBlobDataProof(batchPtr, _blobDataProof);
 
-        // compute batch hash, V3 has same code as V0
+        // compute batch hash, V2~V6 has same code as V0
         bytes32 _batchHash = BatchHeaderV0Codec.computeBatchHash(
             batchPtr,
             BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH
