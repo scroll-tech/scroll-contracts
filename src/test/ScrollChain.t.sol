@@ -593,6 +593,141 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(265, messageQueue.nextUnfinalizedQueueIndex());
     }
 
+    function testCommitBatchV5() external {
+        bytes[] memory headers = _prepareFinalizeBundle();
+
+        assertEq(rollup.initialEuclidBatchIndex(), 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        assertEq(rollup.initialEuclidBatchIndex(), 11);
+
+        // revert when commit again
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
+        rollup.commitBatchWithBlobProof(5, v5Header, new bytes[](0), new bytes(0), new bytes(0));
+        hevm.stopPrank();
+    }
+
+    function testFinalizeEuclidInitialBatch() external {
+        bytes[] memory headers = _prepareFinalizeBundle();
+
+        assertEq(rollup.initialEuclidBatchIndex(), 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        assertEq(rollup.initialEuclidBatchIndex(), 11);
+
+        // revert when caller is not owner
+        hevm.startPrank(address(1));
+        hevm.expectRevert("Ownable: caller is not the owner");
+        rollup.finalizeEuclidInitialBatch(bytes32(0), bytes32(0));
+        hevm.stopPrank();
+
+        // revert when ErrorStateRootIsZero
+        hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
+        rollup.finalizeEuclidInitialBatch(bytes32(0), bytes32(0));
+
+        // finalize first 9 batches
+        hevm.startPrank(address(0));
+        assertEq(rollup.lastFinalizedBatchIndex(), 0);
+        rollup.finalizeBundleWithProof(headers[9], keccak256("009"), keccak256("109"), new bytes(0));
+        assertEq(rollup.lastFinalizedBatchIndex(), 9);
+        hevm.stopPrank();
+
+        // revert when ErrorNotAllV4BatchFinalized
+        hevm.expectRevert(ScrollChain.ErrorNotAllV4BatchFinalized.selector);
+        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+
+        // finalize batch 10
+        hevm.startPrank(address(0));
+        rollup.finalizeBundleWithProof(headers[10], keccak256("010"), keccak256("110"), new bytes(0));
+        assertEq(rollup.lastFinalizedBatchIndex(), 10);
+        hevm.stopPrank();
+
+        // succeed
+        assertEq(rollup.finalizedStateRoots(11), 0);
+        assertEq(rollup.withdrawRoots(11), 0);
+        assertEq(rollup.lastFinalizedBatchIndex(), 10);
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(11, keccak256(v5Header), keccak256("011"), keccak256("111"));
+        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        assertEq(rollup.finalizedStateRoots(11), keccak256("011"));
+        assertEq(rollup.withdrawRoots(11), keccak256("111"));
+
+        // revert when ErrorStateRootIsZero
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
+        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+    }
+
+    function testFinalizeBundlePostEuclid() external {
+        bytes[] memory headers = _prepareFinalizeBundle();
+
+        assertEq(rollup.initialEuclidBatchIndex(), 0);
+        bytes memory v5Header = _commitBatch(5, headers[10], 0);
+        assertEq(rollup.initialEuclidBatchIndex(), 11);
+
+        for (uint256 i = 1; i <= 10; ++i) {
+            assertBoolEq(rollup.isBatchFinalized(i), false);
+        }
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 0);
+        hevm.prank(address(0));
+        rollup.finalizeBundleWithProof(headers[10], keccak256("010"), keccak256("110"), new bytes(0));
+        for (uint256 i = 1; i <= 10; ++i) {
+            assertBoolEq(rollup.isBatchFinalized(i), true);
+        }
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 10);
+
+        assertBoolEq(rollup.isBatchFinalized(11), false);
+        rollup.finalizeEuclidInitialBatch(keccak256("011"), keccak256("111"));
+        assertBoolEq(rollup.isBatchFinalized(11), true);
+        assertEq(rollup.lastFinalizedBatchIndex(), 11);
+
+        // commit 3 v6 batches
+        bytes memory v6Header1 = _commitBatch(6, v5Header, 1);
+        bytes memory v6Header2 = _commitBatch(6, v6Header1, 2);
+        bytes memory v6Header3 = _commitBatch(6, v6Header2, 3);
+
+        // revert when ErrorCallerIsNotProver
+        hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
+        rollup.finalizeBundlePostEuclid(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+
+        // revert when ErrorStateRootIsZero
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
+        rollup.finalizeBundlePostEuclid(v6Header1, bytes32(0), bytes32(0), new bytes(0));
+
+        // finalize bundle with one batch
+        assertEq(rollup.finalizedStateRoots(12), 0);
+        assertEq(rollup.withdrawRoots(12), 0);
+        assertEq(rollup.lastFinalizedBatchIndex(), 11);
+        assertBoolEq(rollup.isBatchFinalized(12), false);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 10);
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(12, keccak256(v6Header1), keccak256("001"), keccak256("101"));
+        rollup.finalizeBundlePostEuclid(v6Header1, keccak256("001"), keccak256("101"), new bytes(0));
+        assertEq(rollup.finalizedStateRoots(12), keccak256("001"));
+        assertEq(rollup.withdrawRoots(12), keccak256("101"));
+        assertEq(rollup.lastFinalizedBatchIndex(), 12);
+        assertBoolEq(rollup.isBatchFinalized(12), true);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
+
+        // revert when ErrorBatchIsAlreadyVerified
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
+        rollup.finalizeBundlePostEuclid(v6Header1, keccak256("001"), keccak256("101"), new bytes(0));
+
+        // finalize bundle with two batch
+        assertEq(rollup.finalizedStateRoots(14), 0);
+        assertEq(rollup.withdrawRoots(14), 0);
+        assertEq(rollup.lastFinalizedBatchIndex(), 12);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(14, keccak256(v6Header3), keccak256("003"), keccak256("103"));
+        rollup.finalizeBundlePostEuclid(v6Header3, keccak256("003"), keccak256("103"), new bytes(0));
+        assertEq(rollup.finalizedStateRoots(14), keccak256("003"));
+        assertEq(rollup.withdrawRoots(14), keccak256("103"));
+        assertEq(rollup.lastFinalizedBatchIndex(), 14);
+        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 16);
+
+        hevm.stopPrank();
+    }
+
     function testRevertBatchWithL1Messages() external {
         rollup.addSequencer(address(0));
         rollup.addProver(address(0));
@@ -883,19 +1018,19 @@ contract ScrollChainTest is DSTestPlus {
         _upgradeToMockBlob();
 
         headers = new bytes[](11);
-        // import 10 L1 messages
-        for (uint256 i = 0; i < 10; i++) {
+        // import 20 L1 messages
+        for (uint256 i = 0; i < 20; i++) {
             messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
         }
         // commit genesis batch
         headers[0] = _commitGenesisBatch();
         // commit 5 batches, each has 2 l1 messages
         for (uint256 i = 1; i <= 5; ++i) {
-            headers[i] = _commitBatch(headers[i - 1], 2);
+            headers[i] = _commitBatch(4, headers[i - 1], 2);
         }
         // commit 5 batches, each has 0 l1 message
         for (uint256 i = 6; i <= 10; ++i) {
-            headers[i] = _commitBatch(headers[i - 1], 0);
+            headers[i] = _commitBatch(4, headers[i - 1], 0);
         }
     }
 
@@ -908,7 +1043,11 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(rollup.committedBatches(0), keccak256(header));
     }
 
-    function _constructBatchStruct(bytes memory parentHeader, uint256 numL1Message)
+    function _constructBatchStruct(
+        uint8 version,
+        bytes memory parentHeader,
+        uint256 numL1Message
+    )
         internal
         view
         returns (
@@ -974,7 +1113,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 dataHash = keccak256(abi.encode(keccak256(chunkData)));
         header = new bytes(193);
         assembly {
-            mstore8(add(header, 0x20), 4) // version
+            mstore8(add(header, 0x20), version) // version
             mstore(add(header, add(0x20, 1)), shl(192, index)) // batchIndex
             mstore(add(header, add(0x20, 9)), shl(192, numL1Message)) // l1MessagePopped
             mstore(add(header, add(0x20, 17)), shl(192, totalL1MessagePopped)) // totalL1MessagePopped
@@ -986,7 +1125,11 @@ contract ScrollChainTest is DSTestPlus {
         }
     }
 
-    function _commitBatch(bytes memory parentHeader, uint256 numL1Message) internal returns (bytes memory) {
+    function _commitBatch(
+        uint8 version,
+        bytes memory parentHeader,
+        uint256 numL1Message
+    ) internal returns (bytes memory) {
         (
             bytes memory bitmap,
             bytes[] memory chunks,
@@ -994,7 +1137,7 @@ contract ScrollChainTest is DSTestPlus {
             uint256 index,
             uint256 totalL1MessagePopped,
             bytes memory header
-        ) = _constructBatchStruct(parentHeader, numL1Message);
+        ) = _constructBatchStruct(version, parentHeader, numL1Message);
         hevm.startPrank(address(0));
         if (numL1Message > 0) {
             hevm.expectEmit(false, false, false, true);
@@ -1002,12 +1145,10 @@ contract ScrollChainTest is DSTestPlus {
         }
         hevm.expectEmit(true, true, false, true);
         emit CommitBatch(index, keccak256(header));
-        rollup.commitBatchWithBlobProof(4, parentHeader, chunks, bitmap, blobDataProof);
+        rollup.commitBatchWithBlobProof(version, parentHeader, chunks, bitmap, blobDataProof);
         hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), false);
         assertEq(rollup.committedBatches(index), keccak256(header));
         assertEq(messageQueue.pendingQueueIndex(), totalL1MessagePopped);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 0);
         return header;
     }
 }

@@ -108,6 +108,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when commit old batch after Euclid fork is enabled.
     error ErrorEuclidForkEnabled();
 
+    error ErrorNotAllV4BatchFinalized();
+
     /*************
      * Constants *
      *************/
@@ -284,23 +286,29 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // only accept version >= 4
         if (_version < 4) {
             revert ErrorIncorrectBatchVersion();
+        } else if (_version == 5) {
+            // only commit once for Euclid initial batch
+            if (initialEuclidBatchIndex != 0) revert ErrorBatchIsAlreadyCommitted();
         }
-        if (_version == 5) {
-            _commitEuclidInitialBatch(_parentBatchHeader);
-        } else {
-            uint256 batchIndex = _commitBatchFromV2ToV6(
-                _version,
-                _parentBatchHeader,
-                _chunks,
-                _skippedL1MessageBitmap,
-                _blobDataProof
-            );
-            // Don't allow to call this function after Euclid upgrade.
-            // This check is to avoid sequencer committing wrong batch due to human error.
-            if (_version == 4) {
-                uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
-                if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
-            }
+        // @note We suppose to check v6 batches cannot be committed without initial Euclid Batch.
+        // However it will introduce extra sload (2000 gas), we let the sequencer to do this check offchain.
+        // Even if the sequencer commits v6 batches without v5 batch, we can still revert it.
+
+        uint256 batchIndex = _commitBatchFromV2ToV6(
+            _version,
+            _parentBatchHeader,
+            _chunks,
+            _skippedL1MessageBitmap,
+            _blobDataProof
+        );
+        // Don't allow to commit version 4 after Euclid upgrade.
+        // This check is to avoid sequencer committing wrong batch due to human error.
+        // And This check won't introduce much gas overhead (likely less than 100).
+        if (_version == 4) {
+            uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+            if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
+        } else if (_version == 5) {
+            initialEuclidBatchIndex = batchIndex;
         }
     }
 
@@ -382,15 +390,16 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     /// @dev This function will only allow security council to call once.
-    function finalizeEuclidInitialBatch(bytes32 postStateRoot) external override onlyOwner {
+    function finalizeEuclidInitialBatch(bytes32 postStateRoot, bytes32 withdrawRoot) external override onlyOwner {
         if (postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
         uint256 batchIndex = initialEuclidBatchIndex;
         // make sure only finalize once
         if (finalizedStateRoots[batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
+        // all v4 batches should be finalized
+        if (lastFinalizedBatchIndex + 1 != batchIndex) revert ErrorNotAllV4BatchFinalized();
 
         // update storage
-        bytes32 withdrawRoot = withdrawRoots[batchIndex - 1];
         lastFinalizedBatchIndex = batchIndex;
         finalizedStateRoots[batchIndex] = postStateRoot;
         withdrawRoots[batchIndex] = withdrawRoot;
@@ -644,44 +653,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
         if (_blobVersionedHash == bytes32(0)) revert ErrorNoBlobFound();
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
-    }
-
-    /// @dev Internal function to commit initial batch for Euclid upgrade.
-    function _commitEuclidInitialBatch(bytes calldata parentBatchHeader) internal {
-        // only commit once
-        if (initialEuclidBatchIndex != 0) revert ErrorBatchIsAlreadyCommitted();
-
-        // load information from parent batch header
-        (, bytes32 parentBatchHash, uint256 batchIndex, uint256 totalL1MessagesPoppedOverall) = _loadBatchHeader(
-            parentBatchHeader
-        );
-        unchecked {
-            batchIndex += 1;
-        }
-        if (committedBatches[batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
-
-        // build migration batch
-        uint256 batchPtr;
-        assembly {
-            batchPtr := mload(0x40)
-            // This is `BatchHeaderV0Codec.BATCH_HEADER_FIXED_LENGTH`, use `89` here to reduce code
-            // complexity.
-            mstore(0x40, add(batchPtr, 89))
-        }
-        BatchHeaderV0Codec.storeVersion(batchPtr, 5); // use version=5 as an initial batch, but the logic matches V0
-        BatchHeaderV0Codec.storeBatchIndex(batchPtr, batchIndex); // the new batch index
-        BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, 0); // l1MessagePopped = 0 (since this "empty" migration batch has no txs)
-        BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, totalL1MessagesPoppedOverall); // totalL1MessagesPopped
-        BatchHeaderV0Codec.storeDataHash(batchPtr, bytes32(0)); // dataHash = 0 (no user transactions here)
-        BatchHeaderV0Codec.storeParentBatchHash(batchPtr, parentBatchHash); // parentBatchHash
-
-        // compute batch hash
-        bytes32 batchHash = BatchHeaderV0Codec.computeBatchHash(batchPtr, BatchHeaderV0Codec.BATCH_HEADER_FIXED_LENGTH);
-
-        // update storage and emit event
-        initialEuclidBatchIndex = batchIndex;
-        committedBatches[batchIndex] = batchHash;
-        emit CommitBatch(batchIndex, batchHash);
     }
 
     /// @dev Internal function to commit batches from V2 to V6 (except V5, since it is Euclid initial batch)
