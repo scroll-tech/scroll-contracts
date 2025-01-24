@@ -731,6 +731,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // commit 3 v6 batches
         bytes memory v6Header1 = _commitBatch(6, v5Header, 1, 1);
+        //revert();
         bytes memory v6Header2 = _commitBatch(6, v6Header1, 2, 1);
         bytes memory v6Header3 = _commitBatch(6, v6Header2, 3, 1);
 

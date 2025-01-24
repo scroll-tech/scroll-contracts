@@ -422,6 +422,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // update storage
         lastFinalizedBatchIndex = batchIndex;
+        // batch is guaranteed to contain a single empty block, so withdraw root does not change
         bytes32 withdrawRoot = withdrawRoots[batchIndex - 1];
         finalizedStateRoots[batchIndex] = postStateRoot;
         withdrawRoots[batchIndex] = withdrawRoot;
@@ -605,21 +606,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         _finalizePoppedL1Messages(totalL1MessagesPoppedOverall);
 
         emit FinalizeBatch(batchIndex, batchHash, postStateRoot, withdrawRoot);
-    }
-
-    /// @dev Internal function to check blob versioned hash.
-    /// @param _blobVersionedHash The blob versioned hash to check.
-    /// @param _blobDataProof The blob data proof used to verify the blob versioned hash.
-    function _checkBlobVersionedHash(bytes32 _blobVersionedHash, bytes calldata _blobDataProof) internal view {
-        // Calls the point evaluation precompile and verifies the output
-        (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
-            abi.encodePacked(_blobVersionedHash, _blobDataProof)
-        );
-        // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
-        // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
-        if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
-        (, uint256 result) = abi.decode(data, (uint256, uint256));
-        if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
     }
 
     /// @dev Internal function to check the `SkippedL1MessageBitmap`.
@@ -840,8 +826,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         uint256 _length;
-        // V0 and V5 share the same codec
-        if (version == 0 || version == 5) {
+        if (version == 0) {
             (batchPtr, _length) = BatchHeaderV0Codec.loadAndValidate(_batchHeader);
         } else if (version <= 2) {
             (batchPtr, _length) = BatchHeaderV1Codec.loadAndValidate(_batchHeader);

@@ -72,35 +72,7 @@ contract ScrollChainMockBlob is ScrollChain {
             uint256 _totalL1MessagesPoppedOverall
         )
     {
-        // load version from batch header, it is always the first byte.
-        uint256 version;
-        assembly {
-            version := shr(248, calldataload(_batchHeader.offset))
-        }
-
-        uint256 _length;
-        if (version == 0) {
-            (batchPtr, _length) = BatchHeaderV0Codec.loadAndValidate(_batchHeader);
-        } else if (version <= 2) {
-            (batchPtr, _length) = BatchHeaderV1Codec.loadAndValidate(_batchHeader);
-        } else if (version >= 3) {
-            (batchPtr, _length) = BatchHeaderV3Codec.loadAndValidate(_batchHeader);
-        }
-
-        // the code for compute batch hash is the same for V0, V1, V2, V3
-        // also the `_batchIndex` and `_totalL1MessagesPoppedOverall`.
-        _batchHash = BatchHeaderV0Codec.computeBatchHash(batchPtr, _length);
-        _batchIndex = BatchHeaderV0Codec.getBatchIndex(batchPtr);
-        _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
-
-        // only check when genesis is imported
-        if (
-            !overrideBatchHashCheck &&
-            committedBatches[_batchIndex] != _batchHash &&
-            finalizedStateRoots[0] != bytes32(0)
-        ) {
-            revert ErrorIncorrectBatchHash();
-        }
+        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = ScrollChain._loadBatchHeader(_batchHeader);
 
         if (overrideBatchHashCheck) {
             _batchHash = committedBatches[_batchIndex];
