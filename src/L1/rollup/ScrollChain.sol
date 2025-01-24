@@ -111,9 +111,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when SC finalize V5 batch before all v4 batches are finalized.
     error ErrorNotAllV4BatchFinalized();
 
-    /// @dev Thrown when prover finalize V5/V6 batches in zk trie logic.
-    error ErrorFinalizeEuclidBatchWithZkTrieRoot();
-
     /// @dev Thrown when the committed v5 batch doesn't contain only one chunk.
     error ErrorV5BatchNotContainsOnlyOneChunk();
 
@@ -122,6 +119,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Thrown when the committed v5 batch contains some transactions (L1 or L2).
     error ErrorV5BatchContainsTransactions();
+
+    /// @dev Thrown when finalize v4/v5, v5/v6, v4/v5/v6 batches in the same bundle.
+    error ErrorFinalizePreAndPostEuclidBatchInOneBundle();
 
     /*************
      * Constants *
@@ -370,7 +370,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    /// @dev This function only finalize batches version <= 4.
+    /// @dev All batches in the given bundle should have the same version and version <= 4 or version >= 6.
     function finalizeBundleWithProof(
         bytes calldata batchHeader,
         bytes32 postStateRoot,
@@ -387,8 +387,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
 
         uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
-        if (euclidForkBatchIndex > 0 && batchIndex >= euclidForkBatchIndex) {
-            revert ErrorFinalizeEuclidBatchWithZkTrieRoot();
+        // Make sure we don't finalize v4, v5 and v6 batches in the same bundle, that
+        // means `batchIndex < euclidForkBatchIndex` or `prevBatchIndex >= euclidForkBatchIndex`.
+        if (prevBatchIndex < euclidForkBatchIndex && euclidForkBatchIndex <= batchIndex) {
+            revert ErrorFinalizePreAndPostEuclidBatchInOneBundle();
         }
 
         bytes memory publicInputs = abi.encodePacked(
@@ -428,42 +430,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         withdrawRoots[batchIndex] = withdrawRoot;
 
         emit FinalizeBatch(batchIndex, committedBatches[batchIndex], postStateRoot, withdrawRoot);
-    }
-
-    /// @inheritdoc IScrollChain
-    /// @dev This function only finalize batches version >= 6. If prover try to finalize v4, v5, v6 batches
-    /// together, the verifier should revert. So we don't do any extra checks in this function.
-    function finalizeBundlePostEuclid(
-        bytes calldata batchHeader,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot,
-        bytes calldata aggrProof
-    ) external override OnlyProver whenNotPaused {
-        // actions before verification
-        (
-            uint256 version,
-            bytes32 batchHash,
-            uint256 batchIndex,
-            uint256 totalL1MessagesPoppedOverall,
-            uint256 prevBatchIndex
-        ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
-
-        // construct the public input
-        bytes memory publicInput = abi.encodePacked(
-            uint256(layer2ChainId),
-            finalizedStateRoots[prevBatchIndex], // _prevStateRoot
-            committedBatches[prevBatchIndex], // _prevBatchHash
-            postStateRoot,
-            withdrawRoot,
-            batchHash
-        );
-
-        // verify bundle, choose the correct verifier based on the last batch
-        // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInput);
-
-        // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
     }
 
     /************************

@@ -39,20 +39,4 @@ contract ScrollChainMockFinalize is ScrollChain {
         // actions after verification
         _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
     }
-
-    /// @notice Finalize post Euclid bundle without proof, See the comments of {ScrollChain-finalizeBundlePostEuclid}.
-    function finalizeBundlePostEuclidMock(
-        bytes calldata batchHeader,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot
-    ) external OnlyProver whenNotPaused {
-        // actions before verification
-        (, bytes32 batchHash, uint256 batchIndex, uint256 totalL1MessagesPoppedOverall, ) = _beforeFinalizeBatch(
-            batchHeader,
-            postStateRoot
-        );
-
-        // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
-    }
 }

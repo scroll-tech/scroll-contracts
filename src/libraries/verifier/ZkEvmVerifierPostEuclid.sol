@@ -47,10 +47,10 @@ contract ZkEvmVerifierPostEuclid is IZkEvmVerifierV2 {
 
     /// @inheritdoc IZkEvmVerifierV2
     ///
-    /// @dev Encoding for `publicInput`
+    /// @dev Encoding for `publicInput`. And this is exactly the same as `ZkEvmVerifierV2`.
     /// ```text
-    /// | layer2ChainId | prevStateRoot | prevBatchHash | postStateRoot | withdrawRoot | batchHash |
-    /// |    32 bytes   |   32  bytes   |   32  bytes   |   32  bytes   |   32 bytes   | 32  bytes |
+    /// | layer2ChainId | numBatches | prevStateRoot | prevBatchHash | postStateRoot | batchHash | withdrawRoot |
+    /// |    8 bytes    |  4  bytes  |   32  bytes   |   32  bytes   |   32  bytes   | 32  bytes |   32 bytes   |
     /// ```
     function verify(bytes calldata bundleProof, bytes calldata publicInput) external view override {
         address _verifier = plonkVerifier;
@@ -60,8 +60,8 @@ contract ZkEvmVerifierPostEuclid is IZkEvmVerifierV2 {
         bool success;
 
         // 1. the first 12 * 32 (0x180) bytes of `bundleProof` is `accumulator`
-        // 2. the rest bytes of `bundleProof` is the actual `bundle_recursion_proof`
-        // 3. Inserted between `accumulator` and `bundle_recursion_proof` are
+        // 2. the rest bytes of `bundleProof` is the actual `bundle_proof`
+        // 3. Inserted between `accumulator` and `bundle_proof` are
         //    32 * 34 (0x440) bytes, such that:
         //    | start         | end           | field                   |
         //    |---------------|---------------|-------------------------|
