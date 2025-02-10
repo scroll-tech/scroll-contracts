@@ -2,9 +2,6 @@
 
 pragma solidity =0.8.24;
 
-import {BatchHeaderV0Codec} from "../libraries/codec/BatchHeaderV0Codec.sol";
-import {BatchHeaderV1Codec} from "../libraries/codec/BatchHeaderV1Codec.sol";
-import {BatchHeaderV3Codec} from "../libraries/codec/BatchHeaderV3Codec.sol";
 import {ScrollChain} from "../L1/rollup/ScrollChain.sol";
 
 contract ScrollChainMockBlob is ScrollChain {
