@@ -6,7 +6,6 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {MultipleVersionRollupVerifier} from "../L1/rollup/MultipleVersionRollupVerifier.sol";
 
-import {MockScrollChain} from "./mocks/MockScrollChain.sol";
 import {MockZkEvmVerifier} from "./mocks/MockZkEvmVerifier.sol";
 
 contract MultipleVersionRollupVerifierTest is DSTestPlus {

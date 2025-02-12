@@ -61,7 +61,7 @@ contract ScrollChainTest is DSTestPlus {
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChain(233, address(messageQueue), address(verifier)))
+            address(new ScrollChain(233, address(messageQueue), address(messageQueue), address(verifier)))
         );
         rollup.initialize(address(messageQueue), address(verifier), 100);
     }
@@ -190,6 +190,7 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueueV1(),
+            rollup.messageQueueV2(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -256,6 +257,7 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueueV1(),
+            rollup.messageQueueV2(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -354,6 +356,7 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueueV1(),
+            rollup.messageQueueV2(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
@@ -650,132 +653,6 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
     }
 
-    function testFinalizeEuclidInitialBatch() external {
-        bytes[] memory headers = _prepareFinalizeBundle();
-
-        // commit v5 batch
-        assertEq(rollup.initialEuclidBatchIndex(), 0);
-        bytes memory v5Header = _commitBatch(5, headers[10], 0, 0);
-        assertEq(rollup.initialEuclidBatchIndex(), 11);
-
-        // commit 3 v6 batches
-        bytes memory v6Header1 = _commitBatch(6, v5Header, 1, 1);
-        bytes memory v6Header2 = _commitBatch(6, v6Header1, 2, 1);
-        bytes memory v6Header3 = _commitBatch(6, v6Header2, 3, 1);
-
-        // revert when caller is not owner
-        hevm.startPrank(address(1));
-        hevm.expectRevert("Ownable: caller is not the owner");
-        rollup.finalizeEuclidInitialBatch(bytes32(0));
-        hevm.stopPrank();
-
-        // revert when ErrorStateRootIsZero
-        hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
-        rollup.finalizeEuclidInitialBatch(bytes32(0));
-
-        // finalize first 9 batches
-        hevm.startPrank(address(0));
-        assertEq(rollup.lastFinalizedBatchIndex(), 0);
-        rollup.finalizeBundleWithProof(headers[9], keccak256("009"), keccak256("109"), new bytes(0));
-        assertEq(rollup.lastFinalizedBatchIndex(), 9);
-        hevm.stopPrank();
-
-        // revert when ErrorNotAllV4BatchFinalized
-        hevm.expectRevert(ScrollChain.ErrorNotAllV4BatchFinalized.selector);
-        rollup.finalizeEuclidInitialBatch(keccak256("011"));
-
-        // revert when ErrorFinalizePreAndPostEuclidBatchInOneBundle, v4+v5
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v5Header, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.stopPrank();
-
-        // revert when ErrorFinalizePreAndPostEuclidBatchInOneBundle, v4+v5+v6
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header1, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header2, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header3, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.stopPrank();
-
-        // finalize batch 10
-        hevm.startPrank(address(0));
-        rollup.finalizeBundleWithProof(headers[10], keccak256("010"), keccak256("110"), new bytes(0));
-        assertEq(rollup.lastFinalizedBatchIndex(), 10);
-        hevm.stopPrank();
-
-        // revert when ErrorFinalizePreAndPostEuclidBatchInOneBundle, v5
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v5Header, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.stopPrank();
-
-        // revert when ErrorFinalizePreAndPostEuclidBatchInOneBundle, v5+v6
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header1, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header2, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.expectRevert(ScrollChain.ErrorFinalizePreAndPostEuclidBatchInOneBundle.selector);
-        rollup.finalizeBundleWithProof(v6Header3, keccak256("011"), keccak256("111"), new bytes(0));
-        hevm.stopPrank();
-
-        // succeed, withdraw root should be same as batch 10
-        assertEq(rollup.finalizedStateRoots(11), 0);
-        assertEq(rollup.withdrawRoots(11), 0);
-        assertEq(rollup.lastFinalizedBatchIndex(), 10);
-        hevm.expectEmit(true, true, true, true);
-        emit FinalizeBatch(11, keccak256(v5Header), keccak256("011"), keccak256("110"));
-        rollup.finalizeEuclidInitialBatch(keccak256("011"));
-        assertEq(rollup.finalizedStateRoots(11), keccak256("011"));
-        assertEq(rollup.withdrawRoots(11), keccak256("110"));
-
-        // revert when ErrorStateRootIsZero
-        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
-        rollup.finalizeEuclidInitialBatch(keccak256("011"));
-
-        // finalize 3 v6 batches
-        // revert when ErrorStateRootIsZero
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
-        rollup.finalizeBundleWithProof(v6Header1, bytes32(0), bytes32(0), new bytes(0));
-
-        // finalize bundle with one batch
-        assertEq(rollup.finalizedStateRoots(12), 0);
-        assertEq(rollup.withdrawRoots(12), 0);
-        assertEq(rollup.lastFinalizedBatchIndex(), 11);
-        assertBoolEq(rollup.isBatchFinalized(12), false);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 10);
-        hevm.expectEmit(true, true, true, true);
-        emit FinalizeBatch(12, keccak256(v6Header1), keccak256("001"), keccak256("101"));
-        rollup.finalizeBundleWithProof(v6Header1, keccak256("001"), keccak256("101"), new bytes(0));
-        assertEq(rollup.finalizedStateRoots(12), keccak256("001"));
-        assertEq(rollup.withdrawRoots(12), keccak256("101"));
-        assertEq(rollup.lastFinalizedBatchIndex(), 12);
-        assertBoolEq(rollup.isBatchFinalized(12), true);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
-
-        // revert when ErrorBatchIsAlreadyVerified
-        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
-        rollup.finalizeBundleWithProof(v6Header1, keccak256("001"), keccak256("101"), new bytes(0));
-
-        // finalize bundle with two batch
-        assertEq(rollup.finalizedStateRoots(14), 0);
-        assertEq(rollup.withdrawRoots(14), 0);
-        assertEq(rollup.lastFinalizedBatchIndex(), 12);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
-        hevm.expectEmit(true, true, true, true);
-        emit FinalizeBatch(14, keccak256(v6Header3), keccak256("003"), keccak256("103"));
-        rollup.finalizeBundleWithProof(v6Header3, keccak256("003"), keccak256("103"), new bytes(0));
-        assertEq(rollup.finalizedStateRoots(14), keccak256("003"));
-        assertEq(rollup.withdrawRoots(14), keccak256("103"));
-        assertEq(rollup.lastFinalizedBatchIndex(), 14);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 16);
-        hevm.stopPrank();
-    }
-
     function testRevertBatchWithL1Messages() external {
         rollup.addSequencer(address(0));
         rollup.addProver(address(0));
@@ -1050,6 +927,7 @@ contract ScrollChainTest is DSTestPlus {
         ScrollChainMockBlob impl = new ScrollChainMockBlob(
             rollup.layer2ChainId(),
             rollup.messageQueueV1(),
+            rollup.messageQueueV2(),
             rollup.verifier()
         );
         admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));

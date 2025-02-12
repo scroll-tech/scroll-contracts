@@ -12,16 +12,12 @@ contract ScrollChainMockBlob is ScrollChain {
      * Constructor *
      ***************/
 
-    /// @notice Constructor for `ScrollChain` implementation contract.
-    ///
-    /// @param _chainId The chain id of L2.
-    /// @param _messageQueue The address of `L1MessageQueue` contract.
-    /// @param _verifier The address of zkevm verifier contract.
     constructor(
         uint64 _chainId,
-        address _messageQueue,
+        address _messageQueueV1,
+        address _messageQueueV2,
         address _verifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier) {}
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier) {}
 
     /**********************
      * Internal Functions *
@@ -32,7 +28,7 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function setLastFinalizedBatchIndex(uint256 index) external {
-        lastFinalizedBatchIndex = index;
+        miscData.lastFinalizedBatchIndex = uint64(index);
     }
 
     function setFinalizedStateRoots(uint256 index, bytes32 value) external {

@@ -45,6 +45,10 @@ interface IL1MessageQueueV2 {
     /// @dev Also the total number of appended messages, including messages in `L1MessageQueueV1`.
     function nextCrossDomainMessageIndex() external view returns (uint256);
 
+    /// @notice Return the message rolling hash of in `queueIndex`.
+    /// @param queueIndex The index to query.
+    function getMessageRollingHash(uint256 queueIndex) external view returns (bytes32);
+
     /// @notice Return the amount of ETH should pay for cross domain message.
     /// @param gasLimit Gas limit required to complete the message relay on L2.
     function estimateCrossDomainMessageFee(uint256 gasLimit) external view returns (uint256);

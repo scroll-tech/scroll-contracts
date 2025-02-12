@@ -85,7 +85,15 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
      * Storage Variables *
      *********************/
 
-    /// @dev The list of queued cross domain messages.
+    /// @dev The list of queued cross domain messages. The encoding for `bytes32` is
+    /// ```text
+    /// [      32 bits      |   224 bits   ]
+    /// [ enqueue timestamp | rolling hash ]
+    /// [LSB                            MSB]
+    /// ```
+    ///
+    /// We choose `32` bits for timestamp because it is enough for next 81 years. And the rest `224` bits is secure
+    /// enough for the rolling hash.
     mapping(uint256 => bytes32) private messageRollingHashes;
 
     /// @inheritdoc IL1MessageQueueV2
@@ -152,6 +160,11 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /*************************
      * Public View Functions *
      *************************/
+
+    /// @inheritdoc IL1MessageQueueV2
+    function getMessageRollingHash(uint256 queueIndex) external view returns (bytes32 hash) {
+        (hash, ) = _loadAndDecodeRollingHash(queueIndex);
+    }
 
     /// @inheritdoc IL1MessageQueueV2
     function estimatedL2BaseFee() public view returns (uint256) {
@@ -445,8 +458,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     function _loadAndDecodeRollingHash(uint256 index) internal view returns (bytes32 hash, uint256 enqueueTimestamp) {
         hash = messageRollingHashes[index];
         assembly {
-            enqueueTimestamp := and(hash, 0xfffffffff)
-            hash := shl(36, shr(36, hash))
+            enqueueTimestamp := and(hash, 0xffffffff)
+            hash := shl(32, shr(32, hash))
         }
     }
 
@@ -456,8 +469,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @return The encoded rolling hash for storage.
     function _encodeRollingHash(bytes32 hash, uint256 enqueueTimestamp) internal pure returns (bytes32) {
         assembly {
-            // clear last 36 bits and then encode timestamp to it.
-            hash := or(enqueueTimestamp, shl(36, shr(36, hash)))
+            // clear last 32 bits and then encode timestamp to it.
+            hash := or(enqueueTimestamp, shl(32, shr(32, hash)))
         }
         return hash;
     }
