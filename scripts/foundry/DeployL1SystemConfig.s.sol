@@ -9,15 +9,13 @@ contract DeployL1SystemConfig is Script {
     function run() external {
         // Retrieve the deployer private key from environment variables
         uint256 deployerKey = vm.envUint("L1_DEPLOYER_PRIVATE_KEY");
-        // Read the intended owner from an environment variable (for example, L1_SCROLL_OWNER_ADDR)
-        address ownerAddr = vm.envAddress("L1_SCROLL_OWNER_ADDR");
-        
+
         vm.startBroadcast(deployerKey);
 
         // Deploy the SystemConfig contract with the specified owner.
-        SystemConfig sysConfig = new SystemConfig(ownerAddr);
-        
-        console.log("Deployed SystemConfig at address:", address(sysConfig));
+        SystemConfig sysConfig = new SystemConfig();
+
+        console.log("Deployed SystemConfig Implementation at address:", address(sysConfig));
 
         vm.stopBroadcast();
     }
