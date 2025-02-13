@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.24;
 
-import {IL1MessageQueue} from "./IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
 
-interface IL1MessageQueueWithGasPriceOracle is IL1MessageQueue {
+interface IL1MessageQueueWithGasPriceOracle is IL1MessageQueueV1 {
     /**********
      * Events *
      **********/

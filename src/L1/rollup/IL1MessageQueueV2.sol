@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-interface IL1MessageQueue {
+interface IL1MessageQueueV2 {
     /**********
      * Events *
      **********/
@@ -23,67 +23,42 @@ interface IL1MessageQueue {
         bytes data
     );
 
-    /// @notice Emitted when some L1 => L2 transactions are included in L1.
-    /// @param startIndex The start index of messages popped.
-    /// @param count The number of messages popped.
-    /// @param skippedBitmap A bitmap indicates whether a message is skipped.
-    event DequeueTransaction(uint256 startIndex, uint256 count, uint256 skippedBitmap);
-
-    /// @notice Emitted when dequeued transactions are reset.
-    /// @param startIndex The start index of messages.
-    event ResetDequeuedTransaction(uint256 startIndex);
-
     /// @notice Emitted when some L1 => L2 transactions are finalized in L1.
     /// @param finalizedIndex The last index of messages finalized.
     event FinalizedDequeuedTransaction(uint256 finalizedIndex);
 
-    /// @notice Emitted when a message is dropped from L1.
-    /// @param index The index of message dropped.
-    event DropTransaction(uint256 index);
-
-    /// @notice Emitted when owner updates gas oracle contract.
-    /// @param _oldGasOracle The address of old gas oracle contract.
-    /// @param _newGasOracle The address of new gas oracle contract.
-    event UpdateGasOracle(address indexed _oldGasOracle, address indexed _newGasOracle);
+    event UpdateL2BaseFeeParameters(uint256 overhead, uint256 scalar);
 
     /// @notice Emitted when owner updates max gas limit.
     /// @param _oldMaxGasLimit The old max gas limit.
     /// @param _newMaxGasLimit The new max gas limit.
     event UpdateMaxGasLimit(uint256 _oldMaxGasLimit, uint256 _newMaxGasLimit);
 
-    /**********
-     * Errors *
-     **********/
-
-    /// @dev Thrown when the given address is `address(0)`.
-    error ErrorZeroAddress();
-
     /*************************
      * Public View Functions *
      *************************/
 
-    /// @notice The start index of all pending inclusion messages.
-    function pendingQueueIndex() external view returns (uint256);
-
     /// @notice The start index of all unfinalized messages.
-    /// @dev All messages from `nextUnfinalizedQueueIndex` to `pendingQueueIndex-1` are committed but not finalized.
     function nextUnfinalizedQueueIndex() external view returns (uint256);
 
     /// @notice Return the index of next appended message.
-    /// @dev Also the total number of appended messages.
+    /// @dev Also the total number of appended messages, including messages in `L1MessageQueueV1`.
     function nextCrossDomainMessageIndex() external view returns (uint256);
 
-    /// @notice Return the message of in `queueIndex`.
+    /// @notice Return the message rolling hash of in `queueIndex`.
     /// @param queueIndex The index to query.
-    function getCrossDomainMessage(uint256 queueIndex) external view returns (bytes32);
+    function getMessageRollingHash(uint256 queueIndex) external view returns (bytes32);
 
     /// @notice Return the amount of ETH should pay for cross domain message.
     /// @param gasLimit Gas limit required to complete the message relay on L2.
     function estimateCrossDomainMessageFee(uint256 gasLimit) external view returns (uint256);
 
+    /// @notice Return the estimated base fee in L2.
+    function estimatedL2BaseFee() external view returns (uint256);
+
     /// @notice Return the amount of intrinsic gas fee should pay for cross domain message.
-    /// @param _calldata The calldata of L1-initiated transaction.
-    function calculateIntrinsicGasFee(bytes calldata _calldata) external view returns (uint256);
+    /// @param data The calldata of L1-initiated transaction.
+    function calculateIntrinsicGasFee(bytes calldata data) external view returns (uint256);
 
     /// @notice Return the hash of a L1 message.
     /// @param sender The address of sender.
@@ -100,14 +75,6 @@ interface IL1MessageQueue {
         uint256 gasLimit,
         bytes calldata data
     ) external view returns (bytes32);
-
-    /// @notice Return whether the message is skipped.
-    /// @param queueIndex The queue index of the message to check.
-    function isMessageSkipped(uint256 queueIndex) external view returns (bool);
-
-    /// @notice Return whether the message is dropped.
-    /// @param queueIndex The queue index of the message to check.
-    function isMessageDropped(uint256 queueIndex) external view returns (bool);
 
     /*****************************
      * Public Mutating Functions *
@@ -138,31 +105,7 @@ interface IL1MessageQueue {
         bytes calldata data
     ) external;
 
-    /// @notice Pop messages from queue.
-    ///
-    /// @dev We can pop at most 256 messages each time. And if the message is not skipped,
-    ///      the corresponding entry will be cleared.
-    ///
-    /// @param startIndex The start index to pop.
-    /// @param count The number of messages to pop.
-    /// @param skippedBitmap A bitmap indicates whether a message is skipped.
-    function popCrossDomainMessage(
-        uint256 startIndex,
-        uint256 count,
-        uint256 skippedBitmap
-    ) external;
-
-    /// @notice Reset status of popped messages.
-    ///
-    /// @dev We can only reset unfinalized popped messages.
-    ///
-    /// @param startIndex The start index to reset.
-    function resetPoppedCrossDomainMessage(uint256 startIndex) external;
-
     /// @notice Finalize status of popped messages.
     /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.
     function finalizePoppedCrossDomainMessage(uint256 newFinalizedQueueIndexPlusOne) external;
-
-    /// @notice Drop a skipped message from the queue.
-    function dropCrossDomainMessage(uint256 index) external;
 }

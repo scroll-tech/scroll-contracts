@@ -9,16 +9,12 @@ contract ScrollChainMockFinalize is ScrollChain {
      * Constructor *
      ***************/
 
-    /// @notice Constructor for `ScrollChain` implementation contract.
-    ///
-    /// @param _chainId The chain id of L2.
-    /// @param _messageQueue The address of `L1MessageQueue` contract.
-    /// @param _verifier The address of zkevm verifier contract.
     constructor(
         uint64 _chainId,
-        address _messageQueue,
+        address _messageQueueV1,
+        address _messageQueueV2,
         address _verifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier) {}
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier) {}
 
     /*****************************
      * Public Mutating Functions *
@@ -37,6 +33,19 @@ contract ScrollChainMockFinalize is ScrollChain {
         );
 
         // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
+        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, true);
+    }
+
+    function finalizeBundlePostEuclid(
+        bytes calldata batchHeader,
+        uint256 lastProcessedQueueIndex,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot
+    ) external {
+        // actions before verification
+        (, bytes32 batchHash, uint256 batchIndex, , ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
+
+        // actions after verification
+        _afterFinalizeBatch(batchIndex, batchHash, lastProcessedQueueIndex + 1, postStateRoot, withdrawRoot, true);
     }
 }

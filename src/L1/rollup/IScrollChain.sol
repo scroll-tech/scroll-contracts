@@ -76,7 +76,7 @@ interface IScrollChain {
     /// | bytes32 | bytes32 |    bytes48     |  bytes48  |
     ///
     /// @param version The version of current batch.
-    /// @param parentBatchHeader The header of parent batch, see the comments of `BatchHeaderV0Codec`.
+    /// @param parentBatchHeader The header of parent batch.
     /// @param chunks The list of encoded chunks, see the comments of `ChunkCodec`.
     /// @param skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
     /// @param blobDataProof The proof for blob data.
@@ -88,11 +88,14 @@ interface IScrollChain {
         bytes calldata blobDataProof
     ) external;
 
+    /// @notice Commit a batch after Euclid phase 2 upgrade.
+    /// @param version The version of current batch.
+    function commitBatchesPostEuclid(uint8 version) external;
+
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
-    /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
-    /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
-    function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
+    /// @param batchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
+    function revertBatch(bytes calldata batchHeader) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
     /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
@@ -106,7 +109,17 @@ interface IScrollChain {
         bytes calldata aggrProof
     ) external;
 
-    /// @notice Finalize the initial Euclid batch.
-    /// @param postStateRoot The state root after current batch.
-    function finalizeEuclidInitialBatch(bytes32 postStateRoot) external;
+    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after Euclid phase 2 upgrade.
+    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
+    /// @param lastProcessedQueueIndex The last processed message queue index.
+    /// @param postStateRoot The state root after current bundle.
+    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param aggrProof The aggregation proof for current bundle.
+    function finalizeBundlePostEuclid(
+        bytes calldata batchHeader,
+        uint256 lastProcessedQueueIndex,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot,
+        bytes calldata aggrProof
+    ) external;
 }
