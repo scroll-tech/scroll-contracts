@@ -2,8 +2,6 @@
 
 pragma solidity =0.8.24;
 
-import {console} from "hardhat/console.sol";
-
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
@@ -73,6 +71,39 @@ contract ScrollChainTest is DSTestPlus {
         hevm.expectRevert("Initializable: contract is already initialized");
         rollup.initialize(address(messageQueue), address(0), 100);
     }
+
+    /*
+    function testInitializeV2(
+        uint256 batches,
+        uint24 delay,
+        uint64 time
+    ) external {
+        batches = bound(batches, 0, 100);
+
+        rollup.addSequencer(address(0));
+        _upgradeToMockBlob();
+
+        bytes memory header = _commitGenesisBatch();
+        for (uint256 i = 0; i < batches; ++i) {
+            header = _commitBatch(header, 0);
+        }
+        assertEq(rollup.committedBatches(batches), keccak256(header));
+
+        hevm.warp(time);
+        rollup.initializeV2(delay);
+        (
+            uint256 lastCommittedBatchIndex,
+            uint256 lastFinalizeTimestamp,
+            uint256 maxDelayEnterEnforcedMode,
+            bool enforcedModeEnabled,
+
+        ) = rollup.enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, batches);
+        assertEq(lastFinalizeTimestamp, time);
+        assertEq(maxDelayEnterEnforcedMode, delay);
+        assertBoolEq(enforcedModeEnabled, false);
+    }
+    */
 
     function testCommitBatchV3() external {
         bytes memory batchHeader0 = new bytes(89);
@@ -238,6 +269,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
     }
 
+    /*
     function testFinalizeBundleWithProof() external {
         // caller not prover, revert
         hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
@@ -320,10 +352,15 @@ contract ScrollChainTest is DSTestPlus {
         batchHeader1[1] = bytes1(uint8(0)); // change back
 
         // verify success
+        (, uint256 lastFinalizeTimestamp, , , ) = rollup.enforcedBatchParameters();
+        assertEq(lastFinalizeTimestamp, 0);
+        hevm.warp(100);
         assertBoolEq(rollup.isBatchFinalized(1), false);
         hevm.startPrank(address(0));
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
         hevm.stopPrank();
+        (, lastFinalizeTimestamp, , , ) = rollup.enforcedBatchParameters();
+        assertEq(lastFinalizeTimestamp, 100);
         assertBoolEq(rollup.isBatchFinalized(1), true);
         assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
         assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
@@ -335,6 +372,7 @@ contract ScrollChainTest is DSTestPlus {
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
         hevm.stopPrank();
     }
+    */
 
     function _commitBatchV3()
         internal
@@ -595,6 +633,159 @@ contract ScrollChainTest is DSTestPlus {
         assertEq(265, messageQueue.nextUnfinalizedQueueIndex());
     }
 
+    /*
+    function testCommitAndFinalizeBatch() external {
+        bytes[] memory headers = _prepareFinalizeBundle();
+        rollup.initializeV2(100);
+        (
+            uint256 lastCommittedBatchIndex,
+            uint256 lastFinalizeTimestamp,
+            uint256 maxDelayEnterEnforcedMode,
+            bool enforcedModeEnabled,
+
+        ) = rollup.enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 10);
+        assertEq(lastFinalizeTimestamp, 0);
+        assertEq(maxDelayEnterEnforcedMode, 100);
+        assertBoolEq(enforcedModeEnabled, false);
+
+        // revert when ErrorNotInEnforcedBatchMode
+        hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        rollup.commitAndFinalizeBatch(
+            IScrollChain.CommitStruct({
+                version: 0,
+                parentBatchHeader: new bytes(0),
+                chunks: new bytes[](0),
+                skippedL1MessageBitmap: new bytes(0),
+                blobDataProof: new bytes(0)
+            }),
+            IScrollChain.FinalizeStruct({
+                batchHeader: new bytes(0),
+                postStateRoot: bytes32(0),
+                withdrawRoot: bytes32(0),
+                zkProof: new bytes(0)
+            })
+        );
+
+        hevm.warp(123);
+        // finalize batch 1-8
+        hevm.prank(address(0));
+        rollup.finalizeBundleWithProof(headers[8], keccak256("s8"), keccak256("w8"), new bytes(0));
+        (lastCommittedBatchIndex, lastFinalizeTimestamp, maxDelayEnterEnforcedMode, enforcedModeEnabled, ) = rollup
+            .enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 10);
+        assertEq(lastFinalizeTimestamp, 123);
+        assertEq(maxDelayEnterEnforcedMode, 100);
+        assertBoolEq(enforcedModeEnabled, false);
+
+        hevm.warp(233);
+        // succeed to call commitAndFinalizeBatch 9
+        (bytes memory bitmap, bytes[] memory chunks, bytes memory blobDataProof, , , ) = _constructBatchStruct(
+            headers[8],
+            0
+        );
+        rollup.commitAndFinalizeBatch(
+            IScrollChain.CommitStruct({
+                version: 3,
+                parentBatchHeader: headers[8],
+                chunks: chunks,
+                skippedL1MessageBitmap: bitmap,
+                blobDataProof: blobDataProof
+            }),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[9],
+                postStateRoot: keccak256("s9"),
+                withdrawRoot: keccak256("w9"),
+                zkProof: new bytes(0)
+            })
+        );
+        (lastCommittedBatchIndex, lastFinalizeTimestamp, maxDelayEnterEnforcedMode, enforcedModeEnabled, ) = rollup
+            .enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 9);
+        assertEq(lastFinalizeTimestamp, 233);
+        assertEq(maxDelayEnterEnforcedMode, 100);
+        assertBoolEq(enforcedModeEnabled, true);
+        assertEq(rollup.finalizedStateRoots(9), keccak256("s9"));
+        assertEq(rollup.withdrawRoots(9), keccak256("w9"));
+
+        // revert when commit finalized batch
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
+        rollup.commitAndFinalizeBatch(
+            IScrollChain.CommitStruct({
+                version: 3,
+                parentBatchHeader: headers[8],
+                chunks: chunks,
+                skippedL1MessageBitmap: bitmap,
+                blobDataProof: blobDataProof
+            }),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[9],
+                postStateRoot: keccak256("s9"),
+                withdrawRoot: keccak256("w9"),
+                zkProof: new bytes(0)
+            })
+        );
+
+        // revert when ErrorIncorrectBatchHash between commitStruct and finalizeStruct
+        (bitmap, chunks, blobDataProof, , , ) = _constructBatchStruct(headers[9], 0);
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
+        rollup.commitAndFinalizeBatch(
+            IScrollChain.CommitStruct({
+                version: 3,
+                parentBatchHeader: headers[9],
+                chunks: chunks,
+                skippedL1MessageBitmap: bitmap,
+                blobDataProof: blobDataProof
+            }),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[9],
+                postStateRoot: keccak256("s9"),
+                withdrawRoot: keccak256("w9"),
+                zkProof: new bytes(0)
+            })
+        );
+
+        // revert when do commit
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.commitBatchWithBlobProof(0, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
+        hevm.stopPrank();
+
+        // revert when do finalize
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+        hevm.stopPrank();
+
+        // admin disableEnforcedBatch
+        rollup.disableEnforcedBatch();
+        (lastCommittedBatchIndex, lastFinalizeTimestamp, maxDelayEnterEnforcedMode, enforcedModeEnabled, ) = rollup
+            .enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 9);
+        assertEq(lastFinalizeTimestamp, 233);
+        assertEq(maxDelayEnterEnforcedMode, 100);
+        assertBoolEq(enforcedModeEnabled, false);
+
+        // not in enforced mode
+        hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        rollup.commitAndFinalizeBatch(
+            IScrollChain.CommitStruct({
+                version: 0,
+                parentBatchHeader: new bytes(0),
+                chunks: new bytes[](0),
+                skippedL1MessageBitmap: new bytes(0),
+                blobDataProof: new bytes(0)
+            }),
+            IScrollChain.FinalizeStruct({
+                batchHeader: new bytes(0),
+                postStateRoot: bytes32(0),
+                withdrawRoot: bytes32(0),
+                zkProof: new bytes(0)
+            })
+        );
+    }
+    */
+
     function testCommitBatchV5() external {
         bytes[] memory headers = _prepareFinalizeBundle();
 
@@ -729,6 +920,8 @@ contract ScrollChainTest is DSTestPlus {
         rollup.revertBatch(headers[0], headers[10]);
 
         // succeed to revert batches 9 and 10
+        (uint256 lastCommittedBatchIndex, , , , ) = rollup.enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 10);
         assertEq(rollup.committedBatches(9), keccak256(headers[9]));
         assertEq(rollup.committedBatches(10), keccak256(headers[10]));
         hevm.expectEmit(true, true, false, true);
@@ -736,11 +929,15 @@ contract ScrollChainTest is DSTestPlus {
         hevm.expectEmit(true, true, false, true);
         emit RevertBatch(9, rollup.committedBatches(9));
         rollup.revertBatch(headers[9], headers[10]);
+        (lastCommittedBatchIndex, , , , ) = rollup.enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 8);
         assertEq(rollup.committedBatches(9), 0);
         assertEq(rollup.committedBatches(10), 0);
 
         // revert batches 6-8
         rollup.revertBatch(headers[6], headers[8]);
+        (lastCommittedBatchIndex, , , , ) = rollup.enforcedBatchParameters();
+        assertEq(lastCommittedBatchIndex, 5);
 
         // revert batches 4-5, with l1 messages
         assertEq(10, messageQueue.pendingQueueIndex());

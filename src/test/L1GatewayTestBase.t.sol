@@ -187,5 +187,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         hevm.startPrank(address(0));
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
+
+        rollup.lastFinalizedBatchIndex();
     }
 }

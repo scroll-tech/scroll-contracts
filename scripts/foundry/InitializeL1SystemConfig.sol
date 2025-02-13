@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
-import { Script } from "forge-std/Script.sol";
-import { SystemConfig } from "../../src/L1/system-contract/SystemConfig.sol";
-import { ScrollOwner } from "../../src/misc/ScrollOwner.sol"; // Adjust this path as needed
+import {Script} from "forge-std/Script.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
+import {ScrollOwner} from "../../src/misc/ScrollOwner.sol"; // Adjust this path as needed
 
 /**
  * @title InitializeL1SystemConfig
@@ -18,7 +18,7 @@ contract InitializeL1SystemConfig is Script {
         address systemConfigAddr = vm.envAddress("SYSTEM_CONTRACT_ADDR");
         address securityCouncilAddr = vm.envAddress("L1_SECURITY_COUNCIL_ADDR");
         address scrollOwnerAddr = vm.envAddress("L1_SCROLL_OWNER_ADDR");
-        
+
         // Compute the role hash for the Security Council with no delay.
         bytes32 SECURITY_COUNCIL_NO_DELAY_ROLE = keccak256("SECURITY_COUNCIL_NO_DELAY_ROLE");
 
@@ -36,10 +36,10 @@ contract InitializeL1SystemConfig is Script {
         // Grant the SECURITY_COUNCIL_NO_DELAY_ROLE permission on SystemConfig,
         // so that the Security Council address can call updateSigner() with no delay.
         owner.updateAccess(
-            systemConfigAddr,           // Address of the SystemConfig contract.
-            selectors,                  // The function selectors (only updateSigner here).
+            systemConfigAddr, // Address of the SystemConfig contract.
+            selectors, // The function selectors (only updateSigner here).
             SECURITY_COUNCIL_NO_DELAY_ROLE,
-            true                        // Grant access.
+            true // Grant access.
         );
 
         vm.stopBroadcast();

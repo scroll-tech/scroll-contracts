@@ -122,4 +122,23 @@ interface IScrollChain {
         bytes32 withdrawRoot,
         bytes calldata aggrProof
     ) external;
+
+    /// @param The struct for batch finalization.
+    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch`.
+    /// @param lastProcessedQueueIndex The last processed message queue index.
+    /// @param postStateRoot The state root after current batch.
+    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param zkProof The zk proof for current batch (single-batch bundle).
+    struct FinalizeStruct {
+        bytes batchHeader;
+        uint256 lastProcessedQueueIndex;
+        bytes32 postStateRoot;
+        bytes32 withdrawRoot;
+        bytes zkProof;
+    }
+
+    /// @notice Commit a batch of transactions on layer 1 and finalize it.
+    /// @param version The version of current batch.
+    /// @param finalizeStruct The data needed for finalize.
+    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external;
 }
