@@ -29,9 +29,6 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @dev Thrown when caller is not `EnforcedTxGateway` contract.
     error ErrorCallerIsNotEnforcedTxGateway();
 
-    /// @dev Thrown when sender is not an EOA in enforced transaction.
-    error ErrorCallerIsNotEOA();
-
     /// @dev Thrown when `ScrollChain` finalize old message queue index.
     error ErrorFinalizedIndexTooSmall();
 
@@ -95,6 +92,10 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// We choose `32` bits for timestamp because it is enough for next 81 years. And the rest `224` bits is secure
     /// enough for the rolling hash.
     mapping(uint256 => bytes32) private messageRollingHashes;
+
+    /// @notice The index of first cross domain message.
+    /// @dev It means if `index < firstCrossDomainMessageIndex`, the message is in `L1MessageQueueV1`.
+    uint256 public firstCrossDomainMessageIndex;
 
     /// @inheritdoc IL1MessageQueueV2
     uint256 public nextCrossDomainMessageIndex;
@@ -350,8 +351,6 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         bytes calldata _data
     ) external {
         if (_msgSender() != enforcedTxGateway) revert ErrorCallerIsNotEnforcedTxGateway();
-        // We will check it in EnforcedTxGateway, just in case.
-        if (_sender.code.length > 0) revert ErrorCallerIsNotEOA();
 
         // validate gas limit
         _validateGasLimit(_gasLimit, _data);

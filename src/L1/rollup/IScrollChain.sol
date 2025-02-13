@@ -94,9 +94,8 @@ interface IScrollChain {
 
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
-    /// @param firstBatchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
-    /// @param lastBatchHeader The header of last batch to revert, see the encoding in comments of `commitBatch`.
-    function revertBatch(bytes calldata firstBatchHeader, bytes calldata lastBatchHeader) external;
+    /// @param batchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
+    function revertBatch(bytes calldata batchHeader) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
     /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.

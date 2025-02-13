@@ -4,7 +4,7 @@ import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-import { L1MessageQueue, L2GasPriceOracle } from "../typechain";
+import { L1MessageQueueV1, L2GasPriceOracle } from "../typechain";
 import { MaxUint256, ZeroAddress, concat, encodeRlp, hexlify, keccak256, randomBytes, toBeHex } from "ethers";
 
 describe("L1MessageQueue", async () => {
@@ -14,7 +14,7 @@ describe("L1MessageQueue", async () => {
   let gateway: HardhatEthersSigner;
 
   let oracle: L2GasPriceOracle;
-  let queue: L1MessageQueue;
+  let queue: L1MessageQueueV1;
 
   const deployProxy = async (name: string, admin: string, args: any[]): Promise<string> => {
     const TransparentUpgradeableProxy = await ethers.getContractFactory("TransparentUpgradeableProxy", deployer);
@@ -31,8 +31,8 @@ describe("L1MessageQueue", async () => {
     const admin = await ProxyAdmin.deploy();
 
     queue = await ethers.getContractAt(
-      "L1MessageQueue",
-      await deployProxy("L1MessageQueue", await admin.getAddress(), [
+      "L1MessageQueueV1",
+      await deployProxy("L1MessageQueueV1", await admin.getAddress(), [
         messenger.address,
         scrollChain.address,
         gateway.address,

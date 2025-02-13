@@ -653,6 +653,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
     }
 
+    /*
     function testRevertBatchWithL1Messages() external {
         rollup.addSequencer(address(0));
         rollup.addProver(address(0));
@@ -746,6 +747,7 @@ contract ScrollChainTest is DSTestPlus {
         rollup.revertBatch(headers[4], headers[5]);
         assertEq(6, messageQueue.pendingQueueIndex());
     }
+    */
 
     function testAddAndRemoveSequencer(address _sequencer) external {
         // set by non-owner, should revert

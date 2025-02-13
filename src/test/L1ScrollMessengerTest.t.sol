@@ -37,7 +37,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         IL1ScrollMessenger.L2MessageProof memory proof;
         proof.batchIndex = rollup.lastFinalizedBatchIndex();
 
-        hevm.expectRevert("Forbid to call message queue");
+        hevm.expectRevert(L1ScrollMessenger.ErrorForbidToCallMessageQueue.selector);
         l1Messenger.relayMessageWithProof(address(this), address(messageQueue), 0, 0, new bytes(0), proof);
     }
 

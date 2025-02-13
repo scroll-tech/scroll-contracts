@@ -237,7 +237,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         require(!isL1MessageDropped[_xDomainCalldataHash], "Message already dropped");
 
         // compute and deduct the messaging fee to fee vault.
-        uint256 _fee = IL1MessageQueueV1(messageQueueV2).estimateCrossDomainMessageFee(_newGasLimit);
+        uint256 _fee = IL1MessageQueueV2(messageQueueV2).estimateCrossDomainMessageFee(_newGasLimit);
 
         // charge relayer fee
         require(msg.value >= _fee, "Insufficient msg.value for fee");
@@ -247,8 +247,8 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // enqueue the new transaction
-        uint256 _nextQueueIndex = IL1MessageQueueV1(messageQueueV2).nextCrossDomainMessageIndex();
-        IL1MessageQueueV1(messageQueueV2).appendCrossDomainMessage(counterpart, _newGasLimit, _xDomainCalldata);
+        uint256 _nextQueueIndex = IL1MessageQueueV2(messageQueueV2).nextCrossDomainMessageIndex();
+        IL1MessageQueueV2(messageQueueV2).appendCrossDomainMessage(counterpart, _newGasLimit, _xDomainCalldata);
 
         ReplayState memory _replayState = replayStates[_xDomainCalldataHash];
         // update the replayed message chain.
@@ -357,11 +357,11 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _refundAddress
     ) internal nonReentrant {
         // compute the actual cross domain message calldata.
-        uint256 _messageNonce = IL1MessageQueueV1(messageQueueV2).nextCrossDomainMessageIndex();
+        uint256 _messageNonce = IL1MessageQueueV2(messageQueueV2).nextCrossDomainMessageIndex();
         bytes memory _xDomainCalldata = _encodeXDomainCalldata(_msgSender(), _to, _value, _messageNonce, _message);
 
         // compute and deduct the messaging fee to fee vault.
-        uint256 _fee = IL1MessageQueueV1(messageQueueV2).estimateCrossDomainMessageFee(_gasLimit);
+        uint256 _fee = IL1MessageQueueV2(messageQueueV2).estimateCrossDomainMessageFee(_gasLimit);
         require(msg.value >= _fee + _value, "Insufficient msg.value");
         if (_fee > 0) {
             (bool _success, ) = feeVault.call{value: _fee}("");
@@ -369,7 +369,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // append message to L1MessageQueue
-        IL1MessageQueueV1(messageQueueV2).appendCrossDomainMessage(counterpart, _gasLimit, _xDomainCalldata);
+        IL1MessageQueueV2(messageQueueV2).appendCrossDomainMessage(counterpart, _gasLimit, _xDomainCalldata);
 
         // record the message hash for future use.
         bytes32 _xDomainCalldataHash = keccak256(_xDomainCalldata);

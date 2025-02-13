@@ -95,7 +95,12 @@ describe("ZkEvmVerifierV2", async () => {
         const chainProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), admin.getAddress(), "0x");
 
         const ScrollChainMockBlob = await ethers.getContractFactory("ScrollChainMockBlob", deployer);
-        const chainImpl = await ScrollChainMockBlob.deploy(layer2ChainId, deployer.address, verifier.getAddress());
+        const chainImpl = await ScrollChainMockBlob.deploy(
+          layer2ChainId,
+          deployer.address,
+          deployer.address,
+          verifier.getAddress()
+        );
         await admin.upgrade(chainProxy.getAddress(), chainImpl.getAddress());
 
         chain = await ethers.getContractAt("ScrollChainMockBlob", await chainProxy.getAddress(), deployer);

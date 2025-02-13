@@ -350,12 +350,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
     ) external override OnlySequencer whenNotPaused {
+        // only accept 4 <= version <= 6
         if (_version < 4) {
-            // only accept version >= 4
             revert ErrorIncorrectBatchVersion();
         } else if (_version == 5) {
             // only commit once for Euclid initial batch
             if (initialEuclidBatchIndex != 0) revert ErrorBatchIsAlreadyCommitted();
+        } else if (_version > 6) {
+            revert ErrorIncorrectBatchVersion();
         }
         // @note We suppose to check v6 batches cannot be committed without initial Euclid Batch.
         // However it will introduce extra sload (2000 gas), we let the sequencer to do this check offchain.
@@ -394,6 +396,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             if (blobVersionedHash == bytes32(0)) break;
 
             lastCommittedBatchIndex += 1;
+            // see comments in `src/libraries/codec/BatchHeaderV7Codec.sol` for encodings
             uint256 batchPtr = BatchHeaderV7Codec.allocate();
             BatchHeaderV0Codec.storeVersion(batchPtr, version);
             BatchHeaderV0Codec.storeBatchIndex(batchPtr, lastCommittedBatchIndex);
@@ -413,45 +416,26 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    /// @dev If the owner want to revert a sequence of batches by sending multiple transactions,
-    ///      make sure to revert recent batches first.
-    function revertBatch(bytes calldata _firstBatchHeader, bytes calldata _lastBatchHeader) external onlyOwner {
-        (
-            uint256 firstBatchPtr,
-            ,
-            uint256 _firstBatchIndex,
-            uint256 _totalL1MessagesPoppedOverallFirstBatch
-        ) = _loadBatchHeader(_firstBatchHeader);
-        (, , uint256 _lastBatchIndex, ) = _loadBatchHeader(_lastBatchHeader);
-        if (_firstBatchIndex > _lastBatchIndex) revert ErrorRevertZeroBatches();
-
-        // make sure no gap is left when reverting from the ending to the beginning.
-        if (committedBatches[_lastBatchIndex + 1] != bytes32(0)) revert ErrorRevertNotStartFromEnd();
-
+    /// @dev This function cannot revert V6 and V7 batches in the same time, so we will assume all batches is V7.
+    /// If we need to revert V6 batches, we can downgrade the contract to previous version and call this function.
+    function revertBatch(bytes calldata batchHeader) external onlyOwner {
+        (uint256 batchPtr, , uint256 startBatchIndex, ) = _loadBatchHeader(batchHeader);
+        // only revert v7 batches
+        if (BatchHeaderV0Codec.getVersion(batchPtr) < 7) revert ErrorIncorrectBatchVersion();
         // check finalization
-        if (_firstBatchIndex <= miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
+        if (startBatchIndex <= miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
-        uint256 _initialEuclidBatchIndex = initialEuclidBatchIndex;
-        for (uint256 _batchIndex = _lastBatchIndex; _batchIndex >= _firstBatchIndex; --_batchIndex) {
+        uint256 lastBatchIndex = miscData.lastCommittedBatchIndex;
+        for (uint256 _batchIndex = lastBatchIndex; _batchIndex >= startBatchIndex; --_batchIndex) {
             bytes32 _batchHash = committedBatches[_batchIndex];
             committedBatches[_batchIndex] = bytes32(0);
-
-            // also revert initial Euclid batch
-            if (_initialEuclidBatchIndex == _batchIndex) {
-                initialEuclidBatchIndex = 0;
-            }
 
             emit RevertBatch(_batchIndex, _batchHash);
         }
 
-        // `getL1MessagePopped` codes are the same in V0~V6
-        uint256 l1MessagePoppedFirstBatch = BatchHeaderV0Codec.getL1MessagePopped(firstBatchPtr);
-        unchecked {
-            IL1MessageQueueV1(messageQueueV1).resetPoppedCrossDomainMessage(
-                _totalL1MessagesPoppedOverallFirstBatch - l1MessagePoppedFirstBatch
-            );
-        }
+        // update `lastCommittedBatchIndex`
+        miscData.lastCommittedBatchIndex = uint64(startBatchIndex - 1);
     }
 
     /// @inheritdoc IScrollChain
