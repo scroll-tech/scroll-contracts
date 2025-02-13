@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-
 pragma solidity =0.8.24;
 
 import {IScrollChain} from "./rollup/IScrollChain.sol";
-import {IL1MessageQueue} from "./rollup/IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "./rollup/IL1MessageQueueV1.sol";
+import {IL1MessageQueueV2} from "./rollup/IL1MessageQueueV2.sol";
 import {IL1ScrollMessenger} from "./IL1ScrollMessenger.sol";
 import {ScrollConstants} from "../libraries/constants/ScrollConstants.sol";
 import {IScrollMessenger} from "../libraries/IScrollMessenger.sol";
@@ -34,6 +34,12 @@ import {IMessageDropCallback} from "../libraries/callbacks/IMessageDropCallback.
 /// The messages sent through this contract may possibly be skipped in layer 2 due to circuit capacity overflow.
 /// In such case, users can initiate `dropMessage` to claim refunds. But the cross domain relay fee won't be refunded.
 contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
+    /**********
+     * Errors *
+     **********/
+
+    error ErrorForbidToCallMessageQueue();
+
     /*************
      * Constants *
      *************/
@@ -41,8 +47,11 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     /// @notice The address of Rollup contract.
     address public immutable rollup;
 
-    /// @notice The address of L1MessageQueue contract.
-    address public immutable messageQueue;
+    /// @notice The address of L1MessageQueueV1 contract.
+    address public immutable messageQueueV1;
+
+    /// @notice The address of L1MessageQueueV2 contract.
+    address public immutable messageQueueV2;
 
     /***********
      * Structs *
@@ -100,16 +109,18 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     constructor(
         address _counterpart,
         address _rollup,
-        address _messageQueue
+        address _messageQueueV1,
+        address _messageQueueV2
     ) ScrollMessengerBase(_counterpart) {
-        if (_rollup == address(0) || _messageQueue == address(0)) {
+        if (_rollup == address(0) || _messageQueueV1 == address(0) || _messageQueueV2 == address(0)) {
             revert ErrorZeroAddress();
         }
 
         _disableInitializers();
 
         rollup = _rollup;
-        messageQueue = _messageQueue;
+        messageQueueV1 = _messageQueueV1;
+        messageQueueV2 = _messageQueueV2;
     }
 
     /// @notice Initialize the storage of L1ScrollMessenger.
@@ -182,7 +193,9 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // @note check more `_to` address to avoid attack in the future when we add more gateways.
-        require(_to != messageQueue, "Forbid to call message queue");
+        if (_to == messageQueueV1 || _to == messageQueueV2) {
+            revert ErrorForbidToCallMessageQueue();
+        }
         _validateTargetAddress(_to);
 
         // @note This usually will never happen, just in case.
@@ -223,7 +236,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         require(!isL1MessageDropped[_xDomainCalldataHash], "Message already dropped");
 
         // compute and deduct the messaging fee to fee vault.
-        uint256 _fee = IL1MessageQueue(messageQueue).estimateCrossDomainMessageFee(_newGasLimit);
+        uint256 _fee = IL1MessageQueueV2(messageQueueV2).estimateCrossDomainMessageFee(_newGasLimit);
 
         // charge relayer fee
         require(msg.value >= _fee, "Insufficient msg.value for fee");
@@ -233,8 +246,8 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // enqueue the new transaction
-        uint256 _nextQueueIndex = IL1MessageQueue(messageQueue).nextCrossDomainMessageIndex();
-        IL1MessageQueue(messageQueue).appendCrossDomainMessage(counterpart, _newGasLimit, _xDomainCalldata);
+        uint256 _nextQueueIndex = IL1MessageQueueV2(messageQueueV2).nextCrossDomainMessageIndex();
+        IL1MessageQueueV2(messageQueueV2).appendCrossDomainMessage(counterpart, _newGasLimit, _xDomainCalldata);
 
         ReplayState memory _replayState = replayStates[_xDomainCalldataHash];
         // update the replayed message chain.
@@ -300,7 +313,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         // check message is skipped and drop it.
         // @note If the list is very long, the message may never be dropped.
         while (true) {
-            IL1MessageQueue(messageQueue).dropCrossDomainMessage(_lastIndex);
+            IL1MessageQueueV1(messageQueueV1).dropCrossDomainMessage(_lastIndex);
             _lastIndex = prevReplayIndex[_lastIndex];
             if (_lastIndex == 0) break;
             unchecked {
@@ -343,11 +356,11 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _refundAddress
     ) internal nonReentrant {
         // compute the actual cross domain message calldata.
-        uint256 _messageNonce = IL1MessageQueue(messageQueue).nextCrossDomainMessageIndex();
+        uint256 _messageNonce = IL1MessageQueueV2(messageQueueV2).nextCrossDomainMessageIndex();
         bytes memory _xDomainCalldata = _encodeXDomainCalldata(_msgSender(), _to, _value, _messageNonce, _message);
 
         // compute and deduct the messaging fee to fee vault.
-        uint256 _fee = IL1MessageQueue(messageQueue).estimateCrossDomainMessageFee(_gasLimit);
+        uint256 _fee = IL1MessageQueueV2(messageQueueV2).estimateCrossDomainMessageFee(_gasLimit);
         require(msg.value >= _fee + _value, "Insufficient msg.value");
         if (_fee > 0) {
             (bool _success, ) = feeVault.call{value: _fee}("");
@@ -355,7 +368,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // append message to L1MessageQueue
-        IL1MessageQueue(messageQueue).appendCrossDomainMessage(counterpart, _gasLimit, _xDomainCalldata);
+        IL1MessageQueueV2(messageQueueV2).appendCrossDomainMessage(counterpart, _gasLimit, _xDomainCalldata);
 
         // record the message hash for future use.
         bytes32 _xDomainCalldataHash = keccak256(_xDomainCalldata);

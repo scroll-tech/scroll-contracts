@@ -16,8 +16,8 @@ import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gatew
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
-import {L1MessageQueue} from "../../src/L1/rollup/L1MessageQueue.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1} from "../../src/L1/rollup/L1MessageQueueV1.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {EnforcedTxGateway} from "../../src/L1/gateways/EnforcedTxGateway.sol";
 
@@ -105,13 +105,13 @@ contract InitializeL1BridgeContracts is Script {
         );
         L2GasPriceOracle(L2_GAS_PRICE_ORACLE_PROXY_ADDR).updateWhitelist(L1_WHITELIST_ADDR);
 
-        // initialize L1MessageQueueWithGasPriceOracle
+        // initialize L1MessageQueueV1WithGasPriceOracle
         proxyAdmin.upgrade(
             ITransparentUpgradeableProxy(L1_MESSAGE_QUEUE_PROXY_ADDR),
             L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR
         );
 
-        L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initialize(
+        L1MessageQueueV1WithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initialize(
             L1_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             L1_ENFORCED_TX_GATEWAY_PROXY_ADDR,
@@ -119,7 +119,7 @@ contract InitializeL1BridgeContracts is Script {
             MAX_L1_MESSAGE_GAS_LIMIT
         );
 
-        L1MessageQueueWithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
+        L1MessageQueueV1WithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
 
         // initialize L1ScrollMessenger
         proxyAdmin.upgrade(

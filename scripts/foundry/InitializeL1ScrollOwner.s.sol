@@ -13,7 +13,7 @@ import {L1CustomERC20Gateway} from "../../src/L1/gateways/L1CustomERC20Gateway.s
 import {L1ERC1155Gateway} from "../../src/L1/gateways/L1ERC1155Gateway.sol";
 import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
 import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
-import {L1MessageQueue} from "../../src/L1/rollup/L1MessageQueue.sol";
+import {L1MessageQueueV1} from "../../src/L1/rollup/L1MessageQueueV1.sol";
 import {ScrollMessengerBase} from "../../src/libraries/ScrollMessengerBase.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
@@ -62,6 +62,8 @@ contract InitializeL1ScrollOwner is Script {
     address L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR = vm.envAddress("L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR");
     address L1_ENFORCED_TX_GATEWAY_PROXY_ADDR = vm.envAddress("L1_ENFORCED_TX_GATEWAY_PROXY_ADDR");
     address L1_WHITELIST_ADDR = vm.envAddress("L1_WHITELIST_ADDR");
+
+    address SYSTEM_CONTRACT_ADDR = vm.envAddress("SYSTEM_CONTRACT_ADDR");
 
     ScrollOwner owner;
 
@@ -163,8 +165,8 @@ contract InitializeL1ScrollOwner is Script {
 
         // delay 1 day, scroll multisig
         _selectors = new bytes4[](2);
-        _selectors[0] = L1MessageQueue.updateGasOracle.selector;
-        _selectors[1] = L1MessageQueue.updateMaxGasLimit.selector;
+        _selectors[0] = L1MessageQueueV1.updateGasOracle.selector;
+        _selectors[1] = L1MessageQueueV1.updateMaxGasLimit.selector;
         owner.updateAccess(L1_MESSAGE_QUEUE_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
     }
 
