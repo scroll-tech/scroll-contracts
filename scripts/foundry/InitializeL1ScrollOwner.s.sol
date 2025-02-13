@@ -21,6 +21,7 @@ import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {ScrollOwner} from "../../src/misc/ScrollOwner.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 
+
 // solhint-disable max-states-count
 // solhint-disable state-visibility
 // solhint-disable var-name-mixedcase
@@ -63,6 +64,9 @@ contract InitializeL1ScrollOwner is Script {
     address L1_ENFORCED_TX_GATEWAY_PROXY_ADDR = vm.envAddress("L1_ENFORCED_TX_GATEWAY_PROXY_ADDR");
     address L1_WHITELIST_ADDR = vm.envAddress("L1_WHITELIST_ADDR");
 
+    address SYSTEM_CONTRACT_ADDR = vm.envAddress("SYSTEM_CONTRACT_ADDR");
+
+
     ScrollOwner owner;
 
     function run() external {
@@ -81,8 +85,8 @@ contract InitializeL1ScrollOwner is Script {
         configL1GatewayRouter();
         configL1CustomERC20Gateway();
         configL1ERC721Gateway();
-        configL1ERC1155Gateway();
-
+        configL1ERC1155Gateway();        
+    
         configL1USDCGateway();
         configEnforcedTxGateway();
 

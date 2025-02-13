@@ -8,6 +8,8 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
 import {IL1MessageQueueV2} from "./IL1MessageQueueV2.sol";
 
+import {SystemConfig} from "../system-contract/SystemConfig.sol";
+
 // solhint-disable no-empty-blocks
 // solhint-disable no-inline-assembly
 // solhint-disable reason-string
@@ -69,14 +71,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @notice The address of L1MessageQueueV1 contract.
     address public immutable messageQueueV1;
 
-    /***********
-     * Structs *
-     ***********/
-
-    struct L2BaseFeeParameters {
-        uint128 overhead;
-        uint128 scalar;
-    }
+    /// @notice The address of `SystemConfig` contract.
+    address public immutable systemConfig;
 
     /*********************
      * Storage Variables *
@@ -102,11 +98,6 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
 
     /// @inheritdoc IL1MessageQueueV2
     uint256 public nextUnfinalizedQueueIndex;
-
-    /// @notice The max gas limit of L1 transactions.
-    uint256 public maxGasLimit;
-
-    L2BaseFeeParameters public l2BaseFeeParameters;
 
     /// @dev The storage slots for future usage.
     uint256[45] private __gap;
@@ -134,7 +125,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         address _messenger,
         address _scrollChain,
         address _enforcedTxGateway,
-        address _messageQueueV1
+        address _messageQueueV1,
+        address _systemConfig
     ) {
         _disableInitializers();
 
@@ -142,16 +134,12 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         scrollChain = _scrollChain;
         enforcedTxGateway = _enforcedTxGateway;
         messageQueueV1 = _messageQueueV1;
+        systemConfig = _systemConfig;
     }
 
     /// @notice Initialize the storage of L1MessageQueue.
-    ///
-    /// @param _maxGasLimit The maximum gas limit allowed in single transaction.
-    function initialize(uint256 _maxGasLimit, L2BaseFeeParameters memory _params) external initializer {
+    function initialize() external initializer {
         OwnableUpgradeable.__Ownable_init();
-
-        _updateL2BaseFeeParameters(_params.overhead, _params.scalar);
-        _updateMaxGasLimit(_maxGasLimit);
 
         uint256 _nextCrossDomainMessageIndex = IL1MessageQueueV1(messageQueueV1).nextCrossDomainMessageIndex();
         nextCrossDomainMessageIndex = _nextCrossDomainMessageIndex;
@@ -169,10 +157,10 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
 
     /// @inheritdoc IL1MessageQueueV2
     function estimatedL2BaseFee() public view returns (uint256) {
-        L2BaseFeeParameters memory parameters = l2BaseFeeParameters;
+        (, uint256 overhead, uint256 scalar) = SystemConfig(systemConfig).messageQueueParameters();
         // this is unlikely to happen, use unchecked here
         unchecked {
-            return (block.basefee * parameters.scalar) / PRECISION + parameters.overhead;
+            return (block.basefee * scalar) / PRECISION + overhead;
         }
     }
 
@@ -372,46 +360,9 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         }
     }
 
-    /************************
-     * Restricted Functions *
-     ************************/
-
-    /// @notice Update the parameters for l2 base fee formula.
-    /// @param overhead The value of overhead in l2 base fee formula.
-    /// @param scalar The value of scalar in l2 base fee formula.
-    function updateL2BaseFeeParameters(uint128 overhead, uint128 scalar) external onlyOwner {
-        _updateL2BaseFeeParameters(overhead, scalar);
-    }
-
-    /// @notice Update the max gas limit.
-    /// @param _newMaxGasLimit The new max gas limit.
-    function updateMaxGasLimit(uint256 _newMaxGasLimit) external onlyOwner {
-        _updateMaxGasLimit(_newMaxGasLimit);
-    }
-
     /**********************
      * Internal Functions *
      **********************/
-
-    /// @dev Internal function to update the parameters for l2 base fee formula.
-    /// @param overhead The value of overhead in l2 base fee formula.
-    /// @param scalar The value of scalar in l2 base fee formula.
-    function _updateL2BaseFeeParameters(uint128 overhead, uint128 scalar) internal {
-        l2BaseFeeParameters = L2BaseFeeParameters(overhead, scalar);
-
-        emit UpdateL2BaseFeeParameters(overhead, scalar);
-    }
-
-    /// @dev Internal function to update the max gas limit.
-    /// @param _newMaxGasLimit The new max gas limit.
-    function _updateMaxGasLimit(uint256 _newMaxGasLimit) internal {
-        if (_newMaxGasLimit < INTRINSIC_GAS_TX) revert ErrorGasLimitBelowIntrinsicGas();
-
-        uint256 _oldMaxGasLimit = maxGasLimit;
-        maxGasLimit = _newMaxGasLimit;
-
-        emit UpdateMaxGasLimit(_oldMaxGasLimit, _newMaxGasLimit);
-    }
 
     /// @dev Internal function to queue a L1 transaction.
     /// @param _sender The address of sender who will initiate this transaction in L2.
@@ -444,6 +395,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @param _gasLimit The value of given gas limit.
     /// @param _calldata The calldata for this message.
     function _validateGasLimit(uint256 _gasLimit, bytes calldata _calldata) internal view {
+        (uint256 maxGasLimit, , ) = SystemConfig(systemConfig).messageQueueParameters();
         if (_gasLimit > maxGasLimit) revert ErrorGasLimitExceeded();
         // check if the gas limit is above intrinsic gas
         uint256 intrinsicGas = calculateIntrinsicGasFee(_calldata);

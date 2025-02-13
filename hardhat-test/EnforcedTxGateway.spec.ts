@@ -5,7 +5,7 @@ import { expect } from "chai";
 import { BigNumberish, BytesLike, MaxUint256, ZeroAddress, getBytes } from "ethers";
 import { ethers } from "hardhat";
 
-import { EnforcedTxGateway, L1MessageQueueV2, L2GasPriceOracle, MockCaller } from "../typechain";
+import { EnforcedTxGateway, L1MessageQueueV2, L2GasPriceOracle, MockCaller, SystemConfig } from "../typechain";
 
 describe("EnforcedTxGateway.spec", async () => {
   let deployer: HardhatEthersSigner;
@@ -13,6 +13,7 @@ describe("EnforcedTxGateway.spec", async () => {
   let signer: HardhatEthersSigner;
 
   let caller: MockCaller;
+  let system: SystemConfig;
   let gateway: EnforcedTxGateway;
   let oracle: L2GasPriceOracle;
   let queue: L1MessageQueueV2;
@@ -37,6 +38,12 @@ describe("EnforcedTxGateway.spec", async () => {
       deployer
     );
 
+    system = await ethers.getContractAt(
+      "SystemConfig",
+      await deployProxy("SystemConfig", await admin.getAddress(), []),
+      deployer
+    );
+
     const queueV1 = await ethers.getContractAt(
       "L1MessageQueueV1",
       await deployProxy("L1MessageQueueV1", await admin.getAddress(), [
@@ -54,6 +61,7 @@ describe("EnforcedTxGateway.spec", async () => {
         deployer.address,
         await gateway.getAddress(),
         await queueV1.getAddress(),
+        await system.getAddress(),
       ]),
       deployer
     );
@@ -67,7 +75,12 @@ describe("EnforcedTxGateway.spec", async () => {
     const MockCaller = await ethers.getContractFactory("MockCaller", deployer);
     caller = await MockCaller.deploy();
 
-    await queue.initialize(1000000, { overhead: 123, scalar: 10n ** 18n });
+    await system.initialize(deployer.address, deployer.address, {
+      maxGasLimit: 1000000,
+      baseFeeOverhead: 10n ** 9n,
+      baseFeeScalar: 10n ** 18n,
+    });
+    await queue.initialize();
     await gateway.initialize(queue.getAddress(), feeVault.address);
     await oracle.initialize(21000, 51000, 8, 16);
 
