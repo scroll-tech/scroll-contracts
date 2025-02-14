@@ -16,6 +16,8 @@ import {ChunkCodecV0} from "../../libraries/codec/ChunkCodecV0.sol";
 import {ChunkCodecV1} from "../../libraries/codec/ChunkCodecV1.sol";
 import {IRollupVerifier} from "../../libraries/verifier/IRollupVerifier.sol";
 
+import {SystemConfig} from "../system-contract/SystemConfig.sol";
+
 // solhint-disable no-inline-assembly
 // solhint-disable reason-string
 
@@ -134,6 +136,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when finalize v4/v5, v5/v6, v4/v5/v6 batches in the same bundle.
     error ErrorFinalizePreAndPostEuclidBatchInOneBundle();
 
+    error ErrorNotAllV1MessagesAreFinalized();
+
     /*************
      * Constants *
      *************/
@@ -158,6 +162,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice The address of RollupVerifier.
     address public immutable verifier;
 
+    /// @notice The address of `SystemConfig` contract.
+    address public immutable systemConfig;
+
     /***********
      * Structs *
      ***********/
@@ -169,9 +176,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint64 lastCommittedBatchIndex;
         uint64 lastFinalizedBatchIndex;
         uint32 lastFinalizeTimestamp;
-        uint24 maxDelayEnterEnforcedMode;
         bool enforcedModeEnabled;
-        uint64 reserved;
+        uint88 reserved;
     }
 
     /*************
@@ -244,7 +250,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint64 _chainId,
         address _messageQueueV1,
         address _messageQueueV2,
-        address _verifier
+        address _verifier,
+        address _systemConfig
     ) {
         if (_messageQueueV1 == address(0) || _messageQueueV2 == address(0) || _verifier == address(0)) {
             revert ErrorZeroAddress();
@@ -256,6 +263,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         messageQueueV1 = _messageQueueV1;
         messageQueueV2 = _messageQueueV2;
         verifier = _verifier;
+        systemConfig = _systemConfig;
     }
 
     /// @notice Initialize the storage of ScrollChain.
@@ -279,7 +287,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit UpdateMaxNumTxInChunk(0, _maxNumTxInChunk);
     }
 
-    function initializeV2(uint24 _maxDelayEnterEnforcedMode) external reinitializer(2) {
+    function initializeV2() external reinitializer(2) {
         // binary search on lastCommittedBatchIndex
         uint256 index = __lastFinalizedBatchIndex;
         uint256 step = 1;
@@ -300,7 +308,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             lastCommittedBatchIndex: uint64(index),
             lastFinalizedBatchIndex: uint64(__lastFinalizedBatchIndex),
             lastFinalizeTimestamp: uint32(block.timestamp),
-            maxDelayEnterEnforcedMode: _maxDelayEnterEnforcedMode,
             enforcedModeEnabled: false,
             reserved: 0
         });
@@ -402,14 +409,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    function commitBatchesPostEuclid(uint8 version)
+    function commitBatchesPostEuclid(uint8 version, bytes32 parentBatchHash)
         external
         override
         OnlySequencer
         whenNotPaused
         whenEnforcedBatchNotEnabled
     {
-        _commitBatchesPostEuclid(version, false);
+        _commitBatchesPostEuclid(version, parentBatchHash, false);
     }
 
     /// @inheritdoc IScrollChain
@@ -490,11 +497,22 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     /// @dev We only consider batch version >= 7 here.
-    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external {
+    function commitAndFinalizeBatch(
+        uint8 version,
+        bytes32 parentBatchHash,
+        FinalizeStruct calldata finalizeStruct
+    ) external {
         // we use BatchHeaderV3Codec for finalizeStruct.batchHeader
         ScrollChainMiscData memory cachedMiscData = miscData;
         if (!cachedMiscData.enforcedModeEnabled) {
-            if (cachedMiscData.lastFinalizeTimestamp + cachedMiscData.maxDelayEnterEnforcedMode < block.timestamp) {
+            (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
+                .enforcedBatchParameters();
+            uint256 lastUnfinalizedMessageTime = IL1MessageQueueV2(messageQueueV2)
+                .getFirstUnfinalizedMessageEnqueueTime();
+            if (
+                lastUnfinalizedMessageTime + maxDelayMessageQueue < block.timestamp ||
+                cachedMiscData.lastFinalizeTimestamp + maxDelayEnterEnforcedMode < block.timestamp
+            ) {
                 // explicit set enforce batch enable
                 cachedMiscData.enforcedModeEnabled = true;
                 // reset `lastCommittedBatchIndex`
@@ -505,7 +523,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             }
         }
 
-        bytes32 batchHash = _commitBatchesPostEuclid(version, true);
+        bytes32 batchHash = _commitBatchesPostEuclid(version, parentBatchHash, true);
 
         if (batchHash != keccak256(finalizeStruct.batchHeader)) {
             revert ErrorIncorrectBatchHash();
@@ -586,10 +604,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice Exit from enforced batch mode.
     function disableEnforcedBatch() external onlyOwner {
         miscData.enforcedModeEnabled = false;
-    }
-
-    function updateMaxDelayEnterEnforcedMode(uint24 _maxDelayEnterEnforcedMode) external onlyOwner {
-        miscData.maxDelayEnterEnforcedMode = _maxDelayEnterEnforcedMode;
     }
 
     /**********************
@@ -771,13 +785,19 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (numTransactions != 0) revert ErrorV5BatchContainsTransactions();
     }
 
-    function _commitBatchesPostEuclid(uint8 version, bool onlyOne) internal returns (bytes32) {
+    function _commitBatchesPostEuclid(
+        uint8 version,
+        bytes32 parentBatchHash,
+        bool onlyOne
+    ) internal returns (bytes32) {
         if (version < 7) {
             // only accept version >= 7
             revert ErrorIncorrectBatchVersion();
         }
         uint256 lastCommittedBatchIndex = miscData.lastCommittedBatchIndex;
-        bytes32 parentBatchHash = committedBatches[lastCommittedBatchIndex];
+        if (parentBatchHash != committedBatches[lastCommittedBatchIndex]) {
+            revert ErrorIncorrectBatchHash();
+        }
         for (uint256 i = 0; ; i++) {
             bytes32 blobVersionedHash = _getBlobVersionedHash(i);
             if (blobVersionedHash == bytes32(0)) break;
@@ -811,6 +831,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 withdrawRoot,
         bytes calldata aggrProof
     ) internal {
+        if (
+            IL1MessageQueueV1(messageQueueV1).nextUnfinalizedQueueIndex() !=
+            IL1MessageQueueV2(messageQueueV2).firstCrossDomainMessageIndex()
+        ) {
+            revert ErrorNotAllV1MessagesAreFinalized();
+        }
         // actions before verification
         (uint256 version, bytes32 batchHash, uint256 batchIndex, , uint256 prevBatchIndex) = _beforeFinalizeBatch(
             batchHeader,

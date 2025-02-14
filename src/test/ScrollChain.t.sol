@@ -59,7 +59,7 @@ contract ScrollChainTest is DSTestPlus {
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChain(233, address(messageQueue), address(messageQueue), address(verifier)))
+            address(new ScrollChain(233, address(messageQueue), address(messageQueue), address(verifier), address(0)))
         );
         rollup.initialize(address(messageQueue), address(verifier), 100);
     }

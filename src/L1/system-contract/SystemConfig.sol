@@ -17,12 +17,20 @@ contract SystemConfig is OwnableUpgradeable {
         uint112 baseFeeScalar;
     }
 
+    struct EnforcedBatchParameters {
+        uint24 maxDelayEnterEnforcedMode;
+        uint24 maxDelayMessageQueue;
+    }
+
     /*********************
      * Storage Variables *
      *********************/
 
     /// @notice The parameters for message queue.
     MessageQueueParameters public messageQueueParameters;
+
+    /// @notice The parameters for enforced batches.
+    EnforcedBatchParameters public enforcedBatchParameters;
 
     /// @dev The address of current authorized signer.
     address private currentSigner;
@@ -38,13 +46,15 @@ contract SystemConfig is OwnableUpgradeable {
     function initialize(
         address _owner,
         address _signer,
-        MessageQueueParameters memory _params
+        MessageQueueParameters memory _messageQueueParameters,
+        EnforcedBatchParameters memory _enforcedBatchParameters
     ) external initializer {
         __Ownable_init();
         transferOwnership(_owner);
 
         currentSigner = _signer;
-        messageQueueParameters = _params;
+        messageQueueParameters = _messageQueueParameters;
+        enforcedBatchParameters = _enforcedBatchParameters;
     }
 
     /*************************
@@ -65,6 +75,12 @@ contract SystemConfig is OwnableUpgradeable {
     /// @param _params The new message queue parameters.
     function updateMessageQueueParameters(MessageQueueParameters memory _params) external onlyOwner {
         messageQueueParameters = _params;
+    }
+
+    /// @notice Update the enforced batch parameters.
+    /// @param _params The new enforced batch parameters.
+    function updateEnforcedBatchParameters(EnforcedBatchParameters memory _params) external onlyOwner {
+        enforcedBatchParameters = _params;
     }
 
     /// @notice Update the current signer.

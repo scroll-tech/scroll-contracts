@@ -151,6 +151,14 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
      *************************/
 
     /// @inheritdoc IL1MessageQueueV2
+    function getFirstUnfinalizedMessageEnqueueTime() external view returns (uint256 timestamp) {
+        (, timestamp) = _loadAndDecodeRollingHash(nextUnfinalizedQueueIndex);
+        if (timestamp == 0) {
+            timestamp = block.timestamp;
+        }
+    }
+
+    /// @inheritdoc IL1MessageQueueV2
     function getMessageRollingHash(uint256 queueIndex) external view returns (bytes32 hash) {
         (hash, ) = _loadAndDecodeRollingHash(queueIndex);
     }

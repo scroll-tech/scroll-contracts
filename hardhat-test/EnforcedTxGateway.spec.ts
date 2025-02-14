@@ -75,11 +75,16 @@ describe("EnforcedTxGateway.spec", async () => {
     const MockCaller = await ethers.getContractFactory("MockCaller", deployer);
     caller = await MockCaller.deploy();
 
-    await system.initialize(deployer.address, deployer.address, {
-      maxGasLimit: 1000000,
-      baseFeeOverhead: 10n ** 9n,
-      baseFeeScalar: 10n ** 18n,
-    });
+    await system.initialize(
+      deployer.address,
+      deployer.address,
+      {
+        maxGasLimit: 1000000,
+        baseFeeOverhead: 10n ** 9n,
+        baseFeeScalar: 10n ** 18n,
+      },
+      { maxDelayEnterEnforcedMode: 0, maxDelayMessageQueue: 0 }
+    );
     await queue.initialize();
     await gateway.initialize(queue.getAddress(), feeVault.address);
     await oracle.initialize(21000, 51000, 8, 16);

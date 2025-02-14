@@ -90,7 +90,8 @@ interface IScrollChain {
 
     /// @notice Commit a batch after Euclid phase 2 upgrade.
     /// @param version The version of current batch.
-    function commitBatchesPostEuclid(uint8 version) external;
+    /// @param parentBatchHash The hash of parent batch.
+    function commitBatchesPostEuclid(uint8 version, bytes32 parentBatchHash) external;
 
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
@@ -140,5 +141,10 @@ interface IScrollChain {
     /// @notice Commit a batch of transactions on layer 1 and finalize it.
     /// @param version The version of current batch.
     /// @param finalizeStruct The data needed for finalize.
-    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external;
+    /// @param parentBatchHash The hash of parent batch.
+    function commitAndFinalizeBatch(
+        uint8 version,
+        bytes32 parentBatchHash,
+        FinalizeStruct calldata finalizeStruct
+    ) external;
 }
