@@ -142,6 +142,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         OwnableUpgradeable.__Ownable_init();
 
         uint256 _nextCrossDomainMessageIndex = IL1MessageQueueV1(messageQueueV1).nextCrossDomainMessageIndex();
+        firstCrossDomainMessageIndex = _nextCrossDomainMessageIndex;
         nextCrossDomainMessageIndex = _nextCrossDomainMessageIndex;
         nextUnfinalizedQueueIndex = _nextCrossDomainMessageIndex;
     }
@@ -354,17 +355,17 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     }
 
     /// @inheritdoc IL1MessageQueueV2
-    function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne) external onlyScrollChain {
+    function finalizePoppedCrossDomainMessage(uint256 _nextUnfinalizedQueueIndex) external onlyScrollChain {
         if (_msgSender() != enforcedTxGateway) revert ErrorCallerIsNotScrollChain();
 
         uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
-        if (_newFinalizedQueueIndexPlusOne == cachedFinalizedQueueIndexPlusOne) return;
-        if (_newFinalizedQueueIndexPlusOne < cachedFinalizedQueueIndexPlusOne) revert ErrorFinalizedIndexTooSmall();
-        if (_newFinalizedQueueIndexPlusOne > nextCrossDomainMessageIndex) revert ErrorFinalizedIndexTooLarge();
+        if (_nextUnfinalizedQueueIndex == cachedFinalizedQueueIndexPlusOne) return;
+        if (_nextUnfinalizedQueueIndex < cachedFinalizedQueueIndexPlusOne) revert ErrorFinalizedIndexTooSmall();
+        if (_nextUnfinalizedQueueIndex > nextCrossDomainMessageIndex) revert ErrorFinalizedIndexTooLarge();
 
-        nextUnfinalizedQueueIndex = _newFinalizedQueueIndexPlusOne;
+        nextUnfinalizedQueueIndex = _nextUnfinalizedQueueIndex;
         unchecked {
-            // emit FinalizedDequeuedTransaction(_newFinalizedQueueIndexPlusOne - 1);
+            emit FinalizedDequeuedTransaction(_nextUnfinalizedQueueIndex - 1);
         }
     }
 
@@ -395,8 +396,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
             nextCrossDomainMessageIndex = _queueIndex + 1;
         }
 
-        // emit event
-        // emit QueueTransaction(_sender, _target, _value, uint64(_queueIndex), _gasLimit, _data);
+        emit QueueTransaction(_sender, _target, _value, uint64(_queueIndex), _gasLimit, _data);
     }
 
     /// @dev Internal function to validate given gas limit.

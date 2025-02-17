@@ -91,7 +91,7 @@ interface IScrollChain {
     /// @notice Commit a batch after Euclid phase 2 upgrade.
     /// @param version The version of current batch.
     /// @param parentBatchHash The hash of parent batch.
-    function commitBatchesPostEuclid(uint8 version, bytes32 parentBatchHash) external;
+    function commitBatchesPostEuclidV2(uint8 version, bytes32 parentBatchHash) external;
 
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
@@ -114,9 +114,9 @@ interface IScrollChain {
     /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
     /// @param lastProcessedQueueIndex The last processed message queue index.
     /// @param postStateRoot The state root after current bundle.
-    /// @param withdrawRoot The withdraw trie root after current batch.
+    /// @param withdrawRoot The withdraw trie root after current bundle.
     /// @param aggrProof The aggregation proof for current bundle.
-    function finalizeBundlePostEuclid(
+    function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
         bytes32 postStateRoot,

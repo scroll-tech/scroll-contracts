@@ -27,17 +27,11 @@ interface IL1MessageQueueV2 {
     /// @param finalizedIndex The last index of messages finalized.
     event FinalizedDequeuedTransaction(uint256 finalizedIndex);
 
-    event UpdateL2BaseFeeParameters(uint256 overhead, uint256 scalar);
-
-    /// @notice Emitted when owner updates max gas limit.
-    /// @param _oldMaxGasLimit The old max gas limit.
-    /// @param _newMaxGasLimit The new max gas limit.
-    event UpdateMaxGasLimit(uint256 _oldMaxGasLimit, uint256 _newMaxGasLimit);
-
     /*************************
      * Public View Functions *
      *************************/
 
+    /// @notice The start index of all messages in this contract.
     function firstCrossDomainMessageIndex() external view returns (uint256);
 
     /// @notice The start index of all unfinalized messages.
@@ -111,6 +105,6 @@ interface IL1MessageQueueV2 {
     ) external;
 
     /// @notice Finalize status of popped messages.
-    /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.
-    function finalizePoppedCrossDomainMessage(uint256 newFinalizedQueueIndexPlusOne) external;
+    /// @param nextUnfinalizedQueueIndex The index of message to finalize plus one.
+    function finalizePoppedCrossDomainMessage(uint256 nextUnfinalizedQueueIndex) external;
 }

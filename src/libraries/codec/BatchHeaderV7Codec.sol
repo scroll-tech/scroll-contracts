@@ -16,7 +16,7 @@ pragma solidity ^0.8.24;
 /// However, we won't reuse the codes since they are very simple. Reusing the codes will introduce
 /// extra code jump in solidity, which increase gas costs.
 library BatchHeaderV7Codec {
-    /// @dev Thrown when the length of batch header is not equal to 193.
+    /// @dev Thrown when the length of batch header is not equal to 73.
     error ErrorBatchHeaderV7LengthMismatch();
 
     /// @dev The length of fixed parts of the batch header.
@@ -26,7 +26,7 @@ library BatchHeaderV7Codec {
     function allocate() internal pure returns (uint256 batchPtr) {
         assembly {
             batchPtr := mload(0x40)
-            // This is `BatchHeaderV7Codec.BATCH_HEADER_FIXED_LENGTH`, use `193` here to reduce code complexity.
+            // This is `BatchHeaderV7Codec.BATCH_HEADER_FIXED_LENGTH`, use `73` here to reduce code complexity.
             mstore(0x40, add(batchPtr, 73))
         }
     }
@@ -66,7 +66,7 @@ library BatchHeaderV7Codec {
         }
     }
 
-    /// @notice Store the parent batch hash of batch header.
+    /// @notice Store the blob versioned hash of batch header.
     /// @param batchPtr The start memory offset of the batch header in memory.
     /// @param _blobVersionedHash The versioned hash of the blob with this batch’s data.
     function storeBlobVersionedHash(uint256 batchPtr, bytes32 _blobVersionedHash) internal pure {

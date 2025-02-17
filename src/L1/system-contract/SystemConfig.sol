@@ -8,6 +8,7 @@ contract SystemConfig is OwnableUpgradeable {
      * Structs *
      ***********/
 
+    /// @notice Parameters for message queue. The compiler will pack this struct into single `bytes32`.
     /// @param maxGasLimit The maximum gas limit allowed for each L1 message.
     /// @param baseFeeOverhead The overhead used to calculate l2 base fee.
     /// @param baseFeeScalar The scalar used to calculate l2 base fee.
@@ -17,6 +18,12 @@ contract SystemConfig is OwnableUpgradeable {
         uint112 baseFeeScalar;
     }
 
+    /// @notice Parameters for enforced batch. The compiler will pack this struct into single `bytes32`.
+    /// @param maxDelayEnterEnforcedMode If no batch has been finalized for `maxDelayEnterEnforcedMode`,
+    ///        batch submission becomes permissionless. Anyone can submit a batch together with a proof.
+    /// @param maxDelayMessageQueue If message not included/finalized for `maxDelayMessageQueue`, the
+    ///        operator can not finalize any more batches until including those messages. If it continues
+    ///        to censor messages permissionless mode will eventually activate.
     struct EnforcedBatchParameters {
         uint24 maxDelayEnterEnforcedMode;
         uint24 maxDelayMessageQueue;

@@ -64,14 +64,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the parent batch hash in genesis batch is zero.
     error ErrorGenesisParentBatchHashIsNonZero();
 
-    /// @dev Thrown when the l2 transaction is incomplete.
-    error ErrorIncompleteL2TransactionData();
-
     /// @dev Thrown when the batch hash is incorrect.
     error ErrorIncorrectBatchHash();
-
-    /// @dev Thrown when the batch index is incorrect.
-    error ErrorIncorrectBatchIndex();
 
     /// @dev Thrown when the batch version is incorrect.
     error ErrorIncorrectBatchVersion();
@@ -87,12 +81,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Thrown when the number of transactions is less than number of L1 message in one block.
     error ErrorNumTxsLessThanNumL1Msgs();
-
-    /// @dev Thrown when the number of batches to revert is zero.
-    error ErrorRevertZeroBatches();
-
-    /// @dev Thrown when the reverted batches are not in the ending of committed batch chain.
-    error ErrorRevertNotStartFromEnd();
 
     /// @dev Thrown when reverting a finalized batch.
     error ErrorRevertFinalizedBatch();
@@ -121,9 +109,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when commit old batch after Euclid fork is enabled.
     error ErrorEuclidForkEnabled();
 
-    /// @dev Thrown when SC finalize V5 batch before all v4 batches are finalized.
-    error ErrorNotAllV4BatchFinalized();
-
     /// @dev Thrown when the committed v5 batch doesn't contain only one chunk.
     error ErrorV5BatchNotContainsOnlyOneChunk();
 
@@ -136,6 +121,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when finalize v4/v5, v5/v6, v4/v5/v6 batches in the same bundle.
     error ErrorFinalizePreAndPostEuclidBatchInOneBundle();
 
+    /// @dev Thrown when finalize v7 batches while some v1 messages still unfinalized.
     error ErrorNotAllV1MessagesAreFinalized();
 
     /*************
@@ -409,14 +395,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    function commitBatchesPostEuclid(uint8 version, bytes32 parentBatchHash)
+    function commitBatchesPostEuclidV2(uint8 version, bytes32 parentBatchHash)
         external
         override
         OnlySequencer
         whenNotPaused
         whenEnforcedBatchNotEnabled
     {
-        _commitBatchesPostEuclid(version, parentBatchHash, false);
+        _commitBatchesPostEuclidV2(version, parentBatchHash, false);
     }
 
     /// @inheritdoc IScrollChain
@@ -485,14 +471,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    function finalizeBundlePostEuclid(
+    function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata aggrProof
     ) external override OnlyProver whenNotPaused whenEnforcedBatchNotEnabled {
-        _finalizeBundlePostEuclid(batchHeader, lastProcessedQueueIndex, postStateRoot, withdrawRoot, aggrProof);
+        _finalizeBundlePostEuclidV2(batchHeader, lastProcessedQueueIndex, postStateRoot, withdrawRoot, aggrProof);
     }
 
     /// @inheritdoc IScrollChain
@@ -523,14 +509,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             }
         }
 
-        bytes32 batchHash = _commitBatchesPostEuclid(version, parentBatchHash, true);
+        bytes32 batchHash = _commitBatchesPostEuclidV2(version, parentBatchHash, true);
 
         if (batchHash != keccak256(finalizeStruct.batchHeader)) {
             revert ErrorIncorrectBatchHash();
         }
 
         // finalize with zk proof
-        _finalizeBundlePostEuclid(
+        _finalizeBundlePostEuclidV2(
             finalizeStruct.batchHeader,
             finalizeStruct.lastProcessedQueueIndex,
             finalizeStruct.postStateRoot,
@@ -785,7 +771,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (numTransactions != 0) revert ErrorV5BatchContainsTransactions();
     }
 
-    function _commitBatchesPostEuclid(
+    /// @dev Internal function to commit batches after Euclid fork.
+    /// @param version The version of batches (version >= 7).
+    /// @param parentBatchHash The hash of the parent batch.
+    /// @return batchHash The batch hash of the latest committed batch.
+    function _commitBatchesPostEuclidV2(
         uint8 version,
         bytes32 parentBatchHash,
         bool onlyOne
@@ -794,13 +784,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             // only accept version >= 7
             revert ErrorIncorrectBatchVersion();
         }
+
         uint256 lastCommittedBatchIndex = miscData.lastCommittedBatchIndex;
         if (parentBatchHash != committedBatches[lastCommittedBatchIndex]) {
             revert ErrorIncorrectBatchHash();
         }
         for (uint256 i = 0; ; i++) {
             bytes32 blobVersionedHash = _getBlobVersionedHash(i);
-            if (blobVersionedHash == bytes32(0)) break;
+            if (blobVersionedHash == bytes32(0)) {
+                if (i == 0) revert ErrorBatchIsEmpty();
+                break;
+            }
 
             lastCommittedBatchIndex += 1;
             // see comments in `src/libraries/codec/BatchHeaderV7Codec.sol` for encodings
@@ -824,7 +818,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         return parentBatchHash;
     }
 
-    function _finalizeBundlePostEuclid(
+    /// @dev Internal function to finalize bundle after Euclid fork.
+    /// @param batchHeader The header of last batch in current bundle.
+    /// @param lastProcessedQueueIndex The last messages queue index processed in this bundle.
+    /// @param postStateRoot The state root after current bundle.
+    /// @param withdrawRoot The withdraw trie root after current bundle.
+    /// @param aggrProof The aggregation proof for current bundle.
+    function _finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
         bytes32 postStateRoot,
