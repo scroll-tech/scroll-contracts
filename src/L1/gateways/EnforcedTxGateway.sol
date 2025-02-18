@@ -10,6 +10,8 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 
 import {IL1MessageQueueV2} from "../rollup/IL1MessageQueueV2.sol";
 
+import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol";
+
 // solhint-disable reason-string
 
 contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable, EIP712Upgradeable {
@@ -91,10 +93,13 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
         uint256 _gasLimit,
         bytes calldata _data
     ) external payable whenNotPaused {
-        // solhint-disable-next-line avoid-tx-origin
-        require(msg.sender == tx.origin, "Only EOA senders are allowed to send enforced transaction");
+        address sender = _msgSender();
+        if (sender != tx.origin) {
+            // alias smart contract account, consistent with message from L1ScrollMessenger.
+            sender = AddressAliasHelper.applyL1ToL2Alias(sender);
+        }
 
-        _sendTransaction(msg.sender, _target, _value, _gasLimit, _data, msg.sender);
+        _sendTransaction(sender, _target, _value, _gasLimit, _data, msg.sender);
     }
 
     /// @notice Add an enforced transaction to L2.

@@ -488,7 +488,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 parentBatchHash,
         FinalizeStruct calldata finalizeStruct
     ) external {
-        // we use BatchHeaderV3Codec for finalizeStruct.batchHeader
+        // we use BatchHeaderV7Codec for finalizeStruct.batchHeader
         ScrollChainMiscData memory cachedMiscData = miscData;
         if (!cachedMiscData.enforcedModeEnabled) {
             (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
@@ -504,6 +504,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 // reset `lastCommittedBatchIndex`
                 cachedMiscData.lastCommittedBatchIndex = uint64(miscData.lastFinalizedBatchIndex);
                 miscData = cachedMiscData;
+                emit EnterEnforcedBatchMode(cachedMiscData.lastCommittedBatchIndex);
             } else {
                 revert ErrorNotInEnforcedBatchMode();
             }
@@ -590,6 +591,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice Exit from enforced batch mode.
     function disableEnforcedBatch() external onlyOwner {
         miscData.enforcedModeEnabled = false;
+        emit ExitEnforcedBatchMode(miscData.lastCommittedBatchIndex);
     }
 
     /**********************

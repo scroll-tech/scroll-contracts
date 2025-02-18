@@ -41,6 +41,14 @@ interface IScrollChain {
     /// @param newMaxNumTxInChunk The new value of `maxNumTxInChunk`.
     event UpdateMaxNumTxInChunk(uint256 oldMaxNumTxInChunk, uint256 newMaxNumTxInChunk);
 
+    /// @notice Emitted when enter enforced batch mode.
+    /// @param lastCommittedBatchIndex The index of last committed batch.
+    event EnterEnforcedBatchMode(uint256 lastCommittedBatchIndex);
+
+    /// @notice Emitted when exit enforced batch mode.
+    /// @param lastCommittedBatchIndex The index of last committed batch.
+    event ExitEnforcedBatchMode(uint256 lastCommittedBatchIndex);
+
     /*************************
      * Public View Functions *
      *************************/
