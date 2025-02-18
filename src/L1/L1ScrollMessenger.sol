@@ -279,6 +279,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     }
 
     /// @inheritdoc IL1ScrollMessenger
+    /// @dev Since we don't skip any messages in `L1MessageQueueV2`, only messages from `L1MessageQueueV1` can be dropped.
     function dropMessage(
         address _from,
         address _to,
@@ -313,6 +314,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         // check message is skipped and drop it.
         // @note If the list is very long, the message may never be dropped.
         while (true) {
+            // If the `_lastIndex` is from `messageQueueV2`, it will revert in `messageQueueV1.dropCrossDomainMessage`.
             IL1MessageQueueV1(messageQueueV1).dropCrossDomainMessage(_lastIndex);
             _lastIndex = prevReplayIndex[_lastIndex];
             if (_lastIndex == 0) break;

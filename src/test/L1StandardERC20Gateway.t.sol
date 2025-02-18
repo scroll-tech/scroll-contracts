@@ -287,10 +287,10 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
 
         // skip message 0 and 1
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 2, 0x3);
-        messageQueue.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
-        assertEq(messageQueue.pendingQueueIndex(), 2);
+        messageQueueV1.popCrossDomainMessage(0, 2, 0x3);
+        messageQueueV1.finalizePoppedCrossDomainMessage(2);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 2);
+        assertEq(messageQueueV1.pendingQueueIndex(), 2);
         hevm.stopPrank();
 
         // drop message 1
@@ -490,7 +490,7 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
@@ -561,7 +561,7 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
@@ -633,7 +633,7 @@ contract L1StandardERC20GatewayTest is L1GatewayTestBase {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
 
         uint256 feeToPay = feePerGas * gasLimit;
         bytes memory message = abi.encodeWithSelector(
