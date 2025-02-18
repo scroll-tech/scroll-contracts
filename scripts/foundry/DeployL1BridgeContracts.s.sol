@@ -23,7 +23,7 @@ import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
-import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
+import {ZkEvmVerifierPostEuclid} from "../../src/libraries/verifier/ZkEvmVerifierPostEuclid.sol";
 
 // solhint-disable max-states-count
 // solhint-disable state-visibility
@@ -38,6 +38,8 @@ contract DeployL1BridgeContracts is Script {
     address L2_WETH_ADDR = vm.envAddress("L2_WETH_ADDR");
 
     address L1_PLONK_VERIFIER_ADDR = vm.envAddress("L1_PLONK_VERIFIER_ADDR");
+    bytes32 VERIFIER_DIGEST_1 = vm.envBytes32("VERIFIER_DIGEST_1");
+    bytes32 VERIFIER_DIGEST_2 = vm.envBytes32("VERIFIER_DIGEST_2");
 
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
 
@@ -55,7 +57,7 @@ contract DeployL1BridgeContracts is Script {
     address L2_SCROLL_STANDARD_ERC20_ADDR = vm.envAddress("L2_SCROLL_STANDARD_ERC20_ADDR");
     address L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR = vm.envAddress("L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR");
 
-    ZkEvmVerifierV1 zkEvmVerifierV1;
+    ZkEvmVerifierPostEuclid zkEvmVerifier;
     MultipleVersionRollupVerifier rollupVerifier;
     EnforcedTxGateway enforcedTxGateway;
     ProxyAdmin proxyAdmin;
@@ -66,7 +68,7 @@ contract DeployL1BridgeContracts is Script {
 
         vm.startBroadcast(L1_DEPLOYER_PRIVATE_KEY);
 
-        deployZkEvmVerifierV1();
+        deployZkEvmVerifier();
         deployMultipleVersionRollupVerifier();
         deployL1Whitelist();
         deployEnforcedTxGateway();
@@ -85,17 +87,17 @@ contract DeployL1BridgeContracts is Script {
         vm.stopBroadcast();
     }
 
-    function deployZkEvmVerifierV1() internal {
-        zkEvmVerifierV1 = new ZkEvmVerifierV1(L1_PLONK_VERIFIER_ADDR);
+    function deployZkEvmVerifier() internal {
+        zkEvmVerifier = new ZkEvmVerifierPostEuclid(L1_PLONK_VERIFIER_ADDR, VERIFIER_DIGEST_1, VERIFIER_DIGEST_2);
 
-        logAddress("L1_ZKEVM_VERIFIER_V1_ADDR", address(zkEvmVerifierV1));
+        logAddress("L1_ZKEVM_VERIFIER_V1_ADDR", address(zkEvmVerifier));
     }
 
     function deployMultipleVersionRollupVerifier() internal {
         uint256[] memory _versions = new uint256[](1);
         address[] memory _verifiers = new address[](1);
-        _versions[0] = 0;
-        _verifiers[0] = address(zkEvmVerifierV1);
+        _versions[0] = 6;
+        _verifiers[0] = address(zkEvmVerifier);
         rollupVerifier = new MultipleVersionRollupVerifier(_versions, _verifiers);
 
         logAddress("L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR", address(rollupVerifier));
