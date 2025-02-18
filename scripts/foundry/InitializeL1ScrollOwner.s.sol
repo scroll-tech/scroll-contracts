@@ -48,7 +48,8 @@ contract InitializeL1ScrollOwner is Script {
     address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
-    address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V1_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
     address L2_GAS_PRICE_ORACLE_PROXY_ADDR = vm.envAddress("L2_GAS_PRICE_ORACLE_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
     address L1_GATEWAY_ROUTER_PROXY_ADDR = vm.envAddress("L1_GATEWAY_ROUTER_PROXY_ADDR");
@@ -101,7 +102,8 @@ contract InitializeL1ScrollOwner is Script {
         Ownable(L1_PROXY_ADMIN_ADDR).transferOwnership(address(owner));
         Ownable(L1_SYSTEM_CONFIG_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_CHAIN_PROXY_ADDR).transferOwnership(address(owner));
-        Ownable(L1_MESSAGE_QUEUE_PROXY_ADDR).transferOwnership(address(owner));
+        Ownable(L1_MESSAGE_QUEUE_V1_PROXY_ADDR).transferOwnership(address(owner));
+        Ownable(L1_MESSAGE_QUEUE_V2_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_MESSENGER_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L2_GAS_PRICE_ORACLE_PROXY_ADDR).transferOwnership(address(owner));
@@ -192,7 +194,9 @@ contract InitializeL1ScrollOwner is Script {
         _selectors = new bytes4[](2);
         _selectors[0] = L1MessageQueueV1.updateGasOracle.selector;
         _selectors[1] = L1MessageQueueV1.updateMaxGasLimit.selector;
-        owner.updateAccess(L1_MESSAGE_QUEUE_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
+        owner.updateAccess(L1_MESSAGE_QUEUE_V1_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
+
+        // no owner methods for V2
     }
 
     function configL1ScrollMessenger() internal {
