@@ -167,7 +167,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @inheritdoc IL1MessageQueueV2
     function estimatedL2BaseFee() public view returns (uint256) {
         (, uint256 overhead, uint256 scalar) = SystemConfig(systemConfig).messageQueueParameters();
-        // this is unlikely to happen, use unchecked here
+        // this is unlikely to overflow, use unchecked here
         unchecked {
             return (block.basefee * scalar) / PRECISION + overhead;
         }

@@ -18,6 +18,7 @@ import {ScrollMessengerBase} from "../../src/libraries/ScrollMessengerBase.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
 import {ScrollOwner} from "../../src/misc/ScrollOwner.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 
@@ -44,6 +45,7 @@ contract InitializeL1ScrollOwner is Script {
     address L1_7D_TIMELOCK_ADDR = vm.envAddress("L1_7D_TIMELOCK_ADDR");
     address L1_14D_TIMELOCK_ADDR = vm.envAddress("L1_14D_TIMELOCK_ADDR");
 
+    address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
     address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
@@ -74,6 +76,7 @@ contract InitializeL1ScrollOwner is Script {
 
         // @note we don't config 14D access, since the default admin is a 14D timelock which can access all methods.
         configProxyAdmin();
+        configSystemConfig();
         configScrollChain();
         configL1MessageQueue();
         configL1ScrollMessenger();
@@ -96,6 +99,7 @@ contract InitializeL1ScrollOwner is Script {
 
     function transferOwnership() internal {
         Ownable(L1_PROXY_ADMIN_ADDR).transferOwnership(address(owner));
+        Ownable(L1_SYSTEM_CONFIG_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_CHAIN_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_MESSAGE_QUEUE_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_MESSENGER_PROXY_ADDR).transferOwnership(address(owner));
@@ -136,12 +140,33 @@ contract InitializeL1ScrollOwner is Script {
         owner.updateAccess(L1_PROXY_ADMIN_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
     }
 
+    function configSystemConfig() internal {
+        bytes4[] memory _selectors;
+
+        // no delay, security council
+        _selectors = new bytes4[](1);
+        _selectors[0] = SystemConfig.updateEnforcedBatchParameters.selector;
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
+
+        // no delay, Scroll multisig
+        _selectors = new bytes4[](2);
+        _selectors[0] = SystemConfig.updateMessageQueueParameters.selector;
+        _selectors[1] = SystemConfig.updateSigner.selector;
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SCROLL_MULTISIG_NO_DELAY_ROLE, true);
+    }
+
     function configScrollChain() internal {
         bytes4[] memory _selectors;
 
+        // no delay, security council
+        _selectors = new bytes4[](1);
+        _selectors[0] = ScrollChain.disableEnforcedBatch.selector;
+        // note: finalizeEuclidInitialBatch is removed in phase-2
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
+
         // no delay, scroll multisig and emergency multisig
         _selectors = new bytes4[](4);
-        _selectors[0] = ScrollChain.revertBatch.selector;
+        _selectors[0] = ScrollChain.revertBatch.selector; // new selector!
         _selectors[1] = ScrollChain.removeSequencer.selector;
         _selectors[2] = ScrollChain.removeProver.selector;
         _selectors[3] = ScrollChain.setPause.selector;

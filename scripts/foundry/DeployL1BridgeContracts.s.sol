@@ -16,6 +16,8 @@ import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
 import {L1ETHGateway} from "../../src/L1/gateways/L1ETHGateway.sol";
 import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
 import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
+import {L1MessageQueueV2} from "../../src/L1/rollup/L1MessageQueueV2.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
 import {L1ScrollMessenger} from "../../src/L1/L1ScrollMessenger.sol";
 import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gateway.sol";
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
@@ -42,8 +44,10 @@ contract DeployL1BridgeContracts is Script {
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
 
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
-    address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V1_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
+    address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
 
     address L2_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L2_SCROLL_MESSENGER_PROXY_ADDR");
     address L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR = vm.envAddress("L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR");
@@ -69,6 +73,7 @@ contract DeployL1BridgeContracts is Script {
         deployZkEvmVerifierV1();
         deployMultipleVersionRollupVerifier();
         deployL1Whitelist();
+        deploySystemConfig();
         deployEnforcedTxGateway();
         deployL1MessageQueue();
         deployL2GasPriceOracle();
@@ -108,33 +113,47 @@ contract DeployL1BridgeContracts is Script {
         logAddress("L1_WHITELIST_ADDR", address(whitelist));
     }
 
+    function deploySystemConfig() internal {
+        SystemConfig sysConfig = new SystemConfig();
+        logAddress("L1_SYSTEM_CONFIG_IMPLEMENTATION_ADDR", address(sysConfig));
+    }
+
     function deployScrollChain() internal {
         ScrollChain impl = new ScrollChain(
             CHAIN_ID_L2,
-            L1_MESSAGE_QUEUE_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
             address(rollupVerifier),
-            address(0)
+            L1_SYSTEM_CONFIG_PROXY_ADDR
         );
 
         logAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR", address(impl));
     }
 
     function deployL1MessageQueue() internal {
-        L1MessageQueueV1WithGasPriceOracle impl = new L1MessageQueueV1WithGasPriceOracle(
+        L1MessageQueueV1WithGasPriceOracle v1_impl = new L1MessageQueueV1WithGasPriceOracle(
             L1_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             address(enforcedTxGateway)
         );
-        logAddress("L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR", address(impl));
+        logAddress("L1_MESSAGE_QUEUE_V1_IMPLEMENTATION_ADDR", address(v1_impl));
+
+        L1MessageQueueV2 v2_impl = new L1MessageQueueV2(
+            L1_SCROLL_MESSENGER_PROXY_ADDR,
+            L1_SCROLL_CHAIN_PROXY_ADDR,
+            address(enforcedTxGateway),
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_SYSTEM_CONFIG_PROXY_ADDR
+        );
+        logAddress("L1_MESSAGE_QUEUE_V2_IMPLEMENTATION_ADDR", address(v2_impl));
     }
 
     function deployL1ScrollMessenger() internal {
         L1ScrollMessenger impl = new L1ScrollMessenger(
             L2_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_PROXY_ADDR
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR
         );
 
         logAddress("L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR", address(impl));
