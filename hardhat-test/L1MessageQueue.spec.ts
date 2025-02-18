@@ -1,56 +1,31 @@
 /* eslint-disable node/no-unpublished-import */
 /* eslint-disable node/no-missing-import */
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 
-import { L1MessageQueueV1, L2GasPriceOracle } from "../typechain";
-import { MaxUint256, ZeroAddress, concat, encodeRlp, hexlify, keccak256, randomBytes, toBeHex } from "ethers";
+import { L1MessageQueueV1, L1MessageQueueV2 } from "../typechain";
+import { MaxUint256, concat, encodeRlp, hexlify, keccak256, randomBytes, toBeHex } from "ethers";
 
 describe("L1MessageQueue", async () => {
-  let deployer: HardhatEthersSigner;
-  let scrollChain: HardhatEthersSigner;
-  let messenger: HardhatEthersSigner;
-  let gateway: HardhatEthersSigner;
-
-  let oracle: L2GasPriceOracle;
-  let queue: L1MessageQueueV1;
-
-  const deployProxy = async (name: string, admin: string, args: any[]): Promise<string> => {
-    const TransparentUpgradeableProxy = await ethers.getContractFactory("TransparentUpgradeableProxy", deployer);
-    const Factory = await ethers.getContractFactory(name, deployer);
-    const impl = args.length > 0 ? await Factory.deploy(...args) : await Factory.deploy();
-    const proxy = await TransparentUpgradeableProxy.deploy(impl.getAddress(), admin, "0x");
-    return proxy.getAddress();
-  };
+  let queueV1: L1MessageQueueV1;
+  let queueV2: L1MessageQueueV2;
 
   beforeEach(async () => {
-    [deployer, scrollChain, messenger, gateway] = await ethers.getSigners();
+    const [deployer, scrollChain, messenger, gateway, system] = await ethers.getSigners();
 
-    const ProxyAdmin = await ethers.getContractFactory("ProxyAdmin", deployer);
-    const admin = await ProxyAdmin.deploy();
-
-    queue = await ethers.getContractAt(
-      "L1MessageQueueV1",
-      await deployProxy("L1MessageQueueV1", await admin.getAddress(), [
-        messenger.address,
-        scrollChain.address,
-        gateway.address,
-      ]),
-      deployer
+    const L1MessageQueueV1 = await ethers.getContractFactory("L1MessageQueueV1", deployer);
+    const L1MessageQueueV2 = await ethers.getContractFactory("L1MessageQueueV2", deployer);
+    queueV1 = await L1MessageQueueV1.deploy(messenger.address, scrollChain.address, gateway.address);
+    queueV2 = await L1MessageQueueV2.deploy(
+      messenger.address,
+      scrollChain.address,
+      gateway.address,
+      queueV1.getAddress(),
+      system.address
     );
-
-    oracle = await ethers.getContractAt(
-      "L2GasPriceOracle",
-      await deployProxy("L2GasPriceOracle", await admin.getAddress(), []),
-      deployer
-    );
-
-    await oracle.initialize(21000, 50000, 8, 16);
-    await queue.initialize(messenger.address, scrollChain.address, ZeroAddress, oracle.getAddress(), 10000000);
   });
 
-  // other functions are tested in `src/test/L1MessageQueue.t.sol`
+  // other functions are tested in `src/test/L1MessageQueueV1.t.sol` and `src/test/L1MessageQueueV2.t.sol`
   context("#computeTransactionHash", async () => {
     it("should succeed", async () => {
       const sender = "0xb2a70fab1a45b1b9be443b6567849a1702bc1232";
@@ -78,12 +53,28 @@ describe("L1MessageQueue", async () => {
                 ]);
                 const payload = concat([transactionType, transactionPayload]);
                 const expectedHash = keccak256(payload);
-                const computedHash = await queue.computeTransactionHash(sender, nonce, value, target, gasLimit, data);
-                if (computedHash !== expectedHash) {
+                const computedHashV1 = await queueV1.computeTransactionHash(
+                  sender,
+                  nonce,
+                  value,
+                  target,
+                  gasLimit,
+                  data
+                );
+                const computedHashV2 = await queueV2.computeTransactionHash(
+                  sender,
+                  nonce,
+                  value,
+                  target,
+                  gasLimit,
+                  data
+                );
+                if (computedHashV1 !== expectedHash || computedHashV2 !== expectedHash) {
                   console.log(hexlify(transactionPayload));
                   console.log(nonce, gasLimit, target, value, data, sender);
                 }
-                expect(expectedHash).to.eq(computedHash);
+                expect(expectedHash).to.eq(computedHashV1);
+                expect(expectedHash).to.eq(computedHashV2);
               }
             }
           }
