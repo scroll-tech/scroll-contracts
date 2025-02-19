@@ -8,22 +8,24 @@ contract SystemConfig is OwnableUpgradeable {
      * Structs *
      ***********/
 
-    /// @notice Parameters for message queue. The compiler will pack this struct into single `bytes32`.
+    /// @notice Parameters for the message queue.
     /// @param maxGasLimit The maximum gas limit allowed for each L1 message.
     /// @param baseFeeOverhead The overhead used to calculate l2 base fee.
     /// @param baseFeeScalar The scalar used to calculate l2 base fee.
+    /// @dev The compiler will pack this struct into single `bytes32`.
     struct MessageQueueParameters {
         uint32 maxGasLimit;
         uint112 baseFeeOverhead;
         uint112 baseFeeScalar;
     }
 
-    /// @notice Parameters for enforced batch. The compiler will pack this struct into single `bytes32`.
+    /// @notice Parameters for the enforced batch mode.
     /// @param maxDelayEnterEnforcedMode If no batch has been finalized for `maxDelayEnterEnforcedMode`,
     ///        batch submission becomes permissionless. Anyone can submit a batch together with a proof.
     /// @param maxDelayMessageQueue If message not included/finalized for `maxDelayMessageQueue`, the
     ///        operator can not finalize any more batches until including those messages. If it continues
     ///        to censor messages permissionless mode will eventually activate.
+    /// @dev The compiler will pack this struct into single `bytes32`.
     struct EnforcedBatchParameters {
         uint24 maxDelayEnterEnforcedMode;
         uint24 maxDelayMessageQueue;
@@ -33,13 +35,13 @@ contract SystemConfig is OwnableUpgradeable {
      * Storage Variables *
      *********************/
 
-    /// @notice The parameters for message queue.
+    /// @notice The parameters for the message queue.
     MessageQueueParameters public messageQueueParameters;
 
-    /// @notice The parameters for enforced batches.
+    /// @notice The parameters for the enforced batch mode.
     EnforcedBatchParameters public enforcedBatchParameters;
 
-    /// @dev The address of current authorized signer.
+    /// @dev The address of the current authorized signer.
     address private currentSigner;
 
     /***************
@@ -80,19 +82,21 @@ contract SystemConfig is OwnableUpgradeable {
 
     /// @notice Update the message queue parameters.
     /// @param _params The new message queue parameters.
+    /// @dev Only the owner can call this function.
     function updateMessageQueueParameters(MessageQueueParameters memory _params) external onlyOwner {
         messageQueueParameters = _params;
     }
 
     /// @notice Update the enforced batch parameters.
     /// @param _params The new enforced batch parameters.
+    /// @dev Only the owner can call this function.
     function updateEnforcedBatchParameters(EnforcedBatchParameters memory _params) external onlyOwner {
         enforcedBatchParameters = _params;
     }
 
     /// @notice Update the current signer.
-    /// @dev Only the owner can call this function.
     /// @param _newSigner The address of the new authorized signer.
+    /// @dev Only the owner can call this function.
     function updateSigner(address _newSigner) external onlyOwner {
         currentSigner = _newSigner;
     }

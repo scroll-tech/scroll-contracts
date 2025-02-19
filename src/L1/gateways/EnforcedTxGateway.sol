@@ -38,10 +38,10 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
      * Variables *
      *************/
 
-    /// @notice The address of L1MessageQueue contract.
+    /// @notice The address of `L1MessageQueueV2`.
     address public messageQueue;
 
-    /// @notice The address of fee vault contract.
+    /// @notice The address of `FeeVault`.
     address public feeVault;
 
     /// @notice Mapping from EOA address to current nonce.
