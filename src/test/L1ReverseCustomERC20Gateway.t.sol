@@ -157,11 +157,11 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
 
         // finalize message 0
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 1, 0);
-        messageQueue.finalizePoppedCrossDomainMessage(1);
+        messageQueueV1.popCrossDomainMessage(0, 1, 0);
+        messageQueueV1.finalizePoppedCrossDomainMessage(1);
         hevm.stopPrank();
-        assertEq(messageQueue.pendingQueueIndex(), 1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
+        assertEq(messageQueueV1.pendingQueueIndex(), 1);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 1);
 
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
         bytes memory message = abi.encodeWithSelector(
@@ -177,10 +177,10 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
 
         // skip message 1
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(1, 1, 0x1);
-        messageQueue.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueue.pendingQueueIndex(), 2);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
+        messageQueueV1.popCrossDomainMessage(1, 1, 0x1);
+        messageQueueV1.finalizePoppedCrossDomainMessage(2);
+        assertEq(messageQueueV1.pendingQueueIndex(), 2);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 2);
         hevm.stopPrank();
 
         // drop message 1
@@ -273,7 +273,7 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         feePerGas = feePerGas * gasLimit;
 
         // revert when reentrant
@@ -318,7 +318,7 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
         );
 
         gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
-        uint64 nonce = uint64(messageQueue.nextCrossDomainMessageIndex());
+        uint64 nonce = uint64(messageQueueV2.nextCrossDomainMessageIndex());
 
         // revert when deposit zero amount
         hevm.expectRevert("deposit zero amount");

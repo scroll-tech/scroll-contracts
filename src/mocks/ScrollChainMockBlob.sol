@@ -5,7 +5,8 @@ pragma solidity =0.8.24;
 import {ScrollChain} from "../L1/rollup/ScrollChain.sol";
 
 contract ScrollChainMockBlob is ScrollChain {
-    bytes32 blobVersionedHash;
+    mapping(uint256 => bytes32) private blobhashes;
+
     bool overrideBatchHashCheck;
 
     /***************
@@ -16,15 +17,16 @@ contract ScrollChainMockBlob is ScrollChain {
         uint64 _chainId,
         address _messageQueueV1,
         address _messageQueueV2,
-        address _verifier
-    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, address(0)) {}
+        address _verifier,
+        address _system
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, address(_system)) {}
 
     /**********************
      * Internal Functions *
      **********************/
 
-    function setBlobVersionedHash(bytes32 _blobVersionedHash) external {
-        blobVersionedHash = _blobVersionedHash;
+    function setBlobVersionedHash(uint256 index, bytes32 _blobVersionedHash) external {
+        blobhashes[index] = _blobVersionedHash;
     }
 
     function setLastFinalizedBatchIndex(uint256 index) external {
@@ -44,7 +46,11 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function _getBlobVersionedHash() internal virtual override returns (bytes32 _blobVersionedHash) {
-        _blobVersionedHash = blobVersionedHash;
+        _blobVersionedHash = blobhashes[0];
+    }
+
+    function _getBlobVersionedHash(uint256 index) internal virtual override returns (bytes32 _blobVersionedHash) {
+        _blobVersionedHash = blobhashes[index];
     }
 
     /// @dev Internal function to load batch header from calldata to memory.

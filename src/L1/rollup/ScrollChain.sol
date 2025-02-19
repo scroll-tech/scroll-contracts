@@ -408,16 +408,18 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     /// @dev This function cannot revert V6 and V7 batches in the same time, so we will assume all batches is V7.
     /// If we need to revert V6 batches, we can downgrade the contract to previous version and call this function.
+    /// @dev Since during commit batch, we only store last batch hash into storage. We cannot revert intermediate batches.
+    /// The parameter `batchHeader` is the last batch we want to keep.
     function revertBatch(bytes calldata batchHeader) external onlyOwner {
         (uint256 batchPtr, , uint256 startBatchIndex, ) = _loadBatchHeader(batchHeader);
         // only revert v7 batches
         if (BatchHeaderV0Codec.getVersion(batchPtr) < 7) revert ErrorIncorrectBatchVersion();
         // check finalization
-        if (startBatchIndex <= miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
+        if (startBatchIndex < miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
         uint256 lastBatchIndex = miscData.lastCommittedBatchIndex;
-        for (uint256 _batchIndex = lastBatchIndex; _batchIndex >= startBatchIndex; --_batchIndex) {
+        for (uint256 _batchIndex = lastBatchIndex; _batchIndex > startBatchIndex; --_batchIndex) {
             bytes32 _batchHash = committedBatches[_batchIndex];
             committedBatches[_batchIndex] = bytes32(0);
 
@@ -425,7 +427,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         // update `lastCommittedBatchIndex`
-        miscData.lastCommittedBatchIndex = uint64(startBatchIndex - 1);
+        miscData.lastCommittedBatchIndex = uint64(startBatchIndex);
     }
 
     /// @inheritdoc IScrollChain

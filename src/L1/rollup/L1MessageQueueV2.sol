@@ -100,16 +100,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     uint256 public nextUnfinalizedQueueIndex;
 
     /// @dev The storage slots for future usage.
-    uint256[45] private __gap;
-
-    /**********************
-     * Function Modifiers *
-     **********************/
-
-    modifier onlyScrollChain() {
-        require(_msgSender() == scrollChain, "Only callable by the ScrollChain");
-        _;
-    }
+    uint256[46] private __gap;
 
     /***************
      * Constructor *
@@ -165,9 +156,15 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     }
 
     /// @inheritdoc IL1MessageQueueV2
+    function getMessageEnqueueTimestamp(uint256 queueIndex) external view returns (uint256 timestamp) {
+        (, timestamp) = _loadAndDecodeRollingHash(queueIndex);
+    }
+
+    /// @inheritdoc IL1MessageQueueV2
     function estimatedL2BaseFee() public view returns (uint256) {
         (, uint256 overhead, uint256 scalar) = SystemConfig(systemConfig).messageQueueParameters();
-        // this is unlikely to overflow, use unchecked here
+        // this is unlikely to overflow, use unchecked here. It is because the type of `overhead` and `scalar`
+        // is `uint112` and `block.basefee` usually won't exceed `uint112`.
         unchecked {
             return (block.basefee * scalar) / PRECISION + overhead;
         }
@@ -355,8 +352,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     }
 
     /// @inheritdoc IL1MessageQueueV2
-    function finalizePoppedCrossDomainMessage(uint256 _nextUnfinalizedQueueIndex) external onlyScrollChain {
-        if (_msgSender() != enforcedTxGateway) revert ErrorCallerIsNotScrollChain();
+    function finalizePoppedCrossDomainMessage(uint256 _nextUnfinalizedQueueIndex) external {
+        if (_msgSender() != scrollChain) revert ErrorCallerIsNotScrollChain();
 
         uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
         if (_nextUnfinalizedQueueIndex == cachedFinalizedQueueIndexPlusOne) return;

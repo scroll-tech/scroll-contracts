@@ -13,8 +13,9 @@ contract ScrollChainMockFinalize is ScrollChain {
         uint64 _chainId,
         address _messageQueueV1,
         address _messageQueueV2,
-        address _verifier
-    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, address(0)) {}
+        address _verifier,
+        address _system
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, _system) {}
 
     /*****************************
      * Public Mutating Functions *
@@ -36,7 +37,7 @@ contract ScrollChainMockFinalize is ScrollChain {
         _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, true);
     }
 
-    function finalizeBundlePostEuclid(
+    function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
         bytes32 postStateRoot,

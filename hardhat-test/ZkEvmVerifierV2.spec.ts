@@ -99,7 +99,8 @@ describe("ZkEvmVerifierV2", async () => {
           layer2ChainId,
           deployer.address,
           deployer.address,
-          verifier.getAddress()
+          verifier.getAddress(),
+          deployer.address
         );
         await admin.upgrade(chainProxy.getAddress(), chainImpl.getAddress());
 

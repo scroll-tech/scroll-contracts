@@ -45,6 +45,10 @@ interface IL1MessageQueueV2 {
     /// @param queueIndex The index to query.
     function getMessageRollingHash(uint256 queueIndex) external view returns (bytes32);
 
+    /// @notice Return the message enqueue timestamp of in `queueIndex`.
+    /// @param queueIndex The index to query.
+    function getMessageEnqueueTimestamp(uint256 queueIndex) external view returns (uint256);
+
     /// @notice Return the first unfinalized message enqueue timestamp.
     function getFirstUnfinalizedMessageEnqueueTime() external view returns (uint256);
 

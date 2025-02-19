@@ -85,13 +85,13 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
                     address(counterpartBatch),
                     address(router),
                     address(l1Messenger),
-                    address(messageQueue)
+                    address(messageQueueV2)
                 )
             )
         );
         batch.initialize(batchFeeVault);
         router.initialize(address(0), address(gateway));
-        messageQueue.setL2BaseFee(L2_GAS_PRICE);
+        setL2BaseFee(L2_GAS_PRICE);
 
         // Prepare token balances
         l1Token.mint(address(this), type(uint128).max);
@@ -104,7 +104,7 @@ contract L1BatchBridgeGatewayTest is L1GatewayTestBase {
         assertEq(address(counterpartBatch), batch.counterpart());
         assertEq(address(router), batch.router());
         assertEq(address(l1Messenger), batch.messenger());
-        assertEq(address(messageQueue), batch.queue());
+        assertEq(address(messageQueueV2), batch.queue());
 
         hevm.expectRevert("Initializable: contract is already initialized");
         batch.initialize(address(0));
