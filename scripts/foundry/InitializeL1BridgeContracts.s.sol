@@ -18,6 +18,8 @@ import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersion
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {L1MessageQueueV1} from "../../src/L1/rollup/L1MessageQueueV1.sol";
 import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
+import {L1MessageQueueV2} from "../../src/L1/rollup/L1MessageQueueV2.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {EnforcedTxGateway} from "../../src/L1/gateways/EnforcedTxGateway.sol";
 
@@ -31,6 +33,9 @@ contract InitializeL1BridgeContracts is Script {
     uint256 CHAIN_ID_L2 = vm.envUint("CHAIN_ID_L2");
     uint256 MAX_TX_IN_CHUNK = vm.envUint("MAX_TX_IN_CHUNK");
     uint256 MAX_L1_MESSAGE_GAS_LIMIT = vm.envUint("MAX_L1_MESSAGE_GAS_LIMIT");
+    uint256 FINALIZE_BATCH_DEADLINE_SEC = vm.envUint("FINALIZE_BATCH_DEADLINE_SEC");
+    uint256 RELAY_MESSAGE_DEADLINE_SEC = vm.envUint("RELAY_MESSAGE_DEADLINE_SEC");
+    address L2GETH_SIGNER_ADDRESS = vm.envAddress("L2GETH_SIGNER_ADDRESS");
     address L1_COMMIT_SENDER_ADDRESS = vm.envAddress("L1_COMMIT_SENDER_ADDRESS");
     address L1_FINALIZE_SENDER_ADDRESS = vm.envAddress("L1_FINALIZE_SENDER_ADDRESS");
     address L1_FEE_VAULT_ADDR = vm.envAddress("L1_FEE_VAULT_ADDR");
@@ -41,8 +46,12 @@ contract InitializeL1BridgeContracts is Script {
     address L1_WHITELIST_ADDR = vm.envAddress("L1_WHITELIST_ADDR");
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
     address L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR = vm.envAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR");
-    address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
-    address L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR");
+    address L1_MESSAGE_QUEUE_V1_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V1_IMPLEMENTATION_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_IMPLEMENTATION_ADDR");
+    address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V2_IMPLEMENTATION_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_IMPLEMENTATION_ADDR");
+    address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
+    address L1_SYSTEM_CONFIG_IMPLEMENTATION_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_IMPLEMENTATION_ADDR");
     address L2_GAS_PRICE_ORACLE_PROXY_ADDR = vm.envAddress("L2_GAS_PRICE_ORACLE_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR");
@@ -81,6 +90,26 @@ contract InitializeL1BridgeContracts is Script {
         // note: we use call upgrade(...) and initialize(...) instead of upgradeAndCall(...),
         // otherwise the contract owner would become ProxyAdmin.
 
+        // initialize system config
+        proxyAdmin.upgrade(
+            ITransparentUpgradeableProxy(L1_SYSTEM_CONFIG_PROXY_ADDR),
+            L1_SYSTEM_CONFIG_IMPLEMENTATION_ADDR
+        );
+
+        SystemConfig(L1_SYSTEM_CONFIG_PROXY_ADDR).initialize(
+            vm.addr(L1_DEPLOYER_PRIVATE_KEY),
+            L2GETH_SIGNER_ADDRESS,
+            SystemConfig.MessageQueueParameters({
+                maxGasLimit: uint32(MAX_L1_MESSAGE_GAS_LIMIT),
+                baseFeeOverhead: 1000000000,
+                baseFeeScalar: 1000000000
+            }),
+            SystemConfig.EnforcedBatchParameters({
+                maxDelayEnterEnforcedMode: uint24(FINALIZE_BATCH_DEADLINE_SEC),
+                maxDelayMessageQueue: uint24(RELAY_MESSAGE_DEADLINE_SEC)
+            })
+        );
+
         // initialize ScrollChain
         proxyAdmin.upgrade(
             ITransparentUpgradeableProxy(L1_SCROLL_CHAIN_PROXY_ADDR),
@@ -88,10 +117,12 @@ contract InitializeL1BridgeContracts is Script {
         );
 
         ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).initialize(
-            L1_MESSAGE_QUEUE_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR, // not used
             L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR,
             MAX_TX_IN_CHUNK
         );
+
+        ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).initializeV2();
 
         ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).addSequencer(L1_COMMIT_SENDER_ADDRESS);
         ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).addProver(L1_FINALIZE_SENDER_ADDRESS);
@@ -107,11 +138,11 @@ contract InitializeL1BridgeContracts is Script {
 
         // initialize L1MessageQueueV1WithGasPriceOracle
         proxyAdmin.upgrade(
-            ITransparentUpgradeableProxy(L1_MESSAGE_QUEUE_PROXY_ADDR),
-            L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR
+            ITransparentUpgradeableProxy(L1_MESSAGE_QUEUE_V1_PROXY_ADDR),
+            L1_MESSAGE_QUEUE_V1_IMPLEMENTATION_ADDR
         );
 
-        L1MessageQueueV1WithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initialize(
+        L1MessageQueueV1WithGasPriceOracle(L1_MESSAGE_QUEUE_V1_PROXY_ADDR).initialize(
             L1_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             L1_ENFORCED_TX_GATEWAY_PROXY_ADDR,
@@ -119,7 +150,13 @@ contract InitializeL1BridgeContracts is Script {
             MAX_L1_MESSAGE_GAS_LIMIT
         );
 
-        L1MessageQueueV1WithGasPriceOracle(L1_MESSAGE_QUEUE_PROXY_ADDR).initializeV2();
+        // initialize L1MessageQueueV2
+        proxyAdmin.upgrade(
+            ITransparentUpgradeableProxy(L1_MESSAGE_QUEUE_V2_PROXY_ADDR),
+            L1_MESSAGE_QUEUE_V2_IMPLEMENTATION_ADDR
+        );
+
+        L1MessageQueueV2(L1_MESSAGE_QUEUE_V2_PROXY_ADDR).initialize();
 
         // initialize L1ScrollMessenger
         proxyAdmin.upgrade(
@@ -131,12 +168,12 @@ contract InitializeL1BridgeContracts is Script {
             L2_SCROLL_MESSENGER_PROXY_ADDR,
             L1_FEE_VAULT_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_PROXY_ADDR
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR // not used anymore
         );
 
         // initialize EnforcedTxGateway
         EnforcedTxGateway(payable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR)).initialize(
-            L1_MESSAGE_QUEUE_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
             L1_FEE_VAULT_ADDR
         );
 
