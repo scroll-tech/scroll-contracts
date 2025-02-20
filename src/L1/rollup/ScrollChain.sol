@@ -139,25 +139,27 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice The chain id of the corresponding layer 2 chain.
     uint64 public immutable layer2ChainId;
 
-    /// @notice The address of L1MessageQueue contract.
+    /// @notice The address of `L1MessageQueueV1`.
     address public immutable messageQueueV1;
 
-    /// @notice The address of L1MessageQueue contract.
+    /// @notice The address of `L1MessageQueueV2`.
     address public immutable messageQueueV2;
 
-    /// @notice The address of RollupVerifier.
+    /// @notice The address of `MultipleVersionRollupVerifier`.
     address public immutable verifier;
 
-    /// @notice The address of `SystemConfig` contract.
+    /// @notice The address of `SystemConfig`.
     address public immutable systemConfig;
 
     /***********
      * Structs *
      ***********/
 
-    /// @param lastCommittedBatchIndex The index of last committed batch.
-    /// @param lastFinalizedBatchIndex The index of last finalized batch.
-    /// @param lastFinalizeTimestamp The timestamp of last finalization, `32` bits works until `Feb 07 2106 06:28:15 GMT+0000`.
+    /// @param lastCommittedBatchIndex The index of the last committed batch.
+    /// @param lastFinalizedBatchIndex The index of the last finalized batch.
+    /// @param lastFinalizeTimestamp The timestamp of the last finalize transaction.
+    /// @param enforcedModeEnabled True if permissionless mode is enabled, false otherwise.
+    /// @dev We use `32` bits for the timestamp, which works until `Feb 07 2106 06:28:15 GMT+0000`.
     struct ScrollChainMiscData {
         uint64 lastCommittedBatchIndex;
         uint64 lastFinalizedBatchIndex;
@@ -229,9 +231,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @notice Constructor for `ScrollChain` implementation contract.
     ///
     /// @param _chainId The chain id of L2.
-    /// @param _messageQueueV1 The address of `L1MessageQueueV1` contract.
-    /// @param _messageQueueV2 The address of `L1MessageQueueV2` contract.
-    /// @param _verifier The address of zkevm verifier contract.
+    /// @param _messageQueueV1 The address of `L1MessageQueueV1`.
+    /// @param _messageQueueV2 The address of `L1MessageQueueV2`.
+    /// @param _verifier The address of `MultipleVersionRollupVerifier`.
+    /// @param _systemConfig The address of `SystemConfig`.
     constructor(
         uint64 _chainId,
         address _messageQueueV1,
@@ -239,7 +242,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         address _verifier,
         address _systemConfig
     ) {
-        if (_messageQueueV1 == address(0) || _messageQueueV2 == address(0) || _verifier == address(0)) {
+        if (
+            _messageQueueV1 == address(0) ||
+            _messageQueueV2 == address(0) ||
+            _verifier == address(0) ||
+            _systemConfig == address(0)
+        ) {
             revert ErrorZeroAddress();
         }
 
@@ -254,7 +262,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @notice Initialize the storage of ScrollChain.
     ///
-    /// @dev The parameters `_messageQueue` are no longer used.
+    /// @dev The parameters `_messageQueue` and `_verifier` are no longer used.
     ///
     /// @param _messageQueue The address of `L1MessageQueue` contract.
     /// @param _verifier The address of zkevm verifier contract.
@@ -354,7 +362,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// in `L1MessageQueue`. If one of V0/V1/V2 batches not finalized, `L1MessageQueue.pendingQueueIndex` will not
     /// match `parentBatchHeader.totalL1MessagePopped` and thus revert.
     ///
-    /// @dev This function now only accept batches with version >= 4. And for `_version=5`, we should make sure this
+    /// @dev This function now only accept batches with 4 <= version <= 6. And for `_version=5`, we should make sure this
     /// batch contains only one empty block, since it is the Euclid initial batch for zkt/mpt transition.
     function commitBatchWithBlobProof(
         uint8 _version,
@@ -406,9 +414,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    /// @dev This function cannot revert V6 and V7 batches in the same time, so we will assume all batches is V7.
-    /// If we need to revert V6 batches, we can downgrade the contract to previous version and call this function.
-    /// @dev Since during commit batch, we only store last batch hash into storage. We cannot revert intermediate batches.
+    /// @dev This function cannot revert V6 and V7 batches at the same time, so we will assume all batches are V7.
+    /// If we need to revert V6 batches, we can downgrade the contract to the previous version and call this function.
+    /// @dev During commit batch we only store the last batch hash into storage. As a result, we cannot revert intermediate batches.
     /// The parameter `batchHeader` is the last batch we want to keep.
     function revertBatch(bytes calldata batchHeader) external onlyOwner {
         (uint256 batchPtr, , uint256 startBatchIndex, ) = _loadBatchHeader(batchHeader);
@@ -501,7 +509,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 lastUnfinalizedMessageTime + maxDelayMessageQueue < block.timestamp ||
                 cachedMiscData.lastFinalizeTimestamp + maxDelayEnterEnforcedMode < block.timestamp
             ) {
-                // explicit set enforce batch enable
+                // explicitly set enforce batch enabled
                 cachedMiscData.enforcedModeEnabled = true;
                 // reset `lastCommittedBatchIndex`
                 cachedMiscData.lastCommittedBatchIndex = uint64(miscData.lastFinalizedBatchIndex);
@@ -775,9 +783,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (numTransactions != 0) revert ErrorV5BatchContainsTransactions();
     }
 
-    /// @dev Internal function to commit batches after Euclid fork.
-    /// @param version The version of batches (version >= 7).
+    /// @dev Internal function to commit one ore more batches after the EuclidV2 upgrade.
+    /// @param version The version of the batches (version >= 7).
     /// @param parentBatchHash The hash of the parent batch.
+    /// @param onlyOne If true, we will only process the first blob.
     /// @return batchHash The batch hash of the latest committed batch.
     function _commitBatchesPostEuclidV2(
         uint8 version,
@@ -822,12 +831,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         return parentBatchHash;
     }
 
-    /// @dev Internal function to finalize bundle after Euclid fork.
-    /// @param batchHeader The header of last batch in current bundle.
-    /// @param lastProcessedQueueIndex The last messages queue index processed in this bundle.
-    /// @param postStateRoot The state root after current bundle.
-    /// @param withdrawRoot The withdraw trie root after current bundle.
-    /// @param aggrProof The aggregation proof for current bundle.
+    /// @dev Internal function to finalize a bundle after the EuclidV2 upgrade.
+    /// @param batchHeader The header of the last batch in this bundle.
+    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this bundle.
+    /// @param postStateRoot The state root after this bundle.
+    /// @param withdrawRoot The withdraw trie root after this bundle.
+    /// @param aggrProof The bundle proof for this bundle.
     function _finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
@@ -841,6 +850,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         ) {
             revert ErrorNotAllV1MessagesAreFinalized();
         }
+
         // actions before verification
         (uint256 version, bytes32 batchHash, uint256 batchIndex, , uint256 prevBatchIndex) = _beforeFinalizeBatch(
             batchHeader,
@@ -848,7 +858,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
 
         // L1 message hashes are chained,
-        // this hash commits to the whole queue up to and including `_lastProcessedQueueIndex`
+        // this hash commits to the whole queue up to and including `lastProcessedQueueIndex`
         bytes32 messageQueueHash = IL1MessageQueueV2(messageQueueV2).getMessageRollingHash(lastProcessedQueueIndex);
 
         bytes memory publicInputs = abi.encodePacked(
@@ -861,6 +871,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             batchHash,
             withdrawRoot
         );
+
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
         IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInputs);

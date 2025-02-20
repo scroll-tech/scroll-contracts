@@ -96,9 +96,10 @@ interface IScrollChain {
         bytes calldata blobDataProof
     ) external;
 
-    /// @notice Commit a batch after Euclid phase 2 upgrade.
-    /// @param version The version of current batch.
-    /// @param parentBatchHash The hash of parent batch.
+    /// @notice Commit one or more batches after the EuclidV2 upgrade.
+    /// @param version The version of the committed batches.
+    /// @param parentBatchHash The hash of the parent batch.
+    /// @dev The batch payload is stored in the blobs.
     function commitBatchesPostEuclidV2(uint8 version, bytes32 parentBatchHash) external;
 
     /// @notice Revert pending batches.
@@ -118,12 +119,13 @@ interface IScrollChain {
         bytes calldata aggrProof
     ) external;
 
-    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after Euclid phase 2 upgrade.
-    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
-    /// @param lastProcessedQueueIndex The last processed message queue index.
-    /// @param postStateRoot The state root after current bundle.
-    /// @param withdrawRoot The withdraw trie root after current bundle.
-    /// @param aggrProof The aggregation proof for current bundle.
+    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after the EuclidV2 upgrade.
+    /// @param batchHeader The header of the last batch in this bundle.
+    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this bundle.
+    /// @param postStateRoot The state root after this bundle.
+    /// @param withdrawRoot The withdraw trie root after this bundle.
+    /// @param aggrProof The bundle proof for this bundle.
+    /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
@@ -132,12 +134,13 @@ interface IScrollChain {
         bytes calldata aggrProof
     ) external;
 
-    /// @param The struct for batch finalization.
-    /// @param batchHeader The header of current batch, see the encoding in comments of `commitBatch`.
-    /// @param lastProcessedQueueIndex The last processed message queue index.
-    /// @param postStateRoot The state root after current batch.
-    /// @param withdrawRoot The withdraw trie root after current batch.
-    /// @param zkProof The zk proof for current batch (single-batch bundle).
+    /// @notice The struct for permissionless batch finalization.
+    /// @param batchHeader The header of this batch.
+    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this batch.
+    /// @param postStateRoot The state root after this batch.
+    /// @param withdrawRoot The withdraw trie root after this batch.
+    /// @param zkProof The bundle proof for this batch (single-batch bundle).
+    /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     struct FinalizeStruct {
         bytes batchHeader;
         uint256 lastProcessedQueueIndex;
@@ -148,8 +151,9 @@ interface IScrollChain {
 
     /// @notice Commit a batch of transactions on layer 1 and finalize it.
     /// @param version The version of current batch.
-    /// @param finalizeStruct The data needed for finalize.
     /// @param parentBatchHash The hash of parent batch.
+    /// @param finalizeStruct The data needed to finalize this batch.
+    /// @dev The batch payload is stored in the blob.
     function commitAndFinalizeBatch(
         uint8 version,
         bytes32 parentBatchHash,

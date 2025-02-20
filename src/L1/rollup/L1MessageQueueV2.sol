@@ -12,35 +12,37 @@ import {SystemConfig} from "../system-contract/SystemConfig.sol";
 
 // solhint-disable no-empty-blocks
 // solhint-disable no-inline-assembly
+// solhint-disable not-rely-on-time
 // solhint-disable reason-string
 
 /// @title L1MessageQueueV2
-/// @notice This contract will hold all L1 to L2 messages.
-/// Each appended message is assigned with a unique and increasing `uint256` index.
+/// @notice This contract holds all L1 to L2 cross-domain messages appended after EuclidV2.
+/// @dev Each appended message is assigned a unique and increasing `uint256` index.
+/// @dev For each message we store its enqueue timestamp and a rolling hash of all messages.
 contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /**********
      * Errors *
      **********/
 
-    /// @dev Thrown when caller is not `L1ScrollMessenger` contract.
+    /// @dev Thrown when caller is not `L1ScrollMessenger`.
     error ErrorCallerIsNotMessenger();
 
-    /// @dev Thrown when caller is not `ScrollChain` contract.
+    /// @dev Thrown when caller is not `ScrollChain`.
     error ErrorCallerIsNotScrollChain();
 
-    /// @dev Thrown when caller is not `EnforcedTxGateway` contract.
+    /// @dev Thrown when caller is not `EnforcedTxGateway`.
     error ErrorCallerIsNotEnforcedTxGateway();
 
-    /// @dev Thrown when `ScrollChain` finalize old message queue index.
+    /// @dev Thrown when `ScrollChain` attempts to finalize an old message queue index.
     error ErrorFinalizedIndexTooSmall();
 
-    /// @dev Thrown when `ScrollChain` finalize future massage queue index.
+    /// @dev Thrown when `ScrollChain` attempts to finalize a future message queue index.
     error ErrorFinalizedIndexTooLarge();
 
-    /// @dev Thrown when the given gas limit exceeds capacity.
+    /// @dev Thrown when the given gas limit exceeds the maximum allowed gas limit.
     error ErrorGasLimitExceeded();
 
-    /// @dev Thrown when the given gas limit is below intrinsic gas.
+    /// @dev Thrown when the given gas limit is lower than the intrinsic gas.
     error ErrorGasLimitBelowIntrinsicGas();
 
     /*************
@@ -59,38 +61,38 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
      * Immutable Variables *
      ***********************/
 
-    /// @notice The address of L1ScrollMessenger contract.
+    /// @notice The address of `L1ScrollMessenger`.
     address public immutable messenger;
 
-    /// @notice The address of ScrollChain contract.
+    /// @notice The address of `ScrollChain`.
     address public immutable scrollChain;
 
-    /// @notice The address EnforcedTxGateway contract.
+    /// @notice The address of `EnforcedTxGateway`.
     address public immutable enforcedTxGateway;
 
-    /// @notice The address of L1MessageQueueV1 contract.
+    /// @notice The address of `L1MessageQueueV1`.
     address public immutable messageQueueV1;
 
-    /// @notice The address of `SystemConfig` contract.
+    /// @notice The address of `SystemConfig`.
     address public immutable systemConfig;
 
     /*********************
      * Storage Variables *
      *********************/
 
-    /// @dev The list of queued cross domain messages. The encoding for `bytes32` is
+    /// @dev The list of queued cross-domain messages. The encoding for `bytes32` is
     /// ```text
     /// [      32 bits      |   224 bits   ]
     /// [ enqueue timestamp | rolling hash ]
     /// [LSB                            MSB]
     /// ```
     ///
-    /// We choose `32` bits for timestamp because it is enough for next 81 years. And the rest `224` bits is secure
-    /// enough for the rolling hash.
+    /// We choose `32` bits for the timestamp because it is enough for next 81 years.
+    /// The remaining `224` bits is secure enough for the rolling hash.
     mapping(uint256 => bytes32) private messageRollingHashes;
 
-    /// @notice The index of first cross domain message.
-    /// @dev It means if `index < firstCrossDomainMessageIndex`, the message is in `L1MessageQueueV1`.
+    /// @notice The index of the first cross-domain message in this contract.
+    /// @dev If `index < firstCrossDomainMessageIndex`, the message is in `L1MessageQueueV1`.
     uint256 public firstCrossDomainMessageIndex;
 
     /// @inheritdoc IL1MessageQueueV2
@@ -99,19 +101,20 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     /// @inheritdoc IL1MessageQueueV2
     uint256 public nextUnfinalizedQueueIndex;
 
-    /// @dev The storage slots for future usage.
+    /// @dev The storage slots reserved for future usage.
     uint256[46] private __gap;
 
     /***************
      * Constructor *
      ***************/
 
-    /// @notice Constructor for `L1MessageQueue` implementation contract.
+    /// @notice Constructor for the `L1MessageQueueV2` implementation contract.
     ///
-    /// @param _messenger The address of `L1ScrollMessenger` contract.
-    /// @param _scrollChain The address of `ScrollChain` contract.
-    /// @param _enforcedTxGateway The address of `EnforcedTxGateway` contract.
-    /// @param _messageQueueV1 The address of `L1MessageQueueV1` contract.
+    /// @param _messenger The address of `L1ScrollMessenger`.
+    /// @param _scrollChain The address of `ScrollChain`.
+    /// @param _enforcedTxGateway The address of `EnforcedTxGateway`.
+    /// @param _messageQueueV1 The address of `L1MessageQueueV1`.
+    /// @param _systemConfig The address of `SystemConfig`.
     constructor(
         address _messenger,
         address _scrollChain,
@@ -128,7 +131,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         systemConfig = _systemConfig;
     }
 
-    /// @notice Initialize the storage of L1MessageQueue.
+    /// @notice Initialize the storage of `L1MessageQueueV2`.
     function initialize() external initializer {
         OwnableUpgradeable.__Ownable_init();
 
@@ -348,6 +351,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
 
         // validate gas limit
         _validateGasLimit(_gasLimit, _data);
+
+        // append message directly, aliasing was handled in `EnforcedTxGateway`
         _queueTransaction(_sender, _target, _value, _gasLimit, _data);
     }
 
@@ -370,12 +375,12 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
      * Internal Functions *
      **********************/
 
-    /// @dev Internal function to queue a L1 transaction.
-    /// @param _sender The address of sender who will initiate this transaction in L2.
-    /// @param _target The address of target contract to call in L2.
-    /// @param _value The value passed
-    /// @param _gasLimit The maximum gas should be used for this transaction in L2.
-    /// @param _data The calldata passed to target contract.
+    /// @dev Internal function to queue a L1 => L2 cross-domain transaction.
+    /// @param _sender The address of the sender account on L2.
+    /// @param _target The address of the target account on L2.
+    /// @param _value The ETH value transferred to the target account on L2.
+    /// @param _gasLimit The gas limit used on L2.
+    /// @param _data The calldata passed to the target account on L2.
     function _queueTransaction(
         address _sender,
         address _target,
@@ -407,8 +412,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         if (_gasLimit < intrinsicGas) revert ErrorGasLimitBelowIntrinsicGas();
     }
 
-    /// @dev Internal function to load rolling hash from storage.
-    /// @param index The index of message to query.
+    /// @dev Internal function to load the rolling hash and enqueue timestamp from storage.
+    /// @param index The index of the message to query.
     /// @return hash The rolling hash at the given index.
     /// @return enqueueTimestamp The enqueue timestamp of the message at the given index.
     function _loadAndDecodeRollingHash(uint256 index) internal view returns (bytes32 hash, uint256 enqueueTimestamp) {
@@ -419,7 +424,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
         }
     }
 
-    /// @dev Internal function to encode rolling hash with enqueue timestamp.
+    /// @dev Internal function to encode the rolling hash with the enqueue timestamp.
     /// @param hash The rolling hash.
     /// @param enqueueTimestamp The enqueue timestamp.
     /// @return The encoded rolling hash for storage.
