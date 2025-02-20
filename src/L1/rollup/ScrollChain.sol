@@ -127,6 +127,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the committed batch hash doesn't match off-chain computed one.
     error InconsistentBatchHash(uint256 batchIndex, bytes32 expected, bytes32 actual);
 
+    /// @dev Thrown when given batch is not committed before.
+    error ErrorBatchNotCommitted();
+
     /*************
      * Constants *
      *************/
@@ -440,6 +443,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
         // actual revert
         uint256 lastBatchIndex = miscData.lastCommittedBatchIndex;
+        if (startBatchIndex >= lastBatchIndex) revert ErrorBatchNotCommitted();
         emit RevertBatch(startBatchIndex + 1, lastBatchIndex);
 
         // update `lastCommittedBatchIndex`
@@ -515,7 +519,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev We only consider batch version >= 7 here.
     function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external {
         ScrollChainMiscData memory cachedMiscData = miscData;
-        if (!_decodeBoolFromFlag(cachedMiscData.flags, ENFORCED_MODE_OFFSET)) {
+        if (!isEnforcedModeEnabled()) {
             (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
                 .enforcedBatchParameters();
             uint256 lastUnfinalizedMessageTime = IL1MessageQueueV2(messageQueueV2)
@@ -620,12 +624,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
      * Internal Functions *
      **********************/
 
-    /// @dev Caller should make sure bit is smaller than 8.
+    /// @dev Caller should make sure bit is smaller than 256.
     function _decodeBoolFromFlag(uint256 flag, uint256 bit) internal pure returns (bool) {
         return (flag >> bit) & 1 == 1;
     }
 
-    /// @dev Caller should make sure bit is smaller than 8.
+    /// @dev Caller should make sure bit is smaller than 256.
     function _insertBoolToFlag(
         uint256 flag,
         uint256 bit,
@@ -703,6 +707,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // make sure don't finalize batch multiple times
         prevBatchIndex = miscData.lastFinalizedBatchIndex;
         if (batchIndex <= prevBatchIndex) revert ErrorBatchIsAlreadyVerified();
+        if (batchIndex > miscData.lastCommittedBatchIndex) revert ErrorBatchNotCommitted();
 
         version = BatchHeaderV0Codec.getVersion(batchPtr);
     }
@@ -852,6 +857,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             if (onlyOne) break;
         }
 
+        // We add this check to make sure the sequencer commit batches matching with local computation.
+        // This if can be true when
+        // 1. faulty batch producers commit a wrong batch or the local computation is wrong.
+        // 2. unexpected `parentBatch` in case commit transactions get reordered
+        // 3. two batch producers commit in the same time with the same `parentBatch`.
         if (parentBatchHash != lastBatchHash) {
             revert InconsistentBatchHash(lastCommittedBatchIndex, lastBatchHash, parentBatchHash);
         }

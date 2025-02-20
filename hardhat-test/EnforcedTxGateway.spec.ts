@@ -78,7 +78,7 @@ describe("EnforcedTxGateway.spec", async () => {
       { maxDelayEnterEnforcedMode: 0, maxDelayMessageQueue: 0 }
     );
     await queue.initialize();
-    await gateway.initialize(ZeroAddress, ZeroAddress);
+    await gateway.initialize();
   });
 
   context("auth", async () => {
@@ -90,9 +90,7 @@ describe("EnforcedTxGateway.spec", async () => {
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(gateway.initialize(ZeroAddress, ZeroAddress)).to.revertedWith(
-        "Initializable: contract is already initialized"
-      );
+      await expect(gateway.initialize()).to.revertedWith("Initializable: contract is already initialized");
     });
 
     context("#setPause", async () => {

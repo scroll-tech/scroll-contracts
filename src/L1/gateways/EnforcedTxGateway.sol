@@ -70,7 +70,7 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
         feeVault = _feeVault;
     }
 
-    function initialize(address, address) external initializer {
+    function initialize() external initializer {
         OwnableUpgradeable.__Ownable_init();
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
         PausableUpgradeable.__Pausable_init();

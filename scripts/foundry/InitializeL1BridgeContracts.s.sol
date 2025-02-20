@@ -172,10 +172,7 @@ contract InitializeL1BridgeContracts is Script {
         );
 
         // initialize EnforcedTxGateway
-        EnforcedTxGateway(payable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR)).initialize(
-            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
-            L1_FEE_VAULT_ADDR
-        );
+        EnforcedTxGateway(payable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR)).initialize();
 
         // initialize L1GatewayRouter
         L1GatewayRouter(L1_GATEWAY_ROUTER_PROXY_ADDR).initialize(

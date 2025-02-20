@@ -38,6 +38,9 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function setCommittedBatches(uint256 index, bytes32 value) external {
+        if (miscData.lastCommittedBatchIndex < index) {
+            miscData.lastCommittedBatchIndex = uint64(index);
+        }
         committedBatches[index] = value;
     }
 
