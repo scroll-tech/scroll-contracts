@@ -164,7 +164,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     }
 
     /// @inheritdoc IL1MessageQueueV2
-    function estimatedL2BaseFee() public view returns (uint256) {
+    function estimateL2BaseFee() public view returns (uint256) {
         (, uint256 overhead, uint256 scalar) = SystemConfig(systemConfig).messageQueueParameters();
         // this is unlikely to overflow, use unchecked here. It is because the type of `overhead` and `scalar`
         // is `uint112` and `block.basefee` usually won't exceed `uint112`.
@@ -175,7 +175,7 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
 
     /// @inheritdoc IL1MessageQueueV2
     function estimateCrossDomainMessageFee(uint256 _gasLimit) external view returns (uint256) {
-        return _gasLimit * estimatedL2BaseFee();
+        return _gasLimit * estimateL2BaseFee();
     }
 
     /// @inheritdoc IL1MessageQueueV2
@@ -360,9 +360,9 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     function finalizePoppedCrossDomainMessage(uint256 _nextUnfinalizedQueueIndex) external {
         if (_msgSender() != scrollChain) revert ErrorCallerIsNotScrollChain();
 
-        uint256 cachedFinalizedQueueIndexPlusOne = nextUnfinalizedQueueIndex;
-        if (_nextUnfinalizedQueueIndex == cachedFinalizedQueueIndexPlusOne) return;
-        if (_nextUnfinalizedQueueIndex < cachedFinalizedQueueIndexPlusOne) revert ErrorFinalizedIndexTooSmall();
+        uint256 cachedNextUnfinalizedQueueIndex = nextUnfinalizedQueueIndex;
+        if (_nextUnfinalizedQueueIndex == cachedNextUnfinalizedQueueIndex) return;
+        if (_nextUnfinalizedQueueIndex < cachedNextUnfinalizedQueueIndex) revert ErrorFinalizedIndexTooSmall();
         if (_nextUnfinalizedQueueIndex > nextCrossDomainMessageIndex) revert ErrorFinalizedIndexTooLarge();
 
         nextUnfinalizedQueueIndex = _nextUnfinalizedQueueIndex;

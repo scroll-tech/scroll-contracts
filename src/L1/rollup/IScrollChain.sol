@@ -19,6 +19,11 @@ interface IScrollChain {
     /// @param batchHash The hash of the batch
     event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
 
+    /// @notice revert a range of batches.
+    /// @param startBatchIndex The start batch index of the range.
+    /// @param finishBatchIndex The finish batch index of the range.
+    event RevertBatch(uint256 indexed startBatchIndex, uint256 indexed finishBatchIndex);
+
     /// @notice Emitted when a batch is finalized.
     /// @param batchIndex The index of the batch.
     /// @param batchHash The hash of the batch
@@ -41,13 +46,10 @@ interface IScrollChain {
     /// @param newMaxNumTxInChunk The new value of `maxNumTxInChunk`.
     event UpdateMaxNumTxInChunk(uint256 oldMaxNumTxInChunk, uint256 newMaxNumTxInChunk);
 
-    /// @notice Emitted when enter enforced batch mode.
+    /// @notice Emitted when we enter or exit enforced batch mode.
+    /// @param enabled True if we are entering enforced batch mode, false otherwise.
     /// @param lastCommittedBatchIndex The index of last committed batch.
-    event EnterEnforcedBatchMode(uint256 lastCommittedBatchIndex);
-
-    /// @notice Emitted when exit enforced batch mode.
-    /// @param lastCommittedBatchIndex The index of last committed batch.
-    event ExitEnforcedBatchMode(uint256 lastCommittedBatchIndex);
+    event UpdateEnforcedBatchMode(bool enabled, uint256 lastCommittedBatchIndex);
 
     /*************************
      * Public View Functions *
@@ -98,13 +100,13 @@ interface IScrollChain {
 
     /// @notice Commit one or more batches after the EuclidV2 upgrade.
     /// @param version The version of the committed batches.
-    /// @param parentBatchHash The hash of the parent batch.
+    /// @param lastBatchHash The hash of the last committed batch after this call.
     /// @dev The batch payload is stored in the blobs.
-    function commitBatchesPostEuclidV2(uint8 version, bytes32 parentBatchHash) external;
+    function commitBatches(uint8 version, bytes32 lastBatchHash) external;
 
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
-    /// @param batchHeader The header of first batch to revert, see the encoding in comments of `commitBatch`.
+    /// @param batchHeader The header of the last batch we want to keep.
     function revertBatch(bytes calldata batchHeader) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
@@ -151,12 +153,7 @@ interface IScrollChain {
 
     /// @notice Commit a batch of transactions on layer 1 and finalize it.
     /// @param version The version of current batch.
-    /// @param parentBatchHash The hash of parent batch.
     /// @param finalizeStruct The data needed to finalize this batch.
     /// @dev The batch payload is stored in the blob.
-    function commitAndFinalizeBatch(
-        uint8 version,
-        bytes32 parentBatchHash,
-        FinalizeStruct calldata finalizeStruct
-    ) external;
+    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external;
 }

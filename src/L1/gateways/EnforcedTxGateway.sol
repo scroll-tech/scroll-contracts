@@ -34,15 +34,25 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
             "EnforcedTransaction(address sender,address target,uint256 value,uint256 gasLimit,bytes data,uint256 nonce,uint256 deadline)"
         );
 
+    /***********************
+     * Immutable Variables *
+     ***********************/
+
+    /// @notice The address of `L1MessageQueueV2`.
+    address public immutable messageQueue;
+
+    /// @notice The address of `FeeVault`.
+    address public immutable feeVault;
+
     /*************
      * Variables *
      *************/
 
-    /// @notice The address of `L1MessageQueueV2`.
-    address public messageQueue;
+    /// @dev The storage slot used as `L1MessageQueueV2` contract, which is deprecated now.
+    address private __deprecated_messageQueue;
 
-    /// @notice The address of `FeeVault`.
-    address public feeVault;
+    /// @dev The storage slot used as `FeeVault` contract, which is deprecated now.
+    address private __deprecated_feeVault;
 
     /// @notice Mapping from EOA address to current nonce.
     /// @dev Every successful call to `sendTransaction` with signature increases `_sender`'s nonce by one.
@@ -53,18 +63,18 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
      * Constructor *
      ***************/
 
-    constructor() {
+    constructor(address _messageQueue, address _feeVault) {
         _disableInitializers();
+
+        messageQueue = _messageQueue;
+        feeVault = _feeVault;
     }
 
-    function initialize(address _queue, address _feeVault) external initializer {
+    function initialize(address, address) external initializer {
         OwnableUpgradeable.__Ownable_init();
         ReentrancyGuardUpgradeable.__ReentrancyGuard_init();
         PausableUpgradeable.__Pausable_init();
         EIP712Upgradeable.__EIP712_init("EnforcedTxGateway", "1");
-
-        messageQueue = _queue;
-        feeVault = _feeVault;
     }
 
     /*************************
@@ -95,7 +105,9 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
     ) external payable whenNotPaused {
         address sender = _msgSender();
         if (sender != tx.origin) {
-            // alias smart contract account, consistent with message from L1ScrollMessenger.
+            // If sender is a classic SCA, then we apply address aliasing (consistent with message from L1ScrollMessenger).
+            // If the sender is an EOA with no code, no aliasing is applied.
+            // If the sender is an EIP-7702 delegated EOA, then aliasing behavior depends on which wallet initiated the call.
             sender = AddressAliasHelper.applyL1ToL2Alias(sender);
         }
 
@@ -145,15 +157,6 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
     /************************
      * Restricted Functions *
      ************************/
-
-    /// @notice Update the address of fee vault.
-    /// @param _newFeeVault The address to update.
-    function updateFeeVault(address _newFeeVault) external onlyOwner {
-        address _oldFeeVault = feeVault;
-        feeVault = _newFeeVault;
-
-        emit UpdateFeeVault(_oldFeeVault, _newFeeVault);
-    }
 
     /// @notice Pause or unpause this contract.
     /// @param _status Pause this contract if it is true, otherwise unpause this contract.

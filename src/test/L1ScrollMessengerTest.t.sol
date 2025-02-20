@@ -120,7 +120,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.expectRevert("Insufficient msg.value for fee");
         l1Messenger.replayMessage(address(this), address(0), 100, 0, new bytes(0), defaultGasLimit, refundAddress);
 
-        uint256 _fee = messageQueueV2.estimatedL2BaseFee() * defaultGasLimit;
+        uint256 _fee = messageQueueV2.estimateL2BaseFee() * defaultGasLimit;
 
         // Exceed maximum replay times
         hevm.expectRevert("Exceed maximum replay times");
@@ -237,7 +237,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         //   32B nonce
         //   message byte array (32B offset + 32B length + bytes (padding to multiple of 32))
         // So the intrinsic gas must be greater than 21000 + 16 * 228 = 24648
-        uint256 _fee = messageQueueV2.estimatedL2BaseFee() * 24648;
+        uint256 _fee = messageQueueV2.estimateL2BaseFee() * 24648;
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", 24648);
 
         // insufficient intrinsic gas
@@ -246,13 +246,13 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
 
         // gas limit exceeds the max value
         uint256 gasLimit = 100000000;
-        _fee = messageQueueV2.estimatedL2BaseFee() * gasLimit;
+        _fee = messageQueueV2.estimateL2BaseFee() * gasLimit;
         hevm.expectRevert(L1MessageQueueV2.ErrorGasLimitExceeded.selector);
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
 
         // update max gas limit
         setL2BaseFee(1e9, gasLimit);
-        _fee = messageQueueV2.estimatedL2BaseFee() * gasLimit;
+        _fee = messageQueueV2.estimateL2BaseFee() * gasLimit;
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
     }
 

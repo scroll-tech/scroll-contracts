@@ -94,7 +94,9 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         messageQueueV1 = L1MessageQueueV1WithGasPriceOracle(_deployProxy(address(0)));
         messageQueueV2 = L1MessageQueueV2(_deployProxy(address(0)));
         rollup = ScrollChainMockBlob(_deployProxy(address(0)));
-        enforcedTxGateway = EnforcedTxGateway(_deployProxy(address(new EnforcedTxGateway())));
+        enforcedTxGateway = EnforcedTxGateway(
+            _deployProxy(address(new EnforcedTxGateway(address(messageQueueV2), address(0))))
+        );
         gasOracle = L2GasPriceOracle(_deployProxy(address(new L2GasPriceOracle())));
         whitelist = new Whitelist(address(this));
         verifier = new MockRollupVerifier();
@@ -172,6 +174,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
             )
         );
         rollup.initialize(address(messageQueueV1), address(0), 44);
+        rollup.initializeV2();
 
         // Setup whitelist
         address[] memory _accounts = new address[](1);
@@ -242,6 +245,6 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
             })
         );
         hevm.fee(feePerGas);
-        assertEq(messageQueueV2.estimatedL2BaseFee(), feePerGas);
+        assertEq(messageQueueV2.estimateL2BaseFee(), feePerGas);
     }
 }

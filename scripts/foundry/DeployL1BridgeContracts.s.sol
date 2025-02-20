@@ -50,6 +50,7 @@ contract DeployL1BridgeContracts is Script {
     address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
     address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
+    address L1_FEE_VAULT_ADDR = vm.envAddress("L1_FEE_VAULT_ADDR");
 
     address L2_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L2_SCROLL_MESSENGER_PROXY_ADDR");
     address L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR = vm.envAddress("L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR");
@@ -243,7 +244,7 @@ contract DeployL1BridgeContracts is Script {
     }
 
     function deployEnforcedTxGateway() internal {
-        EnforcedTxGateway impl = new EnforcedTxGateway();
+        EnforcedTxGateway impl = new EnforcedTxGateway(L1_MESSAGE_QUEUE_V2_PROXY_ADDR, L1_FEE_VAULT_ADDR);
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(impl),
             address(proxyAdmin),

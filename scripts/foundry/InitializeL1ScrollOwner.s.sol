@@ -162,7 +162,7 @@ contract InitializeL1ScrollOwner is Script {
 
         // no delay, security council
         _selectors = new bytes4[](1);
-        _selectors[0] = ScrollChain.disableEnforcedBatch.selector;
+        _selectors[0] = ScrollChain.disableEnforcedBatchMode.selector;
         // note: finalizeEuclidInitialBatch is removed in phase-2
         owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
 

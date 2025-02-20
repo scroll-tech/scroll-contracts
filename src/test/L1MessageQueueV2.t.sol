@@ -108,7 +108,7 @@ contract L1MessageQueueV2Test is ScrollTestBase {
             })
         );
 
-        assertEq(queueV2.estimatedL2BaseFee(), (basefee * scalar) / 1e18 + overhead);
+        assertEq(queueV2.estimateL2BaseFee(), (basefee * scalar) / 1e18 + overhead);
     }
 
     function testEstimateCrossDomainMessageFee(

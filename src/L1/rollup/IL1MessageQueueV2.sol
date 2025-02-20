@@ -57,7 +57,7 @@ interface IL1MessageQueueV2 {
     function estimateCrossDomainMessageFee(uint256 gasLimit) external view returns (uint256);
 
     /// @notice Return the estimated base fee on L2.
-    function estimatedL2BaseFee() external view returns (uint256);
+    function estimateL2BaseFee() external view returns (uint256);
 
     /// @notice Return the intrinsic gas required by the provided cross-domain message.
     /// @param data The calldata of the cross-domain message.
