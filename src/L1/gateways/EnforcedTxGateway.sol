@@ -106,8 +106,8 @@ contract EnforcedTxGateway is OwnableUpgradeable, ReentrancyGuardUpgradeable, Pa
         address sender = _msgSender();
         if (sender != tx.origin) {
             // If sender is a classic SCA, then we apply address aliasing (consistent with message from L1ScrollMessenger).
-            // If the sender is an EOA with no code, no aliasing is applied.
-            // If the sender is an EIP-7702 delegated EOA, then aliasing behavior depends on which wallet initiated the call.
+            // If sender is an EOA with no code, no aliasing is applied.
+            // If sender is an EIP-7702 delegated EOA, then aliasing behavior depends on which wallet initiated the call.
             sender = AddressAliasHelper.applyL1ToL2Alias(sender);
         }
 

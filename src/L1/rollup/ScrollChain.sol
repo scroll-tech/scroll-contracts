@@ -203,12 +203,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     uint256 private __lastFinalizedBatchIndex;
 
     /// @inheritdoc IScrollChain
+    /// @dev Starting from EuclidV2, this array is sparse: it only contains
+    /// the last batch hash per commit transaction, and not intermediate ones.
+    /// @dev Starting from EuclidV2, this array might contain reverted batches,
+    /// callers must check that `batchIndex <= miscData.lastCommittedBatchIndex`.
     mapping(uint256 => bytes32) public override committedBatches;
 
     /// @inheritdoc IScrollChain
+    /// @dev Starting from Darwin, this array is sparse: it only contains
+    /// the last state root per finalized bundle, and not intermediate ones.
     mapping(uint256 => bytes32) public override finalizedStateRoots;
 
     /// @inheritdoc IScrollChain
+    /// @dev Starting from Darwin, this array is sparse: it only contains
+    /// the last withdraw root per finalized bundle, and not intermediate ones.
     mapping(uint256 => bytes32) public override withdrawRoots;
 
     /// @notice The index of first Euclid batch.
@@ -522,13 +530,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (!isEnforcedModeEnabled()) {
             (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
                 .enforcedBatchParameters();
-            uint256 lastUnfinalizedMessageTime = IL1MessageQueueV2(messageQueueV2)
+            uint256 firstUnfinalizedMessageTime = IL1MessageQueueV2(messageQueueV2)
                 .getFirstUnfinalizedMessageEnqueueTime();
             if (
-                lastUnfinalizedMessageTime + maxDelayMessageQueue < block.timestamp ||
+                firstUnfinalizedMessageTime + maxDelayMessageQueue < block.timestamp ||
                 cachedMiscData.lastFinalizeTimestamp + maxDelayEnterEnforcedMode < block.timestamp
             ) {
-                // explicitly set enforce batch enabled
+                // explicitly enable enforced batch mode
                 cachedMiscData.flags = uint8(_insertBoolToFlag(cachedMiscData.flags, ENFORCED_MODE_OFFSET, true));
                 // reset `lastCommittedBatchIndex`
                 cachedMiscData.lastCommittedBatchIndex = uint64(miscData.lastFinalizedBatchIndex);
@@ -643,10 +651,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @dev Internal function to do common checks before actual batch committing.
-    /// @param _version The version of batch to commit.
+    /// @param _version The version of the batch to commit.
     /// @param _parentBatchHeader The parent batch header in calldata.
     /// @param _chunks The list of chunks in memory.
-    /// @param _lastCommittedBatchIndex The index of last committed batch.
+    /// @param _lastCommittedBatchIndex The index of the last committed batch.
     /// @return _parentBatchHash The batch hash of parent batch header.
     /// @return _batchIndex The index of current batch.
     /// @return _totalL1MessagesPoppedOverall The total number of L1 messages popped before current batch.
@@ -857,11 +865,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             if (onlyOne) break;
         }
 
-        // We add this check to make sure the sequencer commit batches matching with local computation.
-        // This if can be true when
+        // Make sure that the batch hash matches the one computed by the batch committer off-chain.
+        // This check can fail if:
         // 1. faulty batch producers commit a wrong batch or the local computation is wrong.
         // 2. unexpected `parentBatch` in case commit transactions get reordered
-        // 3. two batch producers commit in the same time with the same `parentBatch`.
+        // 3. two batch producers commit at the same time with the same `parentBatch`.
         if (parentBatchHash != lastBatchHash) {
             revert InconsistentBatchHash(lastCommittedBatchIndex, lastBatchHash, parentBatchHash);
         }
@@ -1037,7 +1045,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @return batchPtr The start memory offset of loaded batch header.
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
-    /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
+    /// @return _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
+    /// @dev This function only works with batches whose hashes are stored in `committedBatches`.
     function _loadBatchHeader(bytes calldata _batchHeader)
         internal
         view

@@ -20,8 +20,8 @@ interface IScrollChain {
     event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
 
     /// @notice revert a range of batches.
-    /// @param startBatchIndex The start batch index of the range.
-    /// @param finishBatchIndex The finish batch index of the range.
+    /// @param startBatchIndex The start batch index of the range (inclusive).
+    /// @param finishBatchIndex The finish batch index of the range (inclusive).
     event RevertBatch(uint256 indexed startBatchIndex, uint256 indexed finishBatchIndex);
 
     /// @notice Emitted when a batch is finalized.
@@ -48,7 +48,7 @@ interface IScrollChain {
 
     /// @notice Emitted when we enter or exit enforced batch mode.
     /// @param enabled True if we are entering enforced batch mode, false otherwise.
-    /// @param lastCommittedBatchIndex The index of last committed batch.
+    /// @param lastCommittedBatchIndex The index of the last committed batch.
     event UpdateEnforcedBatchMode(bool enabled, uint256 lastCommittedBatchIndex);
 
     /*************************
@@ -151,7 +151,7 @@ interface IScrollChain {
         bytes zkProof;
     }
 
-    /// @notice Commit a batch of transactions on layer 1 and finalize it.
+    /// @notice Commit and finalize a batch in permissionless mode.
     /// @param version The version of current batch.
     /// @param finalizeStruct The data needed to finalize this batch.
     /// @dev The batch payload is stored in the blob.
