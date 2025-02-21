@@ -22,9 +22,8 @@ contract SystemConfig is OwnableUpgradeable {
     /// @notice Parameters for the enforced batch mode.
     /// @param maxDelayEnterEnforcedMode If no batch has been finalized for `maxDelayEnterEnforcedMode`,
     ///        batch submission becomes permissionless. Anyone can submit a batch together with a proof.
-    /// @param maxDelayMessageQueue If message not included/finalized for `maxDelayMessageQueue`, the
-    ///        operator can not finalize any more batches until including those messages. If it continues
-    ///        to censor messages permissionless mode will eventually activate.
+    /// @param maxDelayMessageQueue If no message is included/finalized for `maxDelayMessageQueue`,
+    ///        batch submission becomes permissionless. Anyone can submit a batch together with a proof.
     /// @dev The compiler will pack this struct into single `bytes32`.
     struct EnforcedBatchParameters {
         uint24 maxDelayEnterEnforcedMode;

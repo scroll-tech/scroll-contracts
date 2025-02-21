@@ -360,7 +360,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // check whether the genesis batch is imported
         if (finalizedStateRoots[0] != bytes32(0)) revert ErrorGenesisBatchImported();
 
-        (uint256 memPtr, bytes32 _batchHash, , ) = _loadBatchHeader(_batchHeader);
+        (uint256 memPtr, bytes32 _batchHash, , ) = _loadBatchHeader(_batchHeader, 0);
 
         // check all fields except `dataHash` and `lastBlockHash` are zero
         unchecked {
@@ -443,15 +443,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// If we need to revert V6 batches, we can downgrade the contract to the previous version and call this function.
     /// @dev During commit batch we only store the last batch hash into storage. As a result, we cannot revert intermediate batches.
     function revertBatch(bytes calldata batchHeader) external onlyOwner {
-        (uint256 batchPtr, , uint256 startBatchIndex, ) = _loadBatchHeader(batchHeader);
+        uint256 lastBatchIndex = miscData.lastCommittedBatchIndex;
+        (uint256 batchPtr, , uint256 startBatchIndex, ) = _loadBatchHeader(batchHeader, lastBatchIndex);
         // only revert v7 batches
         if (BatchHeaderV0Codec.getVersion(batchPtr) < 7) revert ErrorIncorrectBatchVersion();
         // check finalization
         if (startBatchIndex < miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
-        uint256 lastBatchIndex = miscData.lastCommittedBatchIndex;
-        if (startBatchIndex >= lastBatchIndex) revert ErrorBatchNotCommitted();
         emit RevertBatch(startBatchIndex + 1, lastBatchIndex);
 
         // update `lastCommittedBatchIndex`
@@ -675,7 +674,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // check whether the batch is empty
         if (_chunks.length == 0) revert ErrorBatchIsEmpty();
         uint256 batchPtr;
-        (batchPtr, _parentBatchHash, _batchIndex, _totalL1MessagesPoppedOverall) = _loadBatchHeader(_parentBatchHeader);
+        (batchPtr, _parentBatchHash, _batchIndex, _totalL1MessagesPoppedOverall) = _loadBatchHeader(
+            _parentBatchHeader,
+            _lastCommittedBatchIndex
+        );
         // version should non-decreasing
         if (BatchHeaderV0Codec.getVersion(batchPtr) > _version) revert ErrorCannotDowngradeVersion();
 
@@ -708,14 +710,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     {
         if (postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
+        ScrollChainMiscData memory cachedMiscData = miscData;
         uint256 batchPtr;
         // compute pending batch hash and verify
-        (batchPtr, batchHash, batchIndex, totalL1MessagesPoppedOverall) = _loadBatchHeader(batchHeader);
+        (batchPtr, batchHash, batchIndex, totalL1MessagesPoppedOverall) = _loadBatchHeader(
+            batchHeader,
+            cachedMiscData.lastCommittedBatchIndex
+        );
 
         // make sure don't finalize batch multiple times
-        prevBatchIndex = miscData.lastFinalizedBatchIndex;
+        prevBatchIndex = cachedMiscData.lastFinalizedBatchIndex;
         if (batchIndex <= prevBatchIndex) revert ErrorBatchIsAlreadyVerified();
-        if (batchIndex > miscData.lastCommittedBatchIndex) revert ErrorBatchNotCommitted();
 
         version = BatchHeaderV0Codec.getVersion(batchPtr);
     }
@@ -729,9 +734,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes32 withdrawRoot,
         bool isV1
     ) internal {
+        ScrollChainMiscData memory cachedMiscData = miscData;
+        cachedMiscData.lastFinalizedBatchIndex = uint64(batchIndex);
+        cachedMiscData.lastFinalizeTimestamp = uint32(block.timestamp);
+        miscData = cachedMiscData;
         // @note we do not store intermediate finalized roots
-        miscData.lastFinalizedBatchIndex = uint64(batchIndex);
-        miscData.lastFinalizeTimestamp = uint32(block.timestamp);
         finalizedStateRoots[batchIndex] = postStateRoot;
         withdrawRoots[batchIndex] = withdrawRoot;
 
@@ -1042,12 +1049,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Internal function to load batch header from calldata to memory.
     /// @param _batchHeader The batch header in calldata.
+    /// @param _lastCommittedBatchIndex The index of the last committed batch.
     /// @return batchPtr The start memory offset of loaded batch header.
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
     /// @return _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
     /// @dev This function only works with batches whose hashes are stored in `committedBatches`.
-    function _loadBatchHeader(bytes calldata _batchHeader)
+    function _loadBatchHeader(bytes calldata _batchHeader, uint256 _lastCommittedBatchIndex)
         internal
         view
         virtual
@@ -1083,6 +1091,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (version <= 6) {
             _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
         }
+
+        if (_batchIndex > _lastCommittedBatchIndex) revert ErrorBatchNotCommitted();
 
         // only check when genesis is imported
         if (committedBatches[_batchIndex] != _batchHash && finalizedStateRoots[0] != bytes32(0)) {

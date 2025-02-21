@@ -62,7 +62,7 @@ contract ScrollChainMockBlob is ScrollChain {
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
-    function _loadBatchHeader(bytes calldata _batchHeader)
+    function _loadBatchHeader(bytes calldata _batchHeader, uint256 _lastCommittedBatchIndex)
         internal
         view
         virtual
@@ -74,7 +74,10 @@ contract ScrollChainMockBlob is ScrollChain {
             uint256 _totalL1MessagesPoppedOverall
         )
     {
-        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = ScrollChain._loadBatchHeader(_batchHeader);
+        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = ScrollChain._loadBatchHeader(
+            _batchHeader,
+            _lastCommittedBatchIndex
+        );
 
         if (overrideBatchHashCheck) {
             _batchHash = committedBatches[_batchIndex];

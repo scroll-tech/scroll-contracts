@@ -466,12 +466,12 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
 
         // revert when ErrorIncorrectBatchHash
-        batchHeader1[1] = bytes1(uint8(1)); // change random byte
+        batchHeader1[10] = bytes1(uint8(1)); // change random byte
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
         hevm.stopPrank();
-        batchHeader1[1] = bytes1(uint8(0)); // change back
+        batchHeader1[10] = bytes1(uint8(0)); // change back
 
         // verify success
         (, , uint256 lastFinalizeTimestamp, , ) = rollup.miscData();
@@ -1011,7 +1011,7 @@ contract ScrollChainTest is DSTestPlus {
 
         batchHeader = new bytes(89);
         batchHeader[1] = bytes1(uint8(1)); // batchIndex not zero
-        hevm.expectRevert(ScrollChain.ErrorGenesisBatchHasNonZeroField.selector);
+        hevm.expectRevert(ScrollChain.ErrorBatchNotCommitted.selector);
         rollup.importGenesisBatch(batchHeader, bytes32(uint256(1)));
 
         batchHeader = new bytes(89 + 32);
