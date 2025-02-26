@@ -537,10 +537,16 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 firstUnfinalizedMessageTime + maxDelayMessageQueue < block.timestamp ||
                 cachedMiscData.lastFinalizeTimestamp + maxDelayEnterEnforcedMode < block.timestamp
             ) {
+                if (cachedMiscData.lastFinalizedBatchIndex < cachedMiscData.lastCommittedBatchIndex) {
+                    emit RevertBatch(
+                        cachedMiscData.lastFinalizedBatchIndex + 1,
+                        cachedMiscData.lastCommittedBatchIndex
+                    );
+                }
                 // explicitly enable enforced batch mode
                 cachedMiscData.flags = uint8(_insertBoolToFlag(cachedMiscData.flags, ENFORCED_MODE_OFFSET, true));
                 // reset `lastCommittedBatchIndex`
-                cachedMiscData.lastCommittedBatchIndex = uint64(miscData.lastFinalizedBatchIndex);
+                cachedMiscData.lastCommittedBatchIndex = uint64(cachedMiscData.lastFinalizedBatchIndex);
                 miscData = cachedMiscData;
                 emit UpdateEnforcedBatchMode(true, cachedMiscData.lastCommittedBatchIndex);
             } else {
