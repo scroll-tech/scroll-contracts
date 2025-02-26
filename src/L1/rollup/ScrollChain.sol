@@ -500,7 +500,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
-        uint256 lastProcessedQueueIndex,
+        uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata aggrProof
@@ -517,7 +517,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             miscData.flags = uint8(_insertBoolToFlag(flags, V1_MESSAGES_FINALIZED_OFFSET, true));
         }
 
-        _finalizeBundlePostEuclidV2(batchHeader, lastProcessedQueueIndex, postStateRoot, withdrawRoot, aggrProof);
+        _finalizeBundlePostEuclidV2(batchHeader, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, aggrProof);
     }
 
     /// @inheritdoc IScrollChain
@@ -560,7 +560,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // finalize with zk proof
         _finalizeBundlePostEuclidV2(
             finalizeStruct.batchHeader,
-            finalizeStruct.lastProcessedQueueIndex,
+            finalizeStruct.totalL1MessagesPoppedOverall,
             finalizeStruct.postStateRoot,
             finalizeStruct.withdrawRoot,
             finalizeStruct.zkProof
@@ -897,13 +897,13 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Internal function to finalize a bundle after the EuclidV2 upgrade.
     /// @param batchHeader The header of the last batch in this bundle.
-    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this bundle.
+    /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this bundle.
     /// @param withdrawRoot The withdraw trie root after this bundle.
     /// @param aggrProof The bundle proof for this bundle.
     function _finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
-        uint256 lastProcessedQueueIndex,
+        uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata aggrProof
@@ -915,8 +915,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         );
 
         // L1 message hashes are chained,
-        // this hash commits to the whole queue up to and including `lastProcessedQueueIndex`
-        bytes32 messageQueueHash = IL1MessageQueueV2(messageQueueV2).getMessageRollingHash(lastProcessedQueueIndex);
+        // this hash commits to the whole queue up to and including `totalL1MessagesPoppedOverall-1`
+        bytes32 messageQueueHash = totalL1MessagesPoppedOverall == 0
+            ? bytes32(0)
+            : IL1MessageQueueV2(messageQueueV2).getMessageRollingHash(totalL1MessagesPoppedOverall - 1);
 
         bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,
@@ -933,8 +935,8 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // our off-chain service will make sure all unfinalized batches have the same batch version.
         IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInputs);
 
-        // actions after verification, totalL1MessagesPoppedOverall is lastProcessedQueueIndex plus one.
-        _afterFinalizeBatch(batchIndex, batchHash, lastProcessedQueueIndex + 1, postStateRoot, withdrawRoot, false);
+        // actions after verification
+        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, false);
     }
 
     /// @dev Internal function to commit batches from V2 to V6 (except V5, since it is Euclid initial batch)

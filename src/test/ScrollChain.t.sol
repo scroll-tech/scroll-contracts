@@ -551,7 +551,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.startPrank(address(0));
         hevm.expectEmit(true, true, true, true);
         emit FinalizeBatch(11, keccak256(headers[11]), keccak256("x11"), keccak256("y11"));
-        rollup.finalizeBundlePostEuclidV2(headers[11], 9, keccak256("x11"), keccak256("y11"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[11], 10, keccak256("x11"), keccak256("y11"), new bytes(0));
         hevm.stopPrank();
         (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
         assertEq(lastFinalizedBatchIndex, 11);
@@ -575,7 +575,7 @@ contract ScrollChainTest is DSTestPlus {
         emit FinalizedDequeuedTransaction(16);
         hevm.expectEmit(true, true, true, true);
         emit FinalizeBatch(15, keccak256(headers[15]), keccak256("x15"), keccak256("y15"));
-        rollup.finalizeBundlePostEuclidV2(headers[15], 16, keccak256("x15"), keccak256("y15"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[15], 17, keccak256("x15"), keccak256("y15"), new bytes(0));
         hevm.stopPrank();
         (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
         assertEq(lastFinalizedBatchIndex, 15);
@@ -593,7 +593,7 @@ contract ScrollChainTest is DSTestPlus {
         emit FinalizedDequeuedTransaction(19);
         hevm.expectEmit(true, true, true, true);
         emit FinalizeBatch(20, keccak256(headers[20]), keccak256("x20"), keccak256("y20"));
-        rollup.finalizeBundlePostEuclidV2(headers[20], 19, keccak256("x20"), keccak256("y20"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[20], 20, keccak256("x20"), keccak256("y20"), new bytes(0));
         hevm.stopPrank();
         (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
         assertEq(lastFinalizedBatchIndex, 20);
@@ -607,7 +607,7 @@ contract ScrollChainTest is DSTestPlus {
         // revert ErrorBatchIsAlreadyVerified
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
-        rollup.finalizeBundlePostEuclidV2(headers[20], 19, keccak256("x20"), keccak256("y20"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[20], 20, keccak256("x20"), keccak256("y20"), new bytes(0));
         hevm.stopPrank();
     }
 
@@ -633,7 +633,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
         // finalize two v7 batches
         hevm.startPrank(address(0));
-        rollup.finalizeBundlePostEuclidV2(headers[12], 9, keccak256("x12"), keccak256("y12"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorNotInEnforcedBatchMode
@@ -643,7 +643,7 @@ contract ScrollChainTest is DSTestPlus {
             bytes32(0),
             IScrollChain.FinalizeStruct({
                 batchHeader: new bytes(0),
-                lastProcessedQueueIndex: 0,
+                totalL1MessagesPoppedOverall: 0,
                 postStateRoot: bytes32(0),
                 withdrawRoot: bytes32(0),
                 zkProof: new bytes(0)
@@ -674,7 +674,7 @@ contract ScrollChainTest is DSTestPlus {
             keccak256(headers[12]),
             IScrollChain.FinalizeStruct({
                 batchHeader: headers[13],
-                lastProcessedQueueIndex: 19,
+                totalL1MessagesPoppedOverall: 20,
                 postStateRoot: keccak256("x13"),
                 withdrawRoot: keccak256("y13"),
                 zkProof: new bytes(0)
@@ -714,7 +714,7 @@ contract ScrollChainTest is DSTestPlus {
             keccak256(headers[13]),
             IScrollChain.FinalizeStruct({
                 batchHeader: headers[14],
-                lastProcessedQueueIndex: 19,
+                totalL1MessagesPoppedOverall: 20,
                 postStateRoot: keccak256("x14"),
                 withdrawRoot: keccak256("y14"),
                 zkProof: new bytes(0)
@@ -744,7 +744,7 @@ contract ScrollChainTest is DSTestPlus {
             keccak256(headers[13]),
             IScrollChain.FinalizeStruct({
                 batchHeader: headers[14],
-                lastProcessedQueueIndex: 19,
+                totalL1MessagesPoppedOverall: 20,
                 postStateRoot: keccak256("x13"),
                 withdrawRoot: keccak256("y13"),
                 zkProof: new bytes(0)
@@ -775,7 +775,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
         // finalize two v7 batches
         hevm.startPrank(address(0));
-        rollup.finalizeBundlePostEuclidV2(headers[12], 9, keccak256("x12"), keccak256("y12"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorNotInEnforcedBatchMode
@@ -785,7 +785,7 @@ contract ScrollChainTest is DSTestPlus {
             bytes32(0),
             IScrollChain.FinalizeStruct({
                 batchHeader: new bytes(0),
-                lastProcessedQueueIndex: 0,
+                totalL1MessagesPoppedOverall: 0,
                 postStateRoot: bytes32(0),
                 withdrawRoot: bytes32(0),
                 zkProof: new bytes(0)
@@ -808,7 +808,7 @@ contract ScrollChainTest is DSTestPlus {
             keccak256(headers[12]),
             IScrollChain.FinalizeStruct({
                 batchHeader: headers[13],
-                lastProcessedQueueIndex: 9,
+                totalL1MessagesPoppedOverall: 10,
                 postStateRoot: keccak256("x13"),
                 withdrawRoot: keccak256("y13"),
                 zkProof: new bytes(0)
@@ -847,7 +847,7 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
         // finalize two v7 batches
         hevm.startPrank(address(0));
-        rollup.finalizeBundlePostEuclidV2(headers[12], 9, keccak256("x12"), keccak256("y12"), new bytes(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
         hevm.stopPrank();
 
         // caller not owner, revert

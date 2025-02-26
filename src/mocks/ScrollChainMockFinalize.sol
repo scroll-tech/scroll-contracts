@@ -39,7 +39,7 @@ contract ScrollChainMockFinalize is ScrollChain {
 
     function finalizeBundlePostEuclidV2NoProof(
         bytes calldata batchHeader,
-        uint256 lastProcessedQueueIndex,
+        uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot
     ) external {
@@ -47,6 +47,6 @@ contract ScrollChainMockFinalize is ScrollChain {
         (, bytes32 batchHash, uint256 batchIndex, , ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
 
         // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, lastProcessedQueueIndex + 1, postStateRoot, withdrawRoot, true);
+        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, true);
     }
 }

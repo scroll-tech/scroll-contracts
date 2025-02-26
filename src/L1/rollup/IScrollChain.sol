@@ -128,14 +128,14 @@ interface IScrollChain {
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after the EuclidV2 upgrade.
     /// @param batchHeader The header of the last batch in this bundle.
-    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this bundle.
+    /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this bundle.
     /// @param withdrawRoot The withdraw trie root after this bundle.
     /// @param aggrProof The bundle proof for this bundle.
     /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     function finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
-        uint256 lastProcessedQueueIndex,
+        uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
         bytes calldata aggrProof
@@ -143,14 +143,14 @@ interface IScrollChain {
 
     /// @notice The struct for permissionless batch finalization.
     /// @param batchHeader The header of this batch.
-    /// @param lastProcessedQueueIndex The highest message queue index processed up to (and including) this batch.
+    /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this batch.
     /// @param withdrawRoot The withdraw trie root after this batch.
     /// @param zkProof The bundle proof for this batch (single-batch bundle).
     /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     struct FinalizeStruct {
         bytes batchHeader;
-        uint256 lastProcessedQueueIndex;
+        uint256 totalL1MessagesPoppedOverall;
         bytes32 postStateRoot;
         bytes32 withdrawRoot;
         bytes zkProof;
