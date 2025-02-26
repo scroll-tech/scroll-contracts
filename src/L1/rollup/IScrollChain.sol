@@ -100,9 +100,14 @@ interface IScrollChain {
 
     /// @notice Commit one or more batches after the EuclidV2 upgrade.
     /// @param version The version of the committed batches.
+    /// @param parentBatchHash The hash of parent batch.
     /// @param lastBatchHash The hash of the last committed batch after this call.
     /// @dev The batch payload is stored in the blobs.
-    function commitBatches(uint8 version, bytes32 lastBatchHash) external;
+    function commitBatches(
+        uint8 version,
+        bytes32 parentBatchHash,
+        bytes32 lastBatchHash
+    ) external;
 
     /// @notice Revert pending batches.
     /// @dev one can only revert unfinalized batches.
@@ -153,7 +158,12 @@ interface IScrollChain {
 
     /// @notice Commit and finalize a batch in permissionless mode.
     /// @param version The version of current batch.
+    /// @param parentBatchHash The hash of parent batch.
     /// @param finalizeStruct The data needed to finalize this batch.
     /// @dev The batch payload is stored in the blob.
-    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external;
+    function commitAndFinalizeBatch(
+        uint8 version,
+        bytes32 parentBatchHash,
+        FinalizeStruct calldata finalizeStruct
+    ) external;
 }

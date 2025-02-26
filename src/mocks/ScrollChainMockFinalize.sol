@@ -37,7 +37,7 @@ contract ScrollChainMockFinalize is ScrollChain {
         _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, true);
     }
 
-    function finalizeBundlePostEuclidV2(
+    function finalizeBundlePostEuclidV2NoProof(
         bytes calldata batchHeader,
         uint256 lastProcessedQueueIndex,
         bytes32 postStateRoot,

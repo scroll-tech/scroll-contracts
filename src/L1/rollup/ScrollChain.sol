@@ -428,14 +428,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    function commitBatches(uint8 version, bytes32 lastBatchHash)
-        external
-        override
-        OnlySequencer
-        whenNotPaused
-        whenEnforcedBatchNotEnabled
-    {
-        _commitBatchesFromV7(version, lastBatchHash, false);
+    function commitBatches(
+        uint8 version,
+        bytes32 parentBatchHash,
+        bytes32 lastBatchHash
+    ) external override OnlySequencer whenNotPaused whenEnforcedBatchNotEnabled {
+        _commitBatchesFromV7(version, parentBatchHash, lastBatchHash, false);
     }
 
     /// @inheritdoc IScrollChain
@@ -524,7 +522,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     /// @dev We only consider batch version >= 7 here.
-    function commitAndFinalizeBatch(uint8 version, FinalizeStruct calldata finalizeStruct) external {
+    function commitAndFinalizeBatch(
+        uint8 version,
+        bytes32 parentBatchHash,
+        FinalizeStruct calldata finalizeStruct
+    ) external {
         ScrollChainMiscData memory cachedMiscData = miscData;
         if (!isEnforcedModeEnabled()) {
             (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
@@ -547,7 +549,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         bytes32 batchHash = keccak256(finalizeStruct.batchHeader);
-        _commitBatchesFromV7(version, batchHash, true);
+        _commitBatchesFromV7(version, parentBatchHash, batchHash, true);
 
         // finalize with zk proof
         _finalizeBundlePostEuclidV2(
@@ -835,10 +837,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @dev Internal function to commit one ore more batches after the EuclidV2 upgrade.
     /// @param version The version of the batches (version >= 7).
+    /// @param parentBatchHash The hash of parent batch.
     /// @param lastBatchHash The hash of the last committed batch after this call.
     /// @param onlyOne If true, we will only process the first blob.
     function _commitBatchesFromV7(
         uint8 version,
+        bytes32 parentBatchHash,
         bytes32 lastBatchHash,
         bool onlyOne
     ) internal {
@@ -848,7 +852,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
 
         uint256 lastCommittedBatchIndex = miscData.lastCommittedBatchIndex;
-        bytes32 parentBatchHash = committedBatches[lastCommittedBatchIndex];
+        if (parentBatchHash != committedBatches[lastCommittedBatchIndex]) revert ErrorIncorrectBatchHash();
         for (uint256 i = 0; ; i++) {
             bytes32 blobVersionedHash = _getBlobVersionedHash(i);
             if (blobVersionedHash == bytes32(0)) {
