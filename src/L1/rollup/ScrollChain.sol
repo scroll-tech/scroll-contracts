@@ -449,6 +449,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (startBatchIndex < miscData.lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
+        for (uint256 i = lastBatchIndex; i > startBatchIndex; --i) {
+            bytes32 hash = committedBatches[i];
+            if (hash != bytes32(0)) delete committedBatches[i];
+        }
         emit RevertBatch(startBatchIndex + 1, lastBatchIndex);
 
         // update `lastCommittedBatchIndex`
@@ -538,6 +542,15 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 cachedMiscData.lastFinalizeTimestamp + maxDelayEnterEnforcedMode < block.timestamp
             ) {
                 if (cachedMiscData.lastFinalizedBatchIndex < cachedMiscData.lastCommittedBatchIndex) {
+                    // be careful with the gas costs, maybe should call revertBatch first.
+                    for (
+                        uint256 i = cachedMiscData.lastCommittedBatchIndex;
+                        i > cachedMiscData.lastFinalizedBatchIndex;
+                        --i
+                    ) {
+                        bytes32 hash = committedBatches[i];
+                        if (hash != bytes32(0)) delete committedBatches[i];
+                    }
                     emit RevertBatch(
                         cachedMiscData.lastFinalizedBatchIndex + 1,
                         cachedMiscData.lastCommittedBatchIndex
