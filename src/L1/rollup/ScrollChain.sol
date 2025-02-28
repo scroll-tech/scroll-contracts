@@ -205,8 +205,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @inheritdoc IScrollChain
     /// @dev Starting from EuclidV2, this array is sparse: it only contains
     /// the last batch hash per commit transaction, and not intermediate ones.
-    /// @dev Starting from EuclidV2, this array might contain reverted batches,
-    /// callers must check that `batchIndex <= miscData.lastCommittedBatchIndex`.
     mapping(uint256 => bytes32) public override committedBatches;
 
     /// @inheritdoc IScrollChain
