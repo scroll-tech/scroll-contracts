@@ -47,6 +47,6 @@ contract ScrollChainMockFinalize is ScrollChain {
         (, bytes32 batchHash, uint256 batchIndex, , ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
 
         // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, true);
+        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, false);
     }
 }
