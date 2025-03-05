@@ -3,6 +3,37 @@
 pragma solidity ^0.8.24;
 
 interface ScrollChainInterface {
+    /**********
+     * Events *
+     **********/
+
+    /// @notice Emitted when a new batch is committed.
+    /// @param batchIndex The index of the batch.
+    /// @param batchHash The hash of the batch.
+    event CommitBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
+
+    /// @notice revert a pending batch.
+    /// @param batchIndex The index of the batch.
+    /// @param batchHash The hash of the batch
+    event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
+
+    /// @notice revert a range of batches.
+    /// @param startBatchIndex The start batch index of the range (inclusive).
+    /// @param finishBatchIndex The finish batch index of the range (inclusive).
+    event RevertBatch(uint256 indexed startBatchIndex, uint256 indexed finishBatchIndex);
+
+    /// @notice Emitted when a batch is finalized.
+    /// @param batchIndex The index of the batch.
+    /// @param batchHash The hash of the batch
+    /// @param stateRoot The state root on layer 2 after this batch.
+    /// @param withdrawRoot The merkle root on layer2 after this batch.
+    event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
+
+    /// @notice Emitted when we enter or exit enforced batch mode.
+    /// @param enabled True if we are entering enforced batch mode, false otherwise.
+    /// @param lastCommittedBatchIndex The index of the last committed batch.
+    event UpdateEnforcedBatchMode(bool enabled, uint256 lastCommittedBatchIndex);
+
     /********************
      * Commit Functions *
      ********************/
