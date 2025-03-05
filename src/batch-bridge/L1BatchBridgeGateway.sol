@@ -9,7 +9,7 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20
 
 import {IL1ERC20Gateway} from "../L1/gateways/IL1ERC20Gateway.sol";
 import {IL1GatewayRouter} from "../L1/gateways/IL1GatewayRouter.sol";
-import {IL1MessageQueue} from "../L1/rollup/IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "../L1/rollup/IL1MessageQueueV1.sol";
 import {IL1ScrollMessenger} from "../L1/IL1ScrollMessenger.sol";
 
 import {BatchBridgeCodec} from "./BatchBridgeCodec.sol";
@@ -262,8 +262,10 @@ contract L1BatchBridgeGateway is AccessControlEnumerableUpgradeable, ReentrancyG
         }
 
         // check bridge fee
-        uint256 depositFee = IL1MessageQueue(queue).estimateCrossDomainMessageFee(cachedBatchConfig.safeBridgeGasLimit);
-        uint256 batchBridgeFee = IL1MessageQueue(queue).estimateCrossDomainMessageFee(SAFE_BATCH_BRIDGE_GAS_LIMIT);
+        uint256 depositFee = IL1MessageQueueV1(queue).estimateCrossDomainMessageFee(
+            cachedBatchConfig.safeBridgeGasLimit
+        );
+        uint256 batchBridgeFee = IL1MessageQueueV1(queue).estimateCrossDomainMessageFee(SAFE_BATCH_BRIDGE_GAS_LIMIT);
         if (msg.value < depositFee + batchBridgeFee) {
             revert ErrorInsufficientMsgValueForBatchDepositFee();
         }

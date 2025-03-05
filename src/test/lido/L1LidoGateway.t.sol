@@ -393,10 +393,10 @@ contract L1LidoGatewayTest is L1GatewayTestBase {
         // succeed on drop
         // skip message 0
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 1, 0x1);
-        messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
+        messageQueueV1.popCrossDomainMessage(0, 1, 0x1);
+        messageQueueV1.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 1);
+        assertEq(messageQueueV1.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
         // should emit RefundERC20
@@ -522,7 +522,7 @@ contract L1LidoGatewayTest is L1GatewayTestBase {
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         feePerGas = feePerGas * gasLimit;
 
         // revert when reentrant

@@ -6,14 +6,14 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {IL1MessageQueue} from "../L1/rollup/IL1MessageQueue.sol";
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
+import {IL1MessageQueueV1} from "../L1/rollup/IL1MessageQueueV1.sol";
+import {L1MessageQueueV1} from "../L1/rollup/L1MessageQueueV1.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
 
 import {ScrollTestBase} from "./ScrollTestBase.t.sol";
 
-contract L1MessageQueueTest is ScrollTestBase {
+contract L1MessageQueueV1Test is ScrollTestBase {
     // events
     event QueueTransaction(
         address indexed sender,
@@ -35,19 +35,19 @@ contract L1MessageQueueTest is ScrollTestBase {
     address private FakeGateway = 0x1000000000000000000000000000000000000003;
     address private FakeSigner = 0x1000000000000000000000000000000000000004;
 
-    L1MessageQueue private queue;
+    L1MessageQueueV1 private queue;
     L2GasPriceOracle private gasOracle;
 
     function setUp() public {
         __ScrollTestBase_setUp();
 
-        queue = L1MessageQueue(_deployProxy(address(0)));
+        queue = L1MessageQueueV1(_deployProxy(address(0)));
         gasOracle = L2GasPriceOracle(_deployProxy(address(new L2GasPriceOracle())));
 
-        // Upgrade the L1MessageQueue implementation and initialize
+        // Upgrade the L1MessageQueueV1 implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(queue)),
-            address(new L1MessageQueue(FakeMessenger, FakeScrollChain, FakeGateway))
+            address(new L1MessageQueueV1(FakeMessenger, FakeScrollChain, FakeGateway))
         );
         gasOracle.initialize(21000, 50000, 8, 16);
         queue.initialize(address(1), address(1), address(1), address(gasOracle), 10000000);

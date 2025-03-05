@@ -3,13 +3,13 @@
 pragma solidity =0.8.24;
 
 import {IWhitelist} from "../../libraries/common/IWhitelist.sol";
-import {IL1MessageQueue} from "./IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
 import {IL1MessageQueueWithGasPriceOracle} from "./IL1MessageQueueWithGasPriceOracle.sol";
 import {IL2GasPriceOracle} from "./IL2GasPriceOracle.sol";
 
-import {L1MessageQueue} from "./L1MessageQueue.sol";
+import {L1MessageQueueV1} from "./L1MessageQueueV1.sol";
 
-contract L1MessageQueueWithGasPriceOracle is L1MessageQueue, IL1MessageQueueWithGasPriceOracle {
+contract L1MessageQueueV1WithGasPriceOracle is L1MessageQueueV1, IL1MessageQueueWithGasPriceOracle {
     /*************
      * Constants *
      *************/
@@ -43,7 +43,7 @@ contract L1MessageQueueWithGasPriceOracle is L1MessageQueue, IL1MessageQueueWith
         address _messenger,
         address _scrollChain,
         address _enforcedTxGateway
-    ) L1MessageQueue(_messenger, _scrollChain, _enforcedTxGateway) {}
+    ) L1MessageQueueV1(_messenger, _scrollChain, _enforcedTxGateway) {}
 
     /// @notice Initialize the storage of L1MessageQueueWithGasPriceOracle.
     function initializeV2() external reinitializer(2) {
@@ -59,21 +59,21 @@ contract L1MessageQueueWithGasPriceOracle is L1MessageQueue, IL1MessageQueueWith
      * Public View Functions *
      *************************/
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function estimateCrossDomainMessageFee(uint256 _gasLimit)
         external
         view
-        override(IL1MessageQueue, L1MessageQueue)
+        override(IL1MessageQueueV1, L1MessageQueueV1)
         returns (uint256)
     {
         return _gasLimit * l2BaseFee;
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function calculateIntrinsicGasFee(bytes calldata _calldata)
         public
         pure
-        override(IL1MessageQueue, L1MessageQueue)
+        override(IL1MessageQueueV1, L1MessageQueueV1)
         returns (uint256)
     {
         // no way this can overflow `uint256`

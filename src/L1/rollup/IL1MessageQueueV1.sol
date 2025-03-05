@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-interface IL1MessageQueue {
+interface IL1MessageQueueV1 {
     /**********
      * Events *
      **********/

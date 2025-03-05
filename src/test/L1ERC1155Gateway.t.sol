@@ -221,10 +221,10 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
 
         // skip message 0
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 1, 0x1);
-        messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
+        messageQueueV1.popCrossDomainMessage(0, 1, 0x1);
+        messageQueueV1.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 1);
+        assertEq(messageQueueV1.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
         // drop message 0
@@ -261,10 +261,10 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
 
         // skip message 0
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 1, 0x1);
-        messageQueue.finalizePoppedCrossDomainMessage(1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
+        messageQueueV1.popCrossDomainMessage(0, 1, 0x1);
+        messageQueueV1.finalizePoppedCrossDomainMessage(1);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 1);
+        assertEq(messageQueueV1.pendingQueueIndex(), 1);
         hevm.stopPrank();
 
         // drop message 0
@@ -746,7 +746,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         bytes memory message = abi.encodeWithSelector(
@@ -814,7 +814,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         bytes memory message = abi.encodeWithSelector(
@@ -893,7 +893,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         uint256[] memory _tokenIds = new uint256[](tokenCount);
@@ -978,7 +978,7 @@ contract L1ERC1155GatewayTest is L1GatewayTestBase, ERC1155TokenReceiver {
         gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
         feePerGas = bound(feePerGas, 0, 1000);
 
-        messageQueue.setL2BaseFee(feePerGas);
+        setL2BaseFee(feePerGas);
         uint256 feeToPay = feePerGas * gasLimit;
 
         uint256[] memory _tokenIds = new uint256[](tokenCount);
