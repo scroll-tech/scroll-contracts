@@ -2,6 +2,10 @@
 
 pragma solidity ^0.8.24;
 
+/// @notice ScrollChainInterface collects all past and present ScrollChain
+/// events and functions that are needed to index data.
+/// @dev We store these here for easier access to the full ABI, since some
+/// of these functions were removed in later versions of ScrollChain.
 interface ScrollChainInterface {
     /**********
      * Events *
