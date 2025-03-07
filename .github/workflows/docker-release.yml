@@ -19,7 +19,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2.2.0
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v3
@@ -30,12 +30,12 @@ jobs:
         run: npm install
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2.10.0
         with:
           cache-binary: false
 
       - name: Login to Dockerhub
-        uses: docker/login-action@v2
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 #v3.3.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -44,7 +44,7 @@ jobs:
         id: build_deploy_image
         env:
           REPOSITORY: scrolltech/scroll-stack-contracts
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         with:
           platforms: linux/amd64,linux/arm64
           push: true
@@ -57,7 +57,7 @@ jobs:
         id: build_gen_image
         env:
           REPOSITORY: scrolltech/scroll-stack-contracts
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
         with:
           platforms: linux/amd64,linux/arm64
           push: true
