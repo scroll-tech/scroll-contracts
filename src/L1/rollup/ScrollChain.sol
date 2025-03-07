@@ -105,6 +105,24 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the given address is `address(0)`.
     error ErrorZeroAddress();
 
+    /// @dev Thrown when commit old batch after Euclid fork is enabled.
+    error ErrorEuclidForkEnabled();
+
+    /// @dev Thrown when SC finalize V5 batch before all v4 batches are finalized.
+    error ErrorNotAllV4BatchFinalized();
+
+    /// @dev Thrown when the committed v5 batch doesn't contain only one chunk.
+    error ErrorV5BatchNotContainsOnlyOneChunk();
+
+    /// @dev Thrown when the committed v5 batch doesn't contain only one block.
+    error ErrorV5BatchNotContainsOnlyOneBlock();
+
+    /// @dev Thrown when the committed v5 batch contains some transactions (L1 or L2).
+    error ErrorV5BatchContainsTransactions();
+
+    /// @dev Thrown when finalize v4/v5, v5/v6, v4/v5/v6 batches in the same bundle.
+    error ErrorFinalizePreAndPostEuclidBatchInOneBundle();
+
     /*************
      * Constants *
      *************/
@@ -156,6 +174,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     /// @inheritdoc IScrollChain
     mapping(uint256 => bytes32) public override withdrawRoots;
+
+    /// @notice The index of first Euclid batch.
+    uint256 public initialEuclidBatchIndex;
 
     /**********************
      * Function Modifiers *
@@ -262,71 +283,14 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     }
 
     /// @inheritdoc IScrollChain
-    function commitBatch(
-        uint8 _version,
-        bytes calldata _parentBatchHeader,
-        bytes[] memory _chunks,
-        bytes calldata _skippedL1MessageBitmap
-    ) external override OnlySequencer whenNotPaused {
-        (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
-            _parentBatchHeader,
-            _chunks
-        );
-
-        bytes32 _batchHash;
-        uint256 batchPtr;
-        bytes32 _dataHash;
-        uint256 _totalL1MessagesPoppedInBatch;
-        if (1 <= _version && _version <= 2) {
-            // versions 1 and 2 both use ChunkCodecV1 and BatchHeaderV1Codec,
-            // but they use different blob encoding and different verifiers.
-            (_dataHash, _totalL1MessagesPoppedInBatch) = _commitChunksV1(
-                _totalL1MessagesPoppedOverall,
-                _chunks,
-                _skippedL1MessageBitmap
-            );
-            assembly {
-                batchPtr := mload(0x40)
-                _totalL1MessagesPoppedOverall := add(_totalL1MessagesPoppedOverall, _totalL1MessagesPoppedInBatch)
-            }
-
-            // store entries, the order matters
-            // Some are using `BatchHeaderV0Codec`, see comments of `BatchHeaderV1Codec`.
-            BatchHeaderV0Codec.storeVersion(batchPtr, _version);
-            BatchHeaderV0Codec.storeBatchIndex(batchPtr, _batchIndex);
-            BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, _totalL1MessagesPoppedInBatch);
-            BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, _totalL1MessagesPoppedOverall);
-            BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
-            BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _getBlobVersionedHash());
-            BatchHeaderV1Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
-            BatchHeaderV1Codec.storeSkippedBitmap(batchPtr, _skippedL1MessageBitmap);
-            // compute batch hash, V1 and V2 has same code as V0
-            _batchHash = BatchHeaderV0Codec.computeBatchHash(
-                batchPtr,
-                BatchHeaderV1Codec.BATCH_HEADER_FIXED_LENGTH + _skippedL1MessageBitmap.length
-            );
-        } else {
-            // we don't allow v0 and other versions
-            revert ErrorIncorrectBatchVersion();
-        }
-
-        // verify skippedL1MessageBitmap
-        _checkSkippedL1MessageBitmap(
-            _totalL1MessagesPoppedOverall,
-            _totalL1MessagesPoppedInBatch,
-            _skippedL1MessageBitmap,
-            false
-        );
-
-        _afterCommitBatch(_batchIndex, _batchHash);
-    }
-
-    /// @inheritdoc IScrollChain
     ///
     /// @dev This function will revert unless all V0/V1/V2 batches are finalized. This is because we start to
     /// pop L1 messages in `commitBatchWithBlobProof` but not in `commitBatch`. We also introduce `finalizedQueueIndex`
     /// in `L1MessageQueue`. If one of V0/V1/V2 batches not finalized, `L1MessageQueue.pendingQueueIndex` will not
     /// match `parentBatchHeader.totalL1MessagePopped` and thus revert.
+    ///
+    /// @dev This function now only accept batches with version >= 4. And for `_version=5`, we should make sure this
+    /// batch contains only one empty block, since it is the Euclid initial batch for zkt/mpt transition.
     function commitBatchWithBlobProof(
         uint8 _version,
         bytes calldata _parentBatchHeader,
@@ -334,72 +298,33 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         bytes calldata _skippedL1MessageBitmap,
         bytes calldata _blobDataProof
     ) external override OnlySequencer whenNotPaused {
-        if (_version <= 2) {
+        if (_version < 4) {
+            // only accept version >= 4
             revert ErrorIncorrectBatchVersion();
+        } else if (_version == 5) {
+            // only commit once for Euclid initial batch
+            if (initialEuclidBatchIndex != 0) revert ErrorBatchIsAlreadyCommitted();
         }
+        // @note We suppose to check v6 batches cannot be committed without initial Euclid Batch.
+        // However it will introduce extra sload (2000 gas), we let the sequencer to do this check offchain.
+        // Even if the sequencer commits v6 batches without v5 batch, the security council can still revert it.
 
-        // allocate memory of batch header and store entries if necessary, the order matters
-        // @note why store entries if necessary, to avoid stack overflow problem.
-        // The codes for `version`, `batchIndex`, `l1MessagePopped`, `totalL1MessagePopped` and `dataHash`
-        // are the same as `BatchHeaderV0Codec`.
-        // The codes for `blobVersionedHash`, and `parentBatchHash` are the same as `BatchHeaderV1Codec`.
-        uint256 batchPtr;
-        assembly {
-            batchPtr := mload(0x40)
-            // This is `BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH`, use `193` here to reduce code
-            // complexity. Be careful that the length may changed in future versions.
-            mstore(0x40, add(batchPtr, 193))
-        }
-        BatchHeaderV0Codec.storeVersion(batchPtr, _version);
-
-        (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
+        uint256 batchIndex = _commitBatchFromV2ToV6(
+            _version,
             _parentBatchHeader,
-            _chunks
-        );
-        BatchHeaderV0Codec.storeBatchIndex(batchPtr, _batchIndex);
-
-        // versions 2 and 3 both use ChunkCodecV1
-        (bytes32 _dataHash, uint256 _totalL1MessagesPoppedInBatch) = _commitChunksV1(
-            _totalL1MessagesPoppedOverall,
             _chunks,
-            _skippedL1MessageBitmap
-        );
-        unchecked {
-            _totalL1MessagesPoppedOverall += _totalL1MessagesPoppedInBatch;
-        }
-
-        // verify skippedL1MessageBitmap
-        _checkSkippedL1MessageBitmap(
-            _totalL1MessagesPoppedOverall,
-            _totalL1MessagesPoppedInBatch,
             _skippedL1MessageBitmap,
-            true
+            _blobDataProof
         );
-        BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, _totalL1MessagesPoppedInBatch);
-        BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, _totalL1MessagesPoppedOverall);
-        BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
-
-        // verify blob versioned hash
-        bytes32 _blobVersionedHash = _getBlobVersionedHash();
-        _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
-        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _blobVersionedHash);
-        BatchHeaderV1Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
-
-        uint256 lastBlockTimestamp;
-        {
-            bytes memory lastChunk = _chunks[_chunks.length - 1];
-            lastBlockTimestamp = ChunkCodecV1.getLastBlockTimestamp(lastChunk);
+        // Don't allow to commit version 4 after Euclid upgrade.
+        // This check is to avoid sequencer committing wrong batch due to human error.
+        // And This check won't introduce much gas overhead (likely less than 100).
+        if (_version == 4) {
+            uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+            if (euclidForkBatchIndex > 0 && batchIndex > euclidForkBatchIndex) revert ErrorEuclidForkEnabled();
+        } else if (_version == 5) {
+            initialEuclidBatchIndex = batchIndex;
         }
-        BatchHeaderV3Codec.storeLastBlockTimestamp(batchPtr, lastBlockTimestamp);
-        BatchHeaderV3Codec.storeBlobDataProof(batchPtr, _blobDataProof);
-
-        // compute batch hash, V3 has same code as V0
-        bytes32 _batchHash = BatchHeaderV0Codec.computeBatchHash(
-            batchPtr,
-            BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH
-        );
-
-        _afterCommitBatch(_batchIndex, _batchHash);
     }
 
     /// @inheritdoc IScrollChain
@@ -422,14 +347,20 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_firstBatchIndex <= lastFinalizedBatchIndex) revert ErrorRevertFinalizedBatch();
 
         // actual revert
+        uint256 _initialEuclidBatchIndex = initialEuclidBatchIndex;
         for (uint256 _batchIndex = _lastBatchIndex; _batchIndex >= _firstBatchIndex; --_batchIndex) {
             bytes32 _batchHash = committedBatches[_batchIndex];
             committedBatches[_batchIndex] = bytes32(0);
 
+            // also revert initial Euclid batch
+            if (_initialEuclidBatchIndex == _batchIndex) {
+                initialEuclidBatchIndex = 0;
+            }
+
             emit RevertBatch(_batchIndex, _batchHash);
         }
 
-        // `getL1MessagePopped` codes are the same in V0, V1, V2, V3
+        // `getL1MessagePopped` codes are the same in V0~V6
         uint256 l1MessagePoppedFirstBatch = BatchHeaderV0Codec.getL1MessagePopped(firstBatchPtr);
         unchecked {
             IL1MessageQueue(messageQueue).resetPoppedCrossDomainMessage(
@@ -438,149 +369,67 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
-    /* This function will never be used since we already upgrade to 4844. We comment out the codes for reference.
     /// @inheritdoc IScrollChain
-    function finalizeBatchWithProof(
-        bytes calldata _batchHeader,
-        bytes32 _prevStateRoot,
-        bytes32 _postStateRoot,
-        bytes32 _withdrawRoot,
-        bytes calldata _aggrProof
-    ) external override OnlyProver whenNotPaused {
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) = _beforeFinalizeBatch(
-            _batchHeader,
-            _postStateRoot
-        );
-
-        // compute public input hash
-        bytes32 _publicInputHash;
-        {
-            bytes32 _dataHash = BatchHeaderV0Codec.getDataHash(batchPtr);
-            bytes32 _prevStateRoot = finalizedStateRoots[_batchIndex - 1];
-            _publicInputHash = keccak256(
-                abi.encodePacked(layer2ChainId, _prevStateRoot, _postStateRoot, _withdrawRoot, _dataHash)
-            );
-        }
-        // verify batch
-        IRollupVerifier(verifier).verifyAggregateProof(0, _batchIndex, _aggrProof, _publicInputHash);
-
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        uint256 _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
-        _popL1MessagesMemory(
-            BatchHeaderV0Codec.getSkippedBitmapPtr(batchPtr),
-            _totalL1MessagesPoppedOverall,
-            BatchHeaderV0Codec.getL1MessagePopped(batchPtr)
-        );
-
-        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
-    }
-    */
-
-    /// @inheritdoc IScrollChain
-    /// @dev Memory layout of `_blobDataProof`:
-    /// ```text
-    /// | z       | y       | kzg_commitment | kzg_proof |
-    /// |---------|---------|----------------|-----------|
-    /// | bytes32 | bytes32 | bytes48        | bytes48   |
-    /// ```
-    function finalizeBatchWithProof4844(
-        bytes calldata _batchHeader,
-        bytes32, /*_prevStateRoot*/
-        bytes32 _postStateRoot,
-        bytes32 _withdrawRoot,
-        bytes calldata _blobDataProof,
-        bytes calldata _aggrProof
-    ) external override OnlyProver whenNotPaused {
-        (uint256 batchPtr, bytes32 _batchHash, uint256 _batchIndex) = _beforeFinalizeBatch(
-            _batchHeader,
-            _postStateRoot
-        );
-
-        // compute public input hash
-        bytes32 _publicInputHash;
-        {
-            bytes32 _dataHash = BatchHeaderV0Codec.getDataHash(batchPtr);
-            bytes32 _blobVersionedHash = BatchHeaderV1Codec.getBlobVersionedHash(batchPtr);
-            bytes32 _prevStateRoot = finalizedStateRoots[_batchIndex - 1];
-            // verify blob versioned hash
-            _checkBlobVersionedHash(_blobVersionedHash, _blobDataProof);
-            _publicInputHash = keccak256(
-                abi.encodePacked(
-                    layer2ChainId,
-                    _prevStateRoot,
-                    _postStateRoot,
-                    _withdrawRoot,
-                    _dataHash,
-                    _blobDataProof[0:64],
-                    _blobVersionedHash
-                )
-            );
-        }
-
-        // load version from batch header, it is always the first byte.
-        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
-        // verify batch
-        IRollupVerifier(verifier).verifyAggregateProof(batchVersion, _batchIndex, _aggrProof, _publicInputHash);
-
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        uint256 _totalL1MessagesPoppedOverall = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr);
-        _popL1MessagesMemory(
-            BatchHeaderV1Codec.getSkippedBitmapPtr(batchPtr),
-            _totalL1MessagesPoppedOverall,
-            BatchHeaderV0Codec.getL1MessagePopped(batchPtr)
-        );
-
-        _afterFinalizeBatch(_totalL1MessagesPoppedOverall, _batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
-    }
-
-    /// @inheritdoc IScrollChain
+    /// @dev All batches in the given bundle should have the same version and version <= 4 or version >= 6.
     function finalizeBundleWithProof(
-        bytes calldata _batchHeader,
-        bytes32 _postStateRoot,
-        bytes32 _withdrawRoot,
-        bytes calldata _aggrProof
+        bytes calldata batchHeader,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot,
+        bytes calldata aggrProof
     ) external override OnlyProver whenNotPaused {
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
-
-        // compute pending batch hash and verify
+        // actions before verification
         (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex,
-            uint256 _totalL1MessagesPoppedOverall
-        ) = _loadBatchHeader(_batchHeader);
+            uint256 version,
+            bytes32 batchHash,
+            uint256 batchIndex,
+            uint256 totalL1MessagesPoppedOverall,
+            uint256 prevBatchIndex
+        ) = _beforeFinalizeBatch(batchHeader, postStateRoot);
 
-        // retrieve finalized state root and batch hash from storage to construct the public input
-        uint256 _finalizedBatchIndex = lastFinalizedBatchIndex;
-        if (_batchIndex <= _finalizedBatchIndex) revert ErrorBatchIsAlreadyVerified();
+        uint256 euclidForkBatchIndex = initialEuclidBatchIndex;
+        // Make sure we don't finalize v4, v5 and v6 batches in the same bundle, that
+        // means `batchIndex < euclidForkBatchIndex` or `prevBatchIndex >= euclidForkBatchIndex`.
+        if (prevBatchIndex < euclidForkBatchIndex && euclidForkBatchIndex <= batchIndex) {
+            revert ErrorFinalizePreAndPostEuclidBatchInOneBundle();
+        }
 
-        bytes memory _publicInput = abi.encodePacked(
+        bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,
-            uint32(_batchIndex - _finalizedBatchIndex), // numBatches
-            finalizedStateRoots[_finalizedBatchIndex], // _prevStateRoot
-            committedBatches[_finalizedBatchIndex], // _prevBatchHash
-            _postStateRoot,
-            _batchHash,
-            _withdrawRoot
+            uint32(batchIndex - prevBatchIndex), // numBatches
+            finalizedStateRoots[prevBatchIndex], // _prevStateRoot
+            committedBatches[prevBatchIndex], // _prevBatchHash
+            postStateRoot,
+            batchHash,
+            withdrawRoot
         );
-
-        // load version from batch header, it is always the first byte.
-        uint256 batchVersion = BatchHeaderV0Codec.getVersion(batchPtr);
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyBundleProof(batchVersion, _batchIndex, _aggrProof, _publicInput);
+        IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInputs);
 
-        // store in state
-        // @note we do not store intermediate finalized roots
-        lastFinalizedBatchIndex = _batchIndex;
-        finalizedStateRoots[_batchIndex] = _postStateRoot;
-        withdrawRoots[_batchIndex] = _withdrawRoot;
+        // actions after verification
+        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot);
+    }
 
-        // Pop finalized and non-skipped message from L1MessageQueue.
-        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+    /// @inheritdoc IScrollChain
+    /// @dev This function will only allow security council to call once.
+    function finalizeEuclidInitialBatch(bytes32 postStateRoot) external override onlyOwner {
+        if (postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
+        uint256 batchIndex = initialEuclidBatchIndex;
+        // make sure only finalize once
+        if (finalizedStateRoots[batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
+        // all v4 batches should be finalized
+        if (lastFinalizedBatchIndex + 1 != batchIndex) revert ErrorNotAllV4BatchFinalized();
+
+        // update storage
+        lastFinalizedBatchIndex = batchIndex;
+        // batch is guaranteed to contain a single empty block, so withdraw root does not change
+        bytes32 withdrawRoot = withdrawRoots[batchIndex - 1];
+        finalizedStateRoots[batchIndex] = postStateRoot;
+        withdrawRoots[batchIndex] = withdrawRoot;
+
+        emit FinalizeBatch(batchIndex, committedBatches[batchIndex], postStateRoot, withdrawRoot);
     }
 
     /************************
@@ -673,7 +522,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (committedBatches[_batchIndex] != 0) revert ErrorBatchIsAlreadyCommitted();
     }
 
-    /// @dev Internal function to do common checks after actual batch committing.
+    /// @dev Internal function to do common actions after actual batch committing.
     /// @param _batchIndex The index of current batch.
     /// @param _batchHash The hash of current batch.
     function _afterCommitBatch(uint256 _batchIndex, bytes32 _batchHash) private {
@@ -681,72 +530,48 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         emit CommitBatch(_batchIndex, _batchHash);
     }
 
-    /// @dev Internal function to do common checks before actual batch finalization.
-    /// @param _batchHeader The current batch header in calldata.
-    /// @param _postStateRoot The state root after current batch.
-    /// @return batchPtr The start memory offset of current batch in memory.
-    /// @return _batchHash The hash of current batch.
-    /// @return _batchIndex The index of current batch.
-    function _beforeFinalizeBatch(bytes calldata _batchHeader, bytes32 _postStateRoot)
+    /// @dev Internal function to do common actions before actual batch finalization.
+    function _beforeFinalizeBatch(bytes calldata batchHeader, bytes32 postStateRoot)
         internal
         view
         returns (
-            uint256 batchPtr,
-            bytes32 _batchHash,
-            uint256 _batchIndex
+            uint256 version,
+            bytes32 batchHash,
+            uint256 batchIndex,
+            uint256 totalL1MessagesPoppedOverall,
+            uint256 prevBatchIndex
         )
     {
-        if (_postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
+        if (postStateRoot == bytes32(0)) revert ErrorStateRootIsZero();
 
-        // compute batch hash and verify
-        (batchPtr, _batchHash, _batchIndex, ) = _loadBatchHeader(_batchHeader);
+        uint256 batchPtr;
+        // compute pending batch hash and verify
+        (batchPtr, batchHash, batchIndex, totalL1MessagesPoppedOverall) = _loadBatchHeader(batchHeader);
 
-        // avoid duplicated verification
-        if (finalizedStateRoots[_batchIndex] != bytes32(0)) revert ErrorBatchIsAlreadyVerified();
+        // make sure don't finalize batch multiple times
+        prevBatchIndex = lastFinalizedBatchIndex;
+        if (batchIndex <= prevBatchIndex) revert ErrorBatchIsAlreadyVerified();
+
+        version = BatchHeaderV0Codec.getVersion(batchPtr);
     }
 
-    /// @dev Internal function to do common checks after actual batch finalization.
-    /// @param _totalL1MessagesPoppedOverall The total number of L1 messages popped after current batch.
-    /// @param _batchIndex The index of current batch.
-    /// @param _batchHash The hash of current batch.
-    /// @param _postStateRoot The state root after current batch.
-    /// @param _withdrawRoot The withdraw trie root after current batch.
+    /// @dev Internal function to do common actions after actual batch finalization.
     function _afterFinalizeBatch(
-        uint256 _totalL1MessagesPoppedOverall,
-        uint256 _batchIndex,
-        bytes32 _batchHash,
-        bytes32 _postStateRoot,
-        bytes32 _withdrawRoot
+        uint256 batchIndex,
+        bytes32 batchHash,
+        uint256 totalL1MessagesPoppedOverall,
+        bytes32 postStateRoot,
+        bytes32 withdrawRoot
     ) internal {
-        // check and update lastFinalizedBatchIndex
-        unchecked {
-            if (lastFinalizedBatchIndex + 1 != _batchIndex) revert ErrorIncorrectBatchIndex();
-            lastFinalizedBatchIndex = _batchIndex;
-        }
-
-        // record state root and withdraw root
-        finalizedStateRoots[_batchIndex] = _postStateRoot;
-        withdrawRoots[_batchIndex] = _withdrawRoot;
+        // @note we do not store intermediate finalized roots
+        lastFinalizedBatchIndex = batchIndex;
+        finalizedStateRoots[batchIndex] = postStateRoot;
+        withdrawRoots[batchIndex] = withdrawRoot;
 
         // Pop finalized and non-skipped message from L1MessageQueue.
-        _finalizePoppedL1Messages(_totalL1MessagesPoppedOverall);
+        _finalizePoppedL1Messages(totalL1MessagesPoppedOverall);
 
-        emit FinalizeBatch(_batchIndex, _batchHash, _postStateRoot, _withdrawRoot);
-    }
-
-    /// @dev Internal function to check blob versioned hash.
-    /// @param _blobVersionedHash The blob versioned hash to check.
-    /// @param _blobDataProof The blob data proof used to verify the blob versioned hash.
-    function _checkBlobVersionedHash(bytes32 _blobVersionedHash, bytes calldata _blobDataProof) internal view {
-        // Calls the point evaluation precompile and verifies the output
-        (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
-            abi.encodePacked(_blobVersionedHash, _blobDataProof)
-        );
-        // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
-        // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
-        if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
-        (, uint256 result) = abi.decode(data, (uint256, uint256));
-        if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
+        emit FinalizeBatch(batchIndex, batchHash, postStateRoot, withdrawRoot);
     }
 
     /// @dev Internal function to check the `SkippedL1MessageBitmap`.
@@ -775,6 +600,26 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         }
     }
 
+    /// @dev Internal function to get and check the blob versioned hash.
+    /// @param _blobDataProof The blob data proof passing to point evaluation precompile.
+    /// @return _blobVersionedHash The retrieved blob versioned hash.
+    function _getAndCheckBlobVersionedHash(bytes calldata _blobDataProof)
+        internal
+        returns (bytes32 _blobVersionedHash)
+    {
+        _blobVersionedHash = _getBlobVersionedHash();
+
+        // Calls the point evaluation precompile and verifies the output
+        (bool success, bytes memory data) = POINT_EVALUATION_PRECOMPILE_ADDR.staticcall(
+            abi.encodePacked(_blobVersionedHash, _blobDataProof)
+        );
+        // We verify that the point evaluation precompile call was successful by testing the latter 32 bytes of the
+        // response is equal to BLS_MODULUS as defined in https://eips.ethereum.org/EIPS/eip-4844#point-evaluation-precompile
+        if (!success) revert ErrorCallPointEvaluationPrecompileFailed();
+        (, uint256 result) = abi.decode(data, (uint256, uint256));
+        if (result != BLS_MODULUS) revert ErrorUnexpectedPointEvaluationPrecompileOutput();
+    }
+
     /// @dev Internal function to get the blob versioned hash.
     /// @return _blobVersionedHash The retrieved blob versioned hash.
     function _getBlobVersionedHash() internal virtual returns (bytes32 _blobVersionedHash) {
@@ -788,50 +633,92 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         if (_secondBlob != bytes32(0)) revert ErrorFoundMultipleBlobs();
     }
 
-    /// @dev Internal function to commit chunks with version 0
-    /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped before the list of chunks.
-    /// @param _chunks The list of chunks to commit.
-    /// @param _skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
-    /// @return _batchDataHash The computed data hash for the list of chunks.
-    /// @return _totalL1MessagesPoppedInBatch The total number of L1 messages popped in this batch, including skipped one.
-    function _commitChunksV0(
-        uint256 _totalL1MessagesPoppedOverall,
+    /// @dev We make sure v5 batch only contains one empty block here.
+    function _validateV5Batch(bytes[] memory chunks) internal pure {
+        if (chunks.length != 1) revert ErrorV5BatchNotContainsOnlyOneChunk();
+        bytes memory chunk = chunks[0];
+        uint256 chunkPtr;
+        uint256 blockPtr;
+        assembly {
+            chunkPtr := add(chunk, 0x20) // skip chunkLength
+            blockPtr := add(chunkPtr, 1)
+        }
+
+        uint256 numBlocks = ChunkCodecV1.validateChunkLength(chunkPtr, chunk.length);
+        if (numBlocks != 1) revert ErrorV5BatchNotContainsOnlyOneBlock();
+        uint256 numTransactions = ChunkCodecV1.getNumTransactions(blockPtr);
+        if (numTransactions != 0) revert ErrorV5BatchContainsTransactions();
+    }
+
+    /// @dev Internal function to commit batches from V2 to V6 (except V5, since it is Euclid initial batch)
+    function _commitBatchFromV2ToV6(
+        uint8 _version,
+        bytes calldata _parentBatchHeader,
         bytes[] memory _chunks,
-        bytes calldata _skippedL1MessageBitmap
-    ) internal view returns (bytes32 _batchDataHash, uint256 _totalL1MessagesPoppedInBatch) {
-        uint256 _chunksLength = _chunks.length;
-
-        // load `batchDataHashPtr` and reserve the memory region for chunk data hashes
-        uint256 batchDataHashPtr;
-        assembly {
-            batchDataHashPtr := mload(0x40)
-            mstore(0x40, add(batchDataHashPtr, mul(_chunksLength, 32)))
+        bytes calldata _skippedL1MessageBitmap,
+        bytes calldata _blobDataProof
+    ) internal returns (uint256) {
+        // do extra checks for batch v5.
+        if (_version == 5) {
+            _validateV5Batch(_chunks);
         }
 
-        // compute the data hash for each chunk
-        for (uint256 i = 0; i < _chunksLength; i++) {
-            uint256 _totalNumL1MessagesInChunk;
-            bytes32 _chunkDataHash;
-            (_chunkDataHash, _totalNumL1MessagesInChunk) = _commitChunkV0(
-                _chunks[i],
-                _totalL1MessagesPoppedInBatch,
-                _totalL1MessagesPoppedOverall,
-                _skippedL1MessageBitmap
-            );
-            unchecked {
-                _totalL1MessagesPoppedInBatch += _totalNumL1MessagesInChunk;
-                _totalL1MessagesPoppedOverall += _totalNumL1MessagesInChunk;
-            }
-            assembly {
-                mstore(batchDataHashPtr, _chunkDataHash)
-                batchDataHashPtr := add(batchDataHashPtr, 0x20)
-            }
+        // allocate memory of batch header and store entries if necessary, the order matters
+        // @note why store entries if necessary, to avoid stack overflow problem.
+        // The codes for `version`, `batchIndex`, `l1MessagePopped`, `totalL1MessagePopped` and `dataHash`
+        // are the same as `BatchHeaderV0Codec`.
+        // The codes for `blobVersionedHash`, and `parentBatchHash` are the same as `BatchHeaderV1Codec`.
+        uint256 batchPtr = BatchHeaderV3Codec.allocate();
+        BatchHeaderV0Codec.storeVersion(batchPtr, _version);
+
+        (bytes32 _parentBatchHash, uint256 _batchIndex, uint256 _totalL1MessagesPoppedOverall) = _beforeCommitBatch(
+            _parentBatchHeader,
+            _chunks
+        );
+        BatchHeaderV0Codec.storeBatchIndex(batchPtr, _batchIndex);
+
+        // versions 2 to 6 both use ChunkCodecV1
+        (bytes32 _dataHash, uint256 _totalL1MessagesPoppedInBatch) = _commitChunksV1(
+            _totalL1MessagesPoppedOverall,
+            _chunks,
+            _skippedL1MessageBitmap
+        );
+        unchecked {
+            _totalL1MessagesPoppedOverall += _totalL1MessagesPoppedInBatch;
         }
 
-        assembly {
-            let dataLen := mul(_chunksLength, 0x20)
-            _batchDataHash := keccak256(sub(batchDataHashPtr, dataLen), dataLen)
+        // verify skippedL1MessageBitmap
+        _checkSkippedL1MessageBitmap(
+            _totalL1MessagesPoppedOverall,
+            _totalL1MessagesPoppedInBatch,
+            _skippedL1MessageBitmap,
+            true
+        );
+        BatchHeaderV0Codec.storeL1MessagePopped(batchPtr, _totalL1MessagesPoppedInBatch);
+        BatchHeaderV0Codec.storeTotalL1MessagePopped(batchPtr, _totalL1MessagesPoppedOverall);
+        BatchHeaderV0Codec.storeDataHash(batchPtr, _dataHash);
+
+        // verify blob versioned hash
+        BatchHeaderV1Codec.storeBlobVersionedHash(batchPtr, _getAndCheckBlobVersionedHash(_blobDataProof));
+        BatchHeaderV1Codec.storeParentBatchHash(batchPtr, _parentBatchHash);
+
+        uint256 lastBlockTimestamp;
+        {
+            bytes memory lastChunk = _chunks[_chunks.length - 1];
+            lastBlockTimestamp = ChunkCodecV1.getLastBlockTimestamp(lastChunk);
         }
+        BatchHeaderV3Codec.storeLastBlockTimestamp(batchPtr, lastBlockTimestamp);
+        BatchHeaderV3Codec.storeBlobDataProof(batchPtr, _blobDataProof);
+
+        // compute batch hash, V2~V6 has same code as V0
+        bytes32 _batchHash = BatchHeaderV0Codec.computeBatchHash(
+            batchPtr,
+            BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH
+        );
+
+        _afterCommitBatch(_batchIndex, _batchHash);
+
+        return _batchIndex;
     }
 
     /// @dev Internal function to commit chunks with version 1
@@ -913,7 +800,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             (batchPtr, _length) = BatchHeaderV3Codec.loadAndValidate(_batchHeader);
         }
 
-        // the code for compute batch hash is the same for V0, V1, V2, V3
+        // the code for compute batch hash is the same for V0~V6
         // also the `_batchIndex` and `_totalL1MessagesPoppedOverall`.
         _batchHash = BatchHeaderV0Codec.computeBatchHash(batchPtr, _length);
         _batchIndex = BatchHeaderV0Codec.getBatchIndex(batchPtr);
@@ -922,100 +809,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         // only check when genesis is imported
         if (committedBatches[_batchIndex] != _batchHash && finalizedStateRoots[0] != bytes32(0)) {
             revert ErrorIncorrectBatchHash();
-        }
-    }
-
-    /// @dev Internal function to commit a chunk with version 0.
-    /// @param _chunk The encoded chunk to commit.
-    /// @param _totalL1MessagesPoppedInBatch The total number of L1 messages popped in the current batch before this chunk.
-    /// @param _totalL1MessagesPoppedOverall The total number of L1 messages popped in all batches including the current batch, before this chunk.
-    /// @param _skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
-    /// @return _dataHash The computed data hash for this chunk.
-    /// @return _totalNumL1MessagesInChunk The total number of L1 message popped in current chunk
-    function _commitChunkV0(
-        bytes memory _chunk,
-        uint256 _totalL1MessagesPoppedInBatch,
-        uint256 _totalL1MessagesPoppedOverall,
-        bytes calldata _skippedL1MessageBitmap
-    ) internal view returns (bytes32 _dataHash, uint256 _totalNumL1MessagesInChunk) {
-        uint256 chunkPtr;
-        uint256 startDataPtr;
-        uint256 dataPtr;
-
-        assembly {
-            dataPtr := mload(0x40)
-            startDataPtr := dataPtr
-            chunkPtr := add(_chunk, 0x20) // skip chunkLength
-        }
-
-        uint256 _numBlocks = ChunkCodecV0.validateChunkLength(chunkPtr, _chunk.length);
-
-        // concatenate block contexts, use scope to avoid stack too deep
-        {
-            uint256 _totalTransactionsInChunk;
-            for (uint256 i = 0; i < _numBlocks; i++) {
-                dataPtr = ChunkCodecV0.copyBlockContext(chunkPtr, dataPtr, i);
-                uint256 blockPtr = chunkPtr + 1 + i * ChunkCodecV0.BLOCK_CONTEXT_LENGTH;
-                uint256 _numTransactionsInBlock = ChunkCodecV0.getNumTransactions(blockPtr);
-                unchecked {
-                    _totalTransactionsInChunk += _numTransactionsInBlock;
-                }
-            }
-            assembly {
-                mstore(0x40, add(dataPtr, mul(_totalTransactionsInChunk, 0x20))) // reserve memory for tx hashes
-            }
-        }
-
-        // It is used to compute the actual number of transactions in chunk.
-        uint256 txHashStartDataPtr = dataPtr;
-        // concatenate tx hashes
-        uint256 l2TxPtr = ChunkCodecV0.getL2TxPtr(chunkPtr, _numBlocks);
-        chunkPtr += 1;
-        while (_numBlocks > 0) {
-            // concatenate l1 message hashes
-            uint256 _numL1MessagesInBlock = ChunkCodecV0.getNumL1Messages(chunkPtr);
-            dataPtr = _loadL1MessageHashes(
-                dataPtr,
-                _numL1MessagesInBlock,
-                _totalL1MessagesPoppedInBatch,
-                _totalL1MessagesPoppedOverall,
-                _skippedL1MessageBitmap
-            );
-
-            // concatenate l2 transaction hashes
-            uint256 _numTransactionsInBlock = ChunkCodecV0.getNumTransactions(chunkPtr);
-            if (_numTransactionsInBlock < _numL1MessagesInBlock) revert ErrorNumTxsLessThanNumL1Msgs();
-            for (uint256 j = _numL1MessagesInBlock; j < _numTransactionsInBlock; j++) {
-                bytes32 txHash;
-                (txHash, l2TxPtr) = ChunkCodecV0.loadL2TxHash(l2TxPtr);
-                assembly {
-                    mstore(dataPtr, txHash)
-                    dataPtr := add(dataPtr, 0x20)
-                }
-            }
-
-            unchecked {
-                _totalNumL1MessagesInChunk += _numL1MessagesInBlock;
-                _totalL1MessagesPoppedInBatch += _numL1MessagesInBlock;
-                _totalL1MessagesPoppedOverall += _numL1MessagesInBlock;
-
-                _numBlocks -= 1;
-                chunkPtr += ChunkCodecV0.BLOCK_CONTEXT_LENGTH;
-            }
-        }
-
-        // check the actual number of transactions in the chunk
-        if ((dataPtr - txHashStartDataPtr) / 32 > maxNumTxInChunk) revert ErrorTooManyTxsInOneChunk();
-
-        assembly {
-            chunkPtr := add(_chunk, 0x20)
-        }
-        // check chunk has correct length
-        if (l2TxPtr - chunkPtr != _chunk.length) revert ErrorIncompleteL2TransactionData();
-
-        // compute data hash and store to memory
-        assembly {
-            _dataHash := keccak256(startDataPtr, sub(dataPtr, startDataPtr))
         }
     }
 
@@ -1153,19 +946,6 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
                 IL1MessageQueue(messageQueue).finalizePoppedCrossDomainMessage(totalL1MessagesPoppedOverall);
             }
         }
-    }
-
-    /// @dev Internal function to pop l1 messages from `skippedL1MessageBitmap` in memory.
-    /// @param bitmapPtr The memory offset of `skippedL1MessageBitmap` in memory.
-    /// @param totalL1MessagesPoppedOverall The total number of L1 messages popped in all batches including current batch.
-    /// @param totalL1MessagesPoppedInBatch The number of L1 messages popped in current batch.
-    function _popL1MessagesMemory(
-        uint256 bitmapPtr,
-        uint256 totalL1MessagesPoppedOverall,
-        uint256 totalL1MessagesPoppedInBatch
-    ) internal {
-        if (totalL1MessagesPoppedInBatch == 0) return;
-        _popL1Messages(false, bitmapPtr, totalL1MessagesPoppedOverall, totalL1MessagesPoppedInBatch);
     }
 
     /// @dev Internal function to pop l1 messages from `skippedL1MessageBitmap` in calldata.

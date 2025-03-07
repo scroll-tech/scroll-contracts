@@ -28,6 +28,15 @@ library BatchHeaderV3Codec {
     /// @dev The length of fixed parts of the batch header.
     uint256 internal constant BATCH_HEADER_FIXED_LENGTH = 193;
 
+    /// @notice Allocate memory for batch header.
+    function allocate() internal pure returns (uint256 batchPtr) {
+        assembly {
+            batchPtr := mload(0x40)
+            // This is `BatchHeaderV3Codec.BATCH_HEADER_FIXED_LENGTH`, use `193` here to reduce code complexity.
+            mstore(0x40, add(batchPtr, 193))
+        }
+    }
+
     /// @notice Load batch header in calldata to memory.
     /// @param _batchHeader The encoded batch header bytes in calldata.
     /// @return batchPtr The start memory offset of the batch header in memory.
@@ -39,10 +48,9 @@ library BatchHeaderV3Codec {
         }
 
         // copy batch header to memory.
+        batchPtr = allocate();
         assembly {
-            batchPtr := mload(0x40)
             calldatacopy(batchPtr, _batchHeader.offset, length)
-            mstore(0x40, add(batchPtr, length))
         }
     }
 
