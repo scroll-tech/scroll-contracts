@@ -256,30 +256,22 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param _batchHeader The header of the genesis batch.
     /// @param _stateRoot The state root of the genesis block.
     function importGenesisBatch(bytes calldata _batchHeader, bytes32 _stateRoot) external {
-        // check genesis batch header length
-        if (_stateRoot == bytes32(0)) revert ErrorStateRootIsZero();
+        (, bytes32 _batchHash, , ) = _loadBatchHeader(_batchHeader);
 
-        // check whether the genesis batch is imported
-        if (finalizedStateRoots[0] != bytes32(0)) revert ErrorGenesisBatchImported();
-
-        (uint256 memPtr, bytes32 _batchHash, , ) = _loadBatchHeader(_batchHeader);
-
-        // check all fields except `dataHash` and `lastBlockHash` are zero
-        unchecked {
-            uint256 sum = BatchHeaderV0Codec.getVersion(memPtr) +
-                BatchHeaderV0Codec.getBatchIndex(memPtr) +
-                BatchHeaderV0Codec.getL1MessagePopped(memPtr) +
-                BatchHeaderV0Codec.getTotalL1MessagePopped(memPtr);
-            if (sum != 0) revert ErrorGenesisBatchHasNonZeroField();
-        }
-        if (BatchHeaderV0Codec.getDataHash(memPtr) == bytes32(0)) revert ErrorGenesisDataHashIsZero();
-        if (BatchHeaderV0Codec.getParentBatchHash(memPtr) != bytes32(0)) revert ErrorGenesisParentBatchHashIsNonZero();
-
+        // pretending commit and finalize genesis batch, enabling some checks
         committedBatches[0] = _batchHash;
         finalizedStateRoots[0] = _stateRoot;
 
         emit CommitBatch(0, _batchHash);
         emit FinalizeBatch(0, _batchHash, _stateRoot, bytes32(0));
+
+        // commit with a specific batch
+        committedBatches[337429] = _batchHash;
+        finalizedStateRoots[337429] = _stateRoot;
+        lastFinalizedBatchIndex = 337429;
+
+        emit CommitBatch(337429, _batchHash);
+        emit FinalizeBatch(337429, _batchHash, _stateRoot, bytes32(0));
     }
 
     /// @inheritdoc IScrollChain
