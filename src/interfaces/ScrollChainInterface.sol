@@ -42,6 +42,11 @@ interface ScrollChainInterface {
      * Commit Functions *
      ********************/
 
+    /// @notice Import layer 2 genesis block
+    /// @param _batchHeader The header of the genesis batch.
+    /// @param _stateRoot The state root of the genesis block.
+    function importGenesisBatch(bytes calldata _batchHeader, bytes32 _stateRoot) external;
+
     /// @notice Commit a batch of transactions on layer 1.
     ///
     /// @param version The version of current batch.
