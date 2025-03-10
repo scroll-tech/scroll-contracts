@@ -2,6 +2,16 @@
   "extends": "solhint:recommended",
   "rules": {
     "compiler-version": ["error", "^0.8.0"],
-    "func-visibility": ["warn", { "ignoreConstructors": true }]
+    "func-visibility": ["error", { "ignoreConstructors": false }],
+    "max-line-length": ["warn", 120],
+    "no-unused-vars": "warn",
+    "avoid-using-with": "error",
+    "no-empty-blocks": "error",
+    "constructor-super": "error",
+    "not-rely-on-time": "warn",
+    "multiple-imports": "error",
+    "no-inline-assembly": "error",
+    "variable-name": ["error", { "ignoreDestructuring": true }],
+    "revert": "error"
   }
 }
