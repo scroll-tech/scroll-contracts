@@ -38,6 +38,29 @@ interface ScrollChainInterface {
     /// @param lastCommittedBatchIndex The index of the last committed batch.
     event UpdateEnforcedBatchMode(bool enabled, uint256 lastCommittedBatchIndex);
 
+    /*************************
+     * Public View Functions *
+     *************************/
+
+    /// @return The latest finalized batch index.
+    function lastFinalizedBatchIndex() external view returns (uint256);
+
+    /// @param batchIndex The index of the batch.
+    /// @return The batch hash of a committed batch.
+    function committedBatches(uint256 batchIndex) external view returns (bytes32);
+
+    /// @param batchIndex The index of the batch.
+    /// @return The state root of a committed batch.
+    function finalizedStateRoots(uint256 batchIndex) external view returns (bytes32);
+
+    /// @param batchIndex The index of the batch.
+    /// @return The message root of a committed batch.
+    function withdrawRoots(uint256 batchIndex) external view returns (bytes32);
+
+    /// @param batchIndex The index of the batch.
+    /// @return Whether the batch is finalized by batch index.
+    function isBatchFinalized(uint256 batchIndex) external view returns (bool);
+
     /********************
      * Commit Functions *
      ********************/
