@@ -7,25 +7,25 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {IL1MessageQueueWithGasPriceOracle} from "../L1/rollup/IL1MessageQueueWithGasPriceOracle.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
 
 import {ScrollTestBase} from "./ScrollTestBase.t.sol";
 
-contract L1MessageQueueWithGasPriceOracleTest is ScrollTestBase {
+contract L1MessageQueueV1WithGasPriceOracleTest is ScrollTestBase {
     // events
     event UpdateWhitelistChecker(address indexed _oldWhitelistChecker, address indexed _newWhitelistChecker);
     event UpdateL2BaseFee(uint256 oldL2BaseFee, uint256 newL2BaseFee);
 
-    L1MessageQueueWithGasPriceOracle private queue;
+    L1MessageQueueV1WithGasPriceOracle private queue;
     L2GasPriceOracle internal gasOracle;
     Whitelist private whitelist;
 
     function setUp() public {
         __ScrollTestBase_setUp();
 
-        queue = L1MessageQueueWithGasPriceOracle(_deployProxy(address(0)));
+        queue = L1MessageQueueV1WithGasPriceOracle(_deployProxy(address(0)));
         gasOracle = L2GasPriceOracle(_deployProxy(address(new L2GasPriceOracle())));
         whitelist = new Whitelist(address(this));
 
@@ -38,10 +38,10 @@ contract L1MessageQueueWithGasPriceOracleTest is ScrollTestBase {
         _accounts[0] = address(this);
         whitelist.updateWhitelistStatus(_accounts, true);
 
-        // Upgrade the L1MessageQueueWithGasPriceOracle implementation and initialize
+        // Upgrade the L1MessageQueueV1WithGasPriceOracle implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(queue)),
-            address(new L1MessageQueueWithGasPriceOracle(address(1), address(1), address(1)))
+            address(new L1MessageQueueV1WithGasPriceOracle(address(1), address(1), address(1)))
         );
         queue.initialize(address(1), address(1), address(1), address(gasOracle), 10000000);
         queue.initializeV2();

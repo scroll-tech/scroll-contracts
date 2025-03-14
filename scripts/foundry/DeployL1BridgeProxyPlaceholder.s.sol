@@ -25,7 +25,8 @@ contract DeployL1BridgeProxyPlaceholder is Script {
 
         deployProxyAdmin();
         deployPlaceHolder();
-        deployL1MessageQueue();
+        deploySystemConfig();
+        deployMessageQueue();
         deployScrollChain();
         deployL1ETHGateway();
         deployL1WETHGateway();
@@ -50,6 +51,16 @@ contract DeployL1BridgeProxyPlaceholder is Script {
         logAddress("L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR", address(placeholder));
     }
 
+    function deploySystemConfig() internal {
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
+            address(placeholder),
+            address(proxyAdmin),
+            new bytes(0)
+        );
+
+        logAddress("L1_SYSTEM_CONFIG_PROXY_ADDR", address(proxy));
+    }
+
     function deployScrollChain() internal {
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(placeholder),
@@ -60,13 +71,20 @@ contract DeployL1BridgeProxyPlaceholder is Script {
         logAddress("L1_SCROLL_CHAIN_PROXY_ADDR", address(proxy));
     }
 
-    function deployL1MessageQueue() internal {
-        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
+    function deployMessageQueue() internal {
+        TransparentUpgradeableProxy v1_proxy = new TransparentUpgradeableProxy(
             address(placeholder),
             address(proxyAdmin),
             new bytes(0)
         );
-        logAddress("L1_MESSAGE_QUEUE_PROXY_ADDR", address(proxy));
+        logAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR", address(v1_proxy));
+
+        TransparentUpgradeableProxy v2_proxy = new TransparentUpgradeableProxy(
+            address(placeholder),
+            address(proxyAdmin),
+            new bytes(0)
+        );
+        logAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR", address(v2_proxy));
     }
 
     function deployL1StandardERC20Gateway() internal {

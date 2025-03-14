@@ -4,10 +4,8 @@ pragma solidity =0.8.24;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
 import {MultipleVersionRollupVerifier} from "../L1/rollup/MultipleVersionRollupVerifier.sol";
 
-import {MockScrollChain} from "./mocks/MockScrollChain.sol";
 import {MockZkEvmVerifier} from "./mocks/MockZkEvmVerifier.sol";
 
 contract MultipleVersionRollupVerifierTest is DSTestPlus {
