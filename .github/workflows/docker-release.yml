@@ -8,8 +8,9 @@ jobs:
   build:
     name: Clone, Build, Publish
     runs-on: ubuntu-latest
-    steps:
+    permissions: {}
 
+    steps:
       - name: Check out repository
         uses: actions/checkout@v4
         with:

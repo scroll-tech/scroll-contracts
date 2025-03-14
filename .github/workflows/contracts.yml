@@ -25,6 +25,7 @@ jobs:
   foundry:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions: {}
 
     steps:
       - name: Checkout sources
@@ -93,6 +94,7 @@ jobs:
   hardhat:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    permissions: {}
 
     steps:
       - name: Checkout sources
