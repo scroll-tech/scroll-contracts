@@ -5,8 +5,8 @@ pragma solidity =0.8.24;
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {EnforcedTxGateway} from "../L1/gateways/EnforcedTxGateway.sol";
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
+import {L1MessageQueueV2} from "../L1/rollup/L1MessageQueueV2.sol";
 import {IScrollChain, ScrollChain} from "../L1/rollup/ScrollChain.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
 import {IL1ScrollMessenger, L1ScrollMessenger} from "../L1/L1ScrollMessenger.sol";
@@ -22,12 +22,12 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         __L1GatewayTestBase_setUp();
     }
 
-    function testForbidCallMessageQueueFromL2() external {
+    function testForbidCallMessageQueueV1FromL2() external {
         bytes32 _xDomainCalldataHash = keccak256(
             abi.encodeWithSignature(
                 "relayMessage(address,address,uint256,uint256,bytes)",
                 address(this),
-                address(messageQueue),
+                address(messageQueueV1),
                 0,
                 0,
                 new bytes(0)
@@ -38,8 +38,28 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         IL1ScrollMessenger.L2MessageProof memory proof;
         proof.batchIndex = rollup.lastFinalizedBatchIndex();
 
-        hevm.expectRevert("Forbid to call message queue");
-        l1Messenger.relayMessageWithProof(address(this), address(messageQueue), 0, 0, new bytes(0), proof);
+        hevm.expectRevert(L1ScrollMessenger.ErrorForbidToCallMessageQueue.selector);
+        l1Messenger.relayMessageWithProof(address(this), address(messageQueueV1), 0, 0, new bytes(0), proof);
+    }
+
+    function testForbidCallMessageQueueV2FromL2() external {
+        bytes32 _xDomainCalldataHash = keccak256(
+            abi.encodeWithSignature(
+                "relayMessage(address,address,uint256,uint256,bytes)",
+                address(this),
+                address(messageQueueV2),
+                0,
+                0,
+                new bytes(0)
+            )
+        );
+        prepareL2MessageRoot(_xDomainCalldataHash);
+
+        IL1ScrollMessenger.L2MessageProof memory proof;
+        proof.batchIndex = rollup.lastFinalizedBatchIndex();
+
+        hevm.expectRevert(L1ScrollMessenger.ErrorForbidToCallMessageQueue.selector);
+        l1Messenger.relayMessageWithProof(address(this), address(messageQueueV2), 0, 0, new bytes(0), proof);
     }
 
     function testForbidCallSelfFromL2() external {
@@ -95,12 +115,12 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.expectRevert("Provided message has not been enqueued");
         l1Messenger.replayMessage(address(this), address(0), 101, 0, new bytes(0), defaultGasLimit, refundAddress);
 
-        messageQueue.setL2BaseFee(1);
+        setL2BaseFee(1);
         // Insufficient msg.value
         hevm.expectRevert("Insufficient msg.value for fee");
         l1Messenger.replayMessage(address(this), address(0), 100, 0, new bytes(0), defaultGasLimit, refundAddress);
 
-        uint256 _fee = messageQueue.l2BaseFee() * defaultGasLimit;
+        uint256 _fee = messageQueueV2.estimateL2BaseFee() * defaultGasLimit;
 
         // Exceed maximum replay times
         hevm.expectRevert("Exceed maximum replay times");
@@ -134,7 +154,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         // test replay list
         // 1. send a message with nonce 2
         // 2. replay 3 times
-        messageQueue.setL2BaseFee(0);
+        setL2BaseFee(0);
         l1Messenger.updateMaxReplayTimes(100);
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
         bytes32 hash = keccak256(
@@ -206,7 +226,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
     }
 
     function testIntrinsicGasLimit() external {
-        uint256 _fee = messageQueue.l2BaseFee() * 24000;
+        setL2BaseFee(1e9);
         uint256 value = 1;
 
         // _xDomainCalldata contains
@@ -217,23 +237,26 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         //   32B nonce
         //   message byte array (32B offset + 32B length + bytes (padding to multiple of 32))
         // So the intrinsic gas must be greater than 21000 + 16 * 228 = 24648
+        uint256 _fee = messageQueueV2.estimateL2BaseFee() * 24648;
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", 24648);
 
         // insufficient intrinsic gas
-        hevm.expectRevert("Insufficient gas limit, must be above intrinsic gas");
+        hevm.expectRevert(L1MessageQueueV2.ErrorGasLimitBelowIntrinsicGas.selector);
         l1Messenger.sendMessage{value: _fee + value}(address(0), 1, hex"0011220033", 24647);
 
         // gas limit exceeds the max value
         uint256 gasLimit = 100000000;
-        _fee = messageQueue.l2BaseFee() * gasLimit;
-        hevm.expectRevert("Gas limit must not exceed maxGasLimit");
+        _fee = messageQueueV2.estimateL2BaseFee() * gasLimit;
+        hevm.expectRevert(L1MessageQueueV2.ErrorGasLimitExceeded.selector);
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
 
         // update max gas limit
-        messageQueue.updateMaxGasLimit(gasLimit);
+        setL2BaseFee(1e9, gasLimit);
+        _fee = messageQueueV2.estimateL2BaseFee() * gasLimit;
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
     }
 
+    /* comments out, it is tested in `src/test/MessageQueueSwitch.t.sol`.
     function testDropMessage() external {
         // Provided message has not been enqueued, revert
         hevm.expectRevert("Provided message has not been enqueued");
@@ -241,7 +264,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
 
         // send one message with nonce 0
         l1Messenger.sendMessage(address(0), 0, new bytes(0), defaultGasLimit);
-        assertEq(messageQueue.nextCrossDomainMessageIndex(), 1);
+        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 1);
 
         // drop pending message, revert
         hevm.expectRevert("cannot drop pending message");
@@ -251,45 +274,45 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
 
         // replay 1 time
         l1Messenger.replayMessage(address(this), address(0), 0, 0, new bytes(0), defaultGasLimit, address(0));
-        assertEq(messageQueue.nextCrossDomainMessageIndex(), 2);
+        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 2);
 
         // skip all 2 messages
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(0, 2, 0x3);
-        messageQueue.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 2);
-        assertEq(messageQueue.pendingQueueIndex(), 2);
+        messageQueueV1.popCrossDomainMessage(0, 2, 0x3);
+        messageQueueV1.finalizePoppedCrossDomainMessage(2);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 2);
+        assertEq(messageQueueV1.pendingQueueIndex(), 2);
         hevm.stopPrank();
         for (uint256 i = 0; i < 2; ++i) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            assertBoolEq(messageQueue.isMessageDropped(i), false);
+            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
+            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
         }
         hevm.expectEmit(false, false, false, true);
         emit OnDropMessageCalled(new bytes(0));
         l1Messenger.dropMessage(address(this), address(0), 0, 0, new bytes(0));
         for (uint256 i = 0; i < 2; ++i) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            assertBoolEq(messageQueue.isMessageDropped(i), true);
+            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
+            assertBoolEq(messageQueueV1.isMessageDropped(i), true);
         }
 
         // send one message with nonce 2 and replay 3 times
         l1Messenger.sendMessage(address(0), 0, new bytes(0), defaultGasLimit);
-        assertEq(messageQueue.nextCrossDomainMessageIndex(), 3);
+        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 3);
         for (uint256 i = 0; i < 3; i++) {
             l1Messenger.replayMessage(address(this), address(0), 0, 2, new bytes(0), defaultGasLimit, address(0));
         }
-        assertEq(messageQueue.nextCrossDomainMessageIndex(), 6);
+        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 6);
 
         // only first 3 are skipped
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(2, 4, 0x7);
-        messageQueue.finalizePoppedCrossDomainMessage(6);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 6);
-        assertEq(messageQueue.pendingQueueIndex(), 6);
+        messageQueueV1.popCrossDomainMessage(2, 4, 0x7);
+        messageQueueV1.finalizePoppedCrossDomainMessage(6);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 6);
+        assertEq(messageQueueV1.pendingQueueIndex(), 6);
         hevm.stopPrank();
         for (uint256 i = 2; i < 6; i++) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), i < 5);
-            assertBoolEq(messageQueue.isMessageDropped(i), false);
+            assertBoolEq(messageQueueV1.isMessageSkipped(i), i < 5);
+            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
         }
 
         // drop non-skipped message, revert
@@ -301,25 +324,25 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         for (uint256 i = 0; i < 4; i++) {
             l1Messenger.replayMessage(address(this), address(0), 0, 6, new bytes(0), defaultGasLimit, address(0));
         }
-        assertEq(messageQueue.nextCrossDomainMessageIndex(), 11);
+        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 11);
 
         // skip all 5 messages
         hevm.startPrank(address(rollup));
-        messageQueue.popCrossDomainMessage(6, 5, 0x1f);
-        messageQueue.finalizePoppedCrossDomainMessage(11);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 11);
-        assertEq(messageQueue.pendingQueueIndex(), 11);
+        messageQueueV1.popCrossDomainMessage(6, 5, 0x1f);
+        messageQueueV1.finalizePoppedCrossDomainMessage(11);
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 11);
+        assertEq(messageQueueV1.pendingQueueIndex(), 11);
         hevm.stopPrank();
         for (uint256 i = 6; i < 11; ++i) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            assertBoolEq(messageQueue.isMessageDropped(i), false);
+            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
+            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
         }
         hevm.expectEmit(false, false, false, true);
         emit OnDropMessageCalled(new bytes(0));
         l1Messenger.dropMessage(address(this), address(0), 0, 6, new bytes(0));
         for (uint256 i = 6; i < 11; ++i) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            assertBoolEq(messageQueue.isMessageDropped(i), true);
+            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
+            assertBoolEq(messageQueueV1.isMessageDropped(i), true);
         }
 
         // Message already dropped, revert
@@ -334,6 +357,7 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         hevm.expectRevert("Message already dropped");
         l1Messenger.replayMessage(address(this), address(0), 0, 6, new bytes(0), defaultGasLimit, address(0));
     }
+    */
 
     function onDropMessage(bytes memory message) external payable {
         emit OnDropMessageCalled(message);

@@ -3,6 +3,8 @@
 pragma solidity =0.8.24;
 
 contract MockCaller {
+    receive() external payable {}
+
     function callTarget(address to, bytes calldata data) external payable {
         // solhint-disable-next-line avoid-low-level-calls
         (bool success, ) = address(to).call{value: msg.value}(data);

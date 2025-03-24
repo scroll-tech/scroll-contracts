@@ -7,8 +7,10 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {EnforcedTxGateway} from "../L1/gateways/EnforcedTxGateway.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
+import {L1MessageQueueV2} from "../L1/rollup/L1MessageQueueV2.sol";
 import {L2GasPriceOracle} from "../L1/rollup/L2GasPriceOracle.sol";
+import {SystemConfig} from "../L1/system-contract/SystemConfig.sol";
 import {Whitelist} from "../L2/predeploys/Whitelist.sol";
 import {L1ScrollMessenger} from "../L1/L1ScrollMessenger.sol";
 import {L2ScrollMessenger} from "../L2/L2ScrollMessenger.sol";
@@ -58,8 +60,10 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
 
     uint32 internal constant defaultGasLimit = 1000000;
 
+    SystemConfig private system;
     L1ScrollMessenger internal l1Messenger;
-    L1MessageQueueWithGasPriceOracle internal messageQueue;
+    L1MessageQueueV1WithGasPriceOracle internal messageQueueV1;
+    L1MessageQueueV2 internal messageQueueV2;
     L2GasPriceOracle internal gasOracle;
     EnforcedTxGateway internal enforcedTxGateway;
     ScrollChainMockBlob internal rollup;
@@ -85,10 +89,14 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         feeVault = address(uint160(address(this)) - 1);
 
         // deploy proxy and contracts in L1
+        system = SystemConfig(_deployProxy(address(0)));
         l1Messenger = L1ScrollMessenger(payable(_deployProxy(address(0))));
-        messageQueue = L1MessageQueueWithGasPriceOracle(_deployProxy(address(0)));
+        messageQueueV1 = L1MessageQueueV1WithGasPriceOracle(_deployProxy(address(0)));
+        messageQueueV2 = L1MessageQueueV2(_deployProxy(address(0)));
         rollup = ScrollChainMockBlob(_deployProxy(address(0)));
-        enforcedTxGateway = EnforcedTxGateway(_deployProxy(address(new EnforcedTxGateway())));
+        enforcedTxGateway = EnforcedTxGateway(
+            _deployProxy(address(new EnforcedTxGateway(address(messageQueueV2), address(0))))
+        );
         gasOracle = L2GasPriceOracle(_deployProxy(address(new L2GasPriceOracle())));
         whitelist = new Whitelist(address(this));
         verifier = new MockRollupVerifier();
@@ -96,37 +104,77 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         // deploy proxy and contracts in L2
         l2Messenger = L2ScrollMessenger(payable(_deployProxy(address(0))));
 
+        // Upgrade the SystemConfig implementation and initialize
+        admin.upgrade(ITransparentUpgradeableProxy(address(system)), address(new SystemConfig()));
+        system.initialize(
+            address(this),
+            address(uint160(1)),
+            SystemConfig.MessageQueueParameters({maxGasLimit: 1000000, baseFeeOverhead: 0, baseFeeScalar: 0}),
+            SystemConfig.EnforcedBatchParameters({maxDelayEnterEnforcedMode: 0, maxDelayMessageQueue: 0})
+        );
+
         // Upgrade the L1ScrollMessenger implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(l1Messenger)),
-            address(new L1ScrollMessenger(address(l2Messenger), address(rollup), address(messageQueue)))
+            address(
+                new L1ScrollMessenger(
+                    address(l2Messenger),
+                    address(rollup),
+                    address(messageQueueV1),
+                    address(messageQueueV2)
+                )
+            )
         );
-        l1Messenger.initialize(address(l2Messenger), feeVault, address(rollup), address(messageQueue));
+        l1Messenger.initialize(address(l2Messenger), feeVault, address(rollup), address(messageQueueV1));
 
         // initialize L2GasPriceOracle
         gasOracle.initialize(1, 2, 1, 1);
         gasOracle.updateWhitelist(address(whitelist));
 
-        // Upgrade the L1MessageQueueWithGasPriceOracle implementation and initialize
+        // Upgrade the L1MessageQueueV1WithGasPriceOracle implementation and initialize
         admin.upgrade(
-            ITransparentUpgradeableProxy(address(messageQueue)),
-            address(new L1MessageQueueWithGasPriceOracle(address(l1Messenger), address(rollup), address(1)))
+            ITransparentUpgradeableProxy(address(messageQueueV1)),
+            address(new L1MessageQueueV1WithGasPriceOracle(address(l1Messenger), address(rollup), address(1)))
         );
-        messageQueue.initialize(
+        messageQueueV1.initialize(
             address(l1Messenger),
             address(rollup),
             address(enforcedTxGateway),
             address(gasOracle),
             10000000
         );
-        messageQueue.initializeV2();
+        messageQueueV1.initializeV2();
+
+        // Upgrade the L1MessageQueueV2 implementation and initialize
+        admin.upgrade(
+            ITransparentUpgradeableProxy(address(messageQueueV2)),
+            address(
+                new L1MessageQueueV2(
+                    address(l1Messenger),
+                    address(rollup),
+                    address(enforcedTxGateway),
+                    address(messageQueueV1),
+                    address(system)
+                )
+            )
+        );
+        messageQueueV2.initialize();
 
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChainMockBlob(1233, address(messageQueue), address(verifier)))
+            address(
+                new ScrollChainMockBlob(
+                    1233,
+                    address(messageQueueV1),
+                    address(messageQueueV2),
+                    address(verifier),
+                    address(system)
+                )
+            )
         );
-        rollup.initialize(address(messageQueue), address(0), 44);
+        rollup.initialize(address(messageQueueV1), address(0), 44);
+        rollup.initializeV2();
 
         // Setup whitelist
         address[] memory _accounts = new address[](1);
@@ -153,7 +201,7 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
         bytes
             memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        rollup.setBlobVersionedHash(blobVersionedHash);
+        rollup.setBlobVersionedHash(0, blobVersionedHash);
 
         // commit one batch
         bytes[] memory chunks = new bytes[](1);
@@ -180,5 +228,23 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
         hevm.startPrank(address(0));
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), messageHash, new bytes(0));
         hevm.stopPrank();
+
+        rollup.lastFinalizedBatchIndex();
+    }
+
+    function setL2BaseFee(uint256 feePerGas) internal {
+        setL2BaseFee(feePerGas, 1000000);
+    }
+
+    function setL2BaseFee(uint256 feePerGas, uint256 gasLimit) internal {
+        system.updateMessageQueueParameters(
+            SystemConfig.MessageQueueParameters({
+                maxGasLimit: uint32(gasLimit),
+                baseFeeOverhead: uint112(0),
+                baseFeeScalar: uint112(1 ether)
+            })
+        );
+        hevm.fee(feePerGas);
+        assertEq(messageQueueV2.estimateL2BaseFee(), feePerGas);
     }
 }

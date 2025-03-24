@@ -5,34 +5,32 @@ pragma solidity =0.8.24;
 import {ScrollChain} from "../L1/rollup/ScrollChain.sol";
 
 contract ScrollChainMockBlob is ScrollChain {
-    bytes32 blobVersionedHash;
+    mapping(uint256 => bytes32) private blobhashes;
+
     bool overrideBatchHashCheck;
 
     /***************
      * Constructor *
      ***************/
 
-    /// @notice Constructor for `ScrollChain` implementation contract.
-    ///
-    /// @param _chainId The chain id of L2.
-    /// @param _messageQueue The address of `L1MessageQueue` contract.
-    /// @param _verifier The address of zkevm verifier contract.
     constructor(
         uint64 _chainId,
-        address _messageQueue,
-        address _verifier
-    ) ScrollChain(_chainId, _messageQueue, _verifier) {}
+        address _messageQueueV1,
+        address _messageQueueV2,
+        address _verifier,
+        address _system
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, address(_system)) {}
 
     /**********************
      * Internal Functions *
      **********************/
 
-    function setBlobVersionedHash(bytes32 _blobVersionedHash) external {
-        blobVersionedHash = _blobVersionedHash;
+    function setBlobVersionedHash(uint256 index, bytes32 _blobVersionedHash) external {
+        blobhashes[index] = _blobVersionedHash;
     }
 
     function setLastFinalizedBatchIndex(uint256 index) external {
-        lastFinalizedBatchIndex = index;
+        miscData.lastFinalizedBatchIndex = uint64(index);
     }
 
     function setFinalizedStateRoots(uint256 index, bytes32 value) external {
@@ -40,6 +38,9 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function setCommittedBatches(uint256 index, bytes32 value) external {
+        if (miscData.lastCommittedBatchIndex < index) {
+            miscData.lastCommittedBatchIndex = uint64(index);
+        }
         committedBatches[index] = value;
     }
 
@@ -48,7 +49,11 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function _getBlobVersionedHash() internal virtual override returns (bytes32 _blobVersionedHash) {
-        _blobVersionedHash = blobVersionedHash;
+        _blobVersionedHash = blobhashes[0];
+    }
+
+    function _getBlobVersionedHash(uint256 index) internal virtual override returns (bytes32 _blobVersionedHash) {
+        _blobVersionedHash = blobhashes[index];
     }
 
     /// @dev Internal function to load batch header from calldata to memory.
@@ -57,7 +62,7 @@ contract ScrollChainMockBlob is ScrollChain {
     /// @return _batchHash The hash of the loaded batch header.
     /// @return _batchIndex The index of this batch.
     /// @param _totalL1MessagesPoppedOverall The number of L1 messages popped after this batch.
-    function _loadBatchHeader(bytes calldata _batchHeader)
+    function _loadBatchHeader(bytes calldata _batchHeader, uint256 _lastCommittedBatchIndex)
         internal
         view
         virtual
@@ -69,7 +74,10 @@ contract ScrollChainMockBlob is ScrollChain {
             uint256 _totalL1MessagesPoppedOverall
         )
     {
-        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = ScrollChain._loadBatchHeader(_batchHeader);
+        (batchPtr, _batchHash, _batchIndex, _totalL1MessagesPoppedOverall) = ScrollChain._loadBatchHeader(
+            _batchHeader,
+            _lastCommittedBatchIndex
+        );
 
         if (overrideBatchHashCheck) {
             _batchHash = committedBatches[_batchIndex];
