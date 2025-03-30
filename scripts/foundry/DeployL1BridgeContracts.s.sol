@@ -102,7 +102,7 @@ contract DeployL1BridgeContracts is Script {
     function deployMultipleVersionRollupVerifier() internal {
         uint256[] memory _versions = new uint256[](1);
         address[] memory _verifiers = new address[](1);
-        _versions[0] = 6;
+        _versions[0] = 7;
         _verifiers[0] = address(zkEvmVerifier);
         rollupVerifier = new MultipleVersionRollupVerifier(_versions, _verifiers);
 
