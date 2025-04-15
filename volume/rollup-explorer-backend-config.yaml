@@ -1,6 +1,0 @@
-scrollConfig: |
-  {
-    "db_url": "postgres://postgres:qwerty12345@postgresql:5432/scroll?sslmode=disable",
-    "open_api_addr": "/rollupscan",
-    "max_per_page": 500
-  }
