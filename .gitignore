@@ -19,3 +19,6 @@ broadcast
 
 # Visual Studio Code
 .vscode
+
+# OS
+.DS_Store
