@@ -1,0 +1,111 @@
+[general]
+L1_RPC_ENDPOINT = "https://sepolia-subway-proxied-stg.alt.technology"
+L1_RPC_ENDPOINT_WEBSOCKET = "ws://l1-devnet:8546"
+L2_RPC_ENDPOINT = "http://l2-rpc:8545"
+CHAIN_NAME_L1 = "Sepolia"
+CHAIN_NAME_L2 = "Scroll SDK"
+CHAIN_ID_L1 = "11155111"
+CHAIN_ID_L2 = 221_122
+L1_CONTRACT_DEPLOYMENT_BLOCK = "7162368"
+
+[accounts]
+DEPLOYER_PRIVATE_KEY = "0x9daffeba4af8c823c0e16caa29ede9d7eecd6ae87878ce7d73733c82ac488633"
+L1_COMMIT_SENDER_PRIVATE_KEY = "0xa583f0e5a4c7a515d3bf7b27ba8932cb142d37ac3bd593e27a253cb020624033"
+L1_FINALIZE_SENDER_PRIVATE_KEY = "0x772738ec4ede7a03be1448dc15892b4ee7182851a2e6a1bda7a1992a003448f3"
+L1_GAS_ORACLE_SENDER_PRIVATE_KEY = "0xc2b21d848892563d3a812ea043a1edf5c8506014c3ec78c5c3334ec1bd109721"
+L2_GAS_ORACLE_SENDER_PRIVATE_KEY = "0x92f21740cbb8beaf566350d7a88e53ea95c8b0b02987925bde251d2547d89e7b"
+DEPLOYER_ADDR = "0xe856F24E62552c350ADdD4b27C36F582F06DD2B7"
+OWNER_ADDR = "0x731297b06c1b37bDE3545dE50De24cE9d82dF9c8"
+L1_COMMIT_SENDER_ADDR = "0x7dfE1C3247e2a0de8Bd85BC33dC8C5BC253F277B"
+L1_FINALIZE_SENDER_ADDR = "0x3F97C3F934dEc82C1600028f22f06654ebF33b07"
+L1_GAS_ORACLE_SENDER_ADDR = "0xd182dF4a640fA213e2BBC5e8114952f843EbB461"
+L2_GAS_ORACLE_SENDER_ADDR = "0x22F867bf69AB85c1A847F3de26f756d0C154765e"
+
+[db]
+ADMIN_SYSTEM_DB_CONNECTION_STRING = ""
+BLOCKSCOUT_DB_CONNECTION_STRING = "postgres://blockscout:.tyllv893aco@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_blockscout?sslmode=require"
+BRIDGE_HISTORY_DB_CONNECTION_STRING = "postgres://bridge_history:.2fcmwgetuwu@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_bridge_history?sslmode=require"
+CHAIN_MONITOR_DB_CONNECTION_STRING = "postgres://chain_monitor:.zqufpqr9bym@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_chain_monitor?sslmode=require"
+GAS_ORACLE_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+COORDINATOR_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+L1_EXPLORER_DB_CONNECTION_STRING = ""
+ROLLUP_NODE_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+ROLLUP_EXPLORER_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+SCROLL_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+ADMIN_SYSTEM_BACKEND_DB_CONNECTION_STRING = "postgres://rollup_node:0.yxcrfv5pxj@private-morty-11-7-3-do-user-9610937-0.i.db.ondigitalocean.com:25061/scroll_rollup?sslmode=require"
+
+[gas-token]
+ALTERNATIVE_GAS_TOKEN_ENABLED = false
+GAS_ORACLE_INCORPORATE_TOKEN_EXCHANGE_RATE_ENANBLED = false
+EXCHANGE_RATE_UPDATE_MODE = "Fixed"
+FIXED_EXCHANGE_RATE = "0.01"
+TOKEN_SYMBOL_PAIR = "UNIETH"
+
+[sequencer]
+L2_GETH_STATIC_PEERS = [
+  "enode://12c7ff46eba4d0ffcd74ac8ea7b1ed1296bfd8b4c14e88ea0c9a6f0ce12a78683e2831c64ea4e3717ac668c13ad8119865c6ff16830b31a67e25477c1ebd62d5@l2-sequencer-0:30303",
+  "enode://b80e187b9029fbd6bb9b4737de32a8902645c855211e0a6e130b9ce8a957d6f33071a8a5de7df76dda18335588b46c9ccab61947337861740f0830f03a772688@l2-sequencer-1:30303"
+]
+L2GETH_SIGNER_ADDRESS = "0xEcAcDbcB9CE94A3ce6EBBdd7DAae00513C36Bf0d"
+L2GETH_KEYSTORE = "{\"address\":\"ecacdbcb9ce94a3ce6ebbdd7daae00513c36bf0d\",\"id\":\"047c0b0d-8252-4aa7-a7de-b9ad4c2592bb\",\"version\":3,\"Crypto\":{\"cipher\":\"aes-128-ctr\",\"cipherparams\":{\"iv\":\"8504321a1dce8fc4c3e66a4a3d38e9c4\"},\"ciphertext\":\"48efcba2d0068dd633c3cf5111a4f2cde72b87b4d372ef5ae19fb6237fea86a9\",\"kdf\":\"scrypt\",\"kdfparams\":{\"salt\":\"c356350b36ba9b3e5a6bf8460635bc16551992b6837f6139f26d5459c860c39c\",\"n\":131072,\"dklen\":32,\"p\":1,\"r\":8},\"mac\":\"b0a89d13730d656a93b37f28b0047a9955f6bf32bc6711ac1e378c25cd9bdd7a\"},\"x-ethers\":{\"client\":\"ethers/6.13.4\",\"gethFilename\":\"UTC--2024-11-27T11-23-30.0Z--ecacdbcb9ce94a3ce6ebbdd7daae00513c36bf0d\",\"path\":\"m/44'/60'/0'/0/0\",\"locale\":\"en\",\"mnemonicCounter\":\"6696da285f3881dcaaa45702088a8689\",\"mnemonicCiphertext\":\"f8df0f62c92115a36306e5e999a8153c\",\"version\":\"0.1\"}}"
+L2GETH_PASSWORD = "scrollsdk"
+L2GETH_NODEKEY = "8dedf583f81ee39d5f6bb35ce34c5aae76c0d9ed2d6de57fed23cb7e726081a9"
+
+  [sequencer.sequencer-1]
+  L2GETH_SIGNER_ADDRESS = "0xa21c0BdCc77a73b49b8b0822135bF43A4e725BF5"
+  L2GETH_KEYSTORE = "{\"address\":\"a21c0bdcc77a73b49b8b0822135bf43a4e725bf5\",\"id\":\"a4077f92-b222-4683-b805-99c515fa026c\",\"version\":3,\"Crypto\":{\"cipher\":\"aes-128-ctr\",\"cipherparams\":{\"iv\":\"035ffa714b59af4bf3dcf3249d4e29a5\"},\"ciphertext\":\"dc34f2fd76750a7bb0bba3b321ab9895aab7b0fefc8c7ae6e40ef91068a51506\",\"kdf\":\"scrypt\",\"kdfparams\":{\"salt\":\"da6ae8c0aa7e07b073f7f32ef99a4d1e777041c69d839dd73bc621bab252e2b0\",\"n\":131072,\"dklen\":32,\"p\":1,\"r\":8},\"mac\":\"355ff5dfa1d1977413c12edd71e9e27b5ca29dd36651f8f66ed466c690228713\"},\"x-ethers\":{\"client\":\"ethers/6.13.4\",\"gethFilename\":\"UTC--2024-11-27T11-23-33.0Z--a21c0bdcc77a73b49b8b0822135bf43a4e725bf5\",\"path\":\"m/44'/60'/0'/0/0\",\"locale\":\"en\",\"mnemonicCounter\":\"86dd4344e71d6a2cde113c549de2b229\",\"mnemonicCiphertext\":\"61946b8efc38ee0034bdcb7f93c065c6\",\"version\":\"0.1\"}}"
+  L2GETH_PASSWORD = "scrollsdk"
+  L2GETH_NODEKEY = "e49a1f025510fcf041e82eb0aa19b862b2aaeabe3fa32e62bf1d04cb1ba9852b"
+
+[bootnode.bootnode-0]
+L2GETH_NODEKEY = "430d8097ebe8a6c234c5c5fdca7ea4bf8caad48841e684f83a01a436b352c61b"
+
+[rollup]
+MAX_TX_IN_CHUNK = 100
+MAX_BLOCK_IN_CHUNK = 100
+MAX_BATCH_IN_BUNDLE = 30
+MAX_L1_MESSAGE_GAS_LIMIT = 10_000_000
+TEST_ENV_MOCK_FINALIZE_ENABLED = true
+TEST_ENV_MOCK_FINALIZE_TIMEOUT_SEC = 300
+
+[frontend]
+EXTERNAL_RPC_URI_L1 = "https://rpc.ankr.com/eth_sepolia"
+EXTERNAL_RPC_URI_L2 = "http://l2-rpc.scrollsdk"
+BRIDGE_API_URI = "http://bridge-history-api.scrollsdk/api"
+ROLLUPSCAN_API_URI = "http://rollup-explorer-backend.scrollsdk/api"
+EXTERNAL_EXPLORER_URI_L1 = "https://sepolia.etherscan.io"
+EXTERNAL_EXPLORER_URI_L2 = "http://blockscout.scrollsdk"
+ADMIN_SYSTEM_DASHBOARD_URI = "http://admin-system-dashboard.scrollsdk"
+GRAFANA_URI = "http://grafana.scrollsdk"
+
+[genesis]
+L2_MAX_ETH_SUPPLY = "226156424291633194186662080095093570025917938800079226639565593765455331328"
+L2_DEPLOYER_INITIAL_BALANCE = 1_000_000_000_000_000_000
+
+[contracts]
+DEPLOYMENT_SALT = "salt-morty-test-123123789645124"
+L1_FEE_VAULT_ADDR = "0x731297b06c1b37bDE3545dE50De24cE9d82dF9c8"
+
+  [contracts.overrides]
+  L2_MESSAGE_QUEUE = "0x5300000000000000000000000000000000000000"
+  L1_GAS_PRICE_ORACLE = "0x5300000000000000000000000000000000000002"
+  L2_WHITELIST = "0x5300000000000000000000000000000000000003"
+  L2_WETH = "0x5300000000000000000000000000000000000004"
+  L2_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"
+
+[coordinator]
+CHUNK_COLLECTION_TIME_SEC = 3_600
+BATCH_COLLECTION_TIME_SEC = 1_800
+BUNDLE_COLLECTION_TIME_SEC = 600
+COORDINATOR_JWT_SECRET_KEY = "aa4c0ea79f5cc72c2b60723b50ace611247cc3977927e6e4ee8b4cdf25ec1042"
+
+[ingress]
+FRONTEND_HOST = "frontends.scrollsdk"
+BRIDGE_HISTORY_API_HOST = "bridge-history-api.scrollsdk"
+ROLLUP_EXPLORER_API_HOST = "rollup-explorer-backend.scrollsdk"
+COORDINATOR_API_HOST = "coordinator-api.scrollsdk"
+RPC_GATEWAY_HOST = "l2-rpc.scrollsdk"
+BLOCKSCOUT_HOST = "blockscout.scrollsdk"
+BLOCKSCOUT_BACKEND_HOST = "blockscout-backend.scrollsdk"
+ADMIN_SYSTEM_DASHBOARD_HOST = "admin-system-dashboard.scrollsdk"
+GRAFANA_HOST = "grafana.scrollsdk"
