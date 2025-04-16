@@ -17,7 +17,7 @@ string constant CONFIG_PATH = "./scripts/deterministic/config/config.toml";
 // output files
 string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-contracts.toml";
 string constant GENESIS_ALLOC_JSON_PATH = "../../config/__genesis-alloc.json";
-string constant GENESIS_JSON_PATH = "../../config/genesis/genesis.yaml";
+string constant GENESIS_JSON_PATH = "../../config/genesis/genesis.json";
 string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
 string constant COORDINATOR_API_CONFIG_PATH = "../../config/coordinator-api/config.json.template";
 string constant COORDINATOR_CRON_CONFIG_PATH = "../../config/coordinator-cron/config.json.template";
