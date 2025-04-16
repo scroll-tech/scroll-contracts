@@ -16,18 +16,18 @@ string constant CONFIG_PATH = "./scripts/deterministic/config/config.toml";
 
 // output files
 string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-contracts.toml";
-string constant GENESIS_ALLOC_JSON_PATH = "./config/__genesis-alloc.json";
-string constant GENESIS_JSON_PATH = "./config/genesis/genesis.yaml";
-string constant ROLLUP_CONFIG_PATH = "./config/rollup-relayer/config.json.template";
-string constant COORDINATOR_API_CONFIG_PATH = "./config/coordinator-api/config.json.template";
-string constant COORDINATOR_CRON_CONFIG_PATH = "./config/coordinator-cron/config.json.template";
-string constant CHAIN_MONITOR_CONFIG_PATH = "./config/chain-monitorv2/config.json.template";
-string constant BRIDGE_HISTORY_API_CONFIG_PATH = "./config/bridge-historyv2-api/config.json.template";
-string constant BRIDGE_HISTORY_FETCHER_CONFIG_PATH = "./config/bridge-historyv2-fetcher/config.json.template";
-string constant BALANCE_CHECKER_CONFIG_PATH = "./config/balance-checker/config.json.template";
-string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "./config/rollup-explorer-backend/config.json.template";
-string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "./config/scroll-admin-backend/config.json.template";
-string constant ADMIN_SYSTEM_CRON_CONFIG_PATH = "./config/scroll-admin-cron/config.json.template";
+string constant GENESIS_ALLOC_JSON_PATH = "../../config/__genesis-alloc.json";
+string constant GENESIS_JSON_PATH = "../../config/genesis/genesis.yaml";
+string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
+string constant COORDINATOR_API_CONFIG_PATH = "../../config/coordinator-api/config.json.template";
+string constant COORDINATOR_CRON_CONFIG_PATH = "../../config/coordinator-cron/config.json.template";
+string constant CHAIN_MONITOR_CONFIG_PATH = "../../config/chain-monitorv2/config.json.template";
+string constant BRIDGE_HISTORY_API_CONFIG_PATH = "../../config/bridge-historyv2-api/config.json.template";
+string constant BRIDGE_HISTORY_FETCHER_CONFIG_PATH = "../../config/bridge-historyv2-fetcher/config.json.template";
+string constant BALANCE_CHECKER_CONFIG_PATH = "../../config/balance-checker/config.json.template";
+string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "../../config/rollup-explorer-backend/config.json.template";
+string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "../../config/scroll-admin-backend/config.json.template";
+string constant ADMIN_SYSTEM_CRON_CONFIG_PATH = "../../config/scroll-admin-cron/config.json.template";
 
 // plonk verifier configs
 bytes32 constant V4_VERIFIER_DIGEST = 0x0a1904dbfff4614fb090b4b3864af4874f12680c32f07889e9ede8665097e5ec;

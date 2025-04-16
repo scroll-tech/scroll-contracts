@@ -36,4 +36,5 @@ ffi = true
 
 fs_permissions = [
   { access='read-write', path='./scripts/deterministic/config' },
+  { access='read-write', path='../../config' },
 ]

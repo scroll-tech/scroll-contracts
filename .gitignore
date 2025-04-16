@@ -24,4 +24,4 @@ broadcast
 .DS_Store
 
 # config
-scripts/deterministic/config/config-contracts.toml
+./scripts/deterministic/config/config-contracts.toml
