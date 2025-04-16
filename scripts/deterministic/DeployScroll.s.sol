@@ -471,7 +471,7 @@ contract DeployScroll is DeterministicDeployment {
     }
 
     function deployL1ZkEvmVerifier() private {
-        bytes memory args = abi.encode(notnull(L1_PLONK_VERIFIER_ADDR), V4_VERIFIER_DIGEST);
+        bytes memory args = abi.encode(notnull(L1_PLONK_VERIFIER_ADDR), VERIFIER_DIGEST);
         L1_ZKEVM_VERIFIER_V2_ADDR = deploy("L1_ZKEVM_VERIFIER_V2", type(ZkEvmVerifierV2).creationCode, args);
     }
 
