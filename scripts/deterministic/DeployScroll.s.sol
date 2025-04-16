@@ -285,7 +285,7 @@ contract DeployScroll is DeterministicDeployment {
         deployL1Whitelist();
         deployL1ScrollChainProxy();
         deployL1ScrollMessengerProxy();
-        deployL1EnforcedTxGateway();
+        deployL1EnforcedTxGatewayProxy();
         deployL1PlonkVerifier();
         deployL1ZkEvmVerifier();
         deployL1MultipleVersionRollupVerifier();
@@ -322,6 +322,7 @@ contract DeployScroll is DeterministicDeployment {
 
     // @notice deployL1Contracts2ndPass deploys L1 contracts whose initialization depends on some L2 addresses.
     function deployL1Contracts2ndPass() private broadcast(Layer.L1) {
+        deployL1EnforcedTxGateway();
         deployL1ScrollMessenger();
         deployL1StandardERC20Gateway();
         deployL1ETHGateway();
@@ -439,6 +440,20 @@ contract DeployScroll is DeterministicDeployment {
         );
     }
 
+    function deployL1EnforcedTxGatewayProxy() private {
+        bytes memory args = abi.encode(
+            notnull(L1_PROXY_IMPLEMENTATION_PLACEHOLDER_ADDR),
+            notnull(L1_PROXY_ADMIN_ADDR),
+            new bytes(0)
+        );
+
+        L1_ENFORCED_TX_GATEWAY_PROXY_ADDR = deploy(
+            "L1_ENFORCED_TX_GATEWAY_PROXY",
+            type(TransparentUpgradeableProxy).creationCode,
+            args
+        );
+    }
+
     function deployL1EnforcedTxGateway() private {
         bytes memory args = abi.encode(notnull(L1_MESSAGE_QUEUE_V2_PROXY_ADDR), notnull(L1_FEE_VAULT_ADDR));
 
@@ -448,17 +463,7 @@ contract DeployScroll is DeterministicDeployment {
             args
         );
 
-        bytes memory args2 = abi.encode(
-            notnull(L1_ENFORCED_TX_GATEWAY_IMPLEMENTATION_ADDR),
-            notnull(L1_PROXY_ADMIN_ADDR),
-            new bytes(0)
-        );
-
-        L1_ENFORCED_TX_GATEWAY_PROXY_ADDR = deploy(
-            "L1_ENFORCED_TX_GATEWAY_PROXY",
-            type(TransparentUpgradeableProxy).creationCode,
-            args2
-        );
+        upgrade(L1_PROXY_ADMIN_ADDR, L1_ENFORCED_TX_GATEWAY_PROXY_ADDR, L1_ENFORCED_TX_GATEWAY_IMPLEMENTATION_ADDR);
     }
 
     function deployL1PlonkVerifier() private {
@@ -556,8 +561,10 @@ contract DeployScroll is DeterministicDeployment {
     function deployL1ScrollChain() private {
         bytes memory args = abi.encode(
             CHAIN_ID_L2,
+            notnull(L1_MESSAGE_QUEUE_V1_PROXY_ADDR),
             notnull(L1_MESSAGE_QUEUE_V2_PROXY_ADDR),
-            notnull(L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR)
+            notnull(L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR),
+            notnull(SYSTEM_CONFIG_PROXY_ADDR)
         );
 
         bytes memory creationCode = type(ScrollChain).creationCode;
@@ -831,6 +838,7 @@ contract DeployScroll is DeterministicDeployment {
         bytes memory args = abi.encode(
             notnull(L2_SCROLL_MESSENGER_PROXY_ADDR),
             notnull(L1_SCROLL_CHAIN_PROXY_ADDR),
+            notnull(L1_MESSAGE_QUEUE_V1_PROXY_ADDR),
             notnull(L1_MESSAGE_QUEUE_V2_PROXY_ADDR)
         );
 

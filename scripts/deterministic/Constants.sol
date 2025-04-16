@@ -12,10 +12,10 @@ address constant DETERMINISTIC_DEPLOYMENT_PROXY_ADDR = 0x4e59b44847b379578588920
 uint256 constant FEE_VAULT_MIN_WITHDRAW_AMOUNT = 1 ether;
 
 // input files
-string constant CONFIG_PATH = "./contracts/scroll-contracts/scripts/deterministic/config/config.toml";
+string constant CONFIG_PATH = "./scripts/deterministic/config/config.toml";
 
 // output files
-string constant CONFIG_CONTRACTS_PATH = "./contracts/scroll-contracts/scripts/deterministic/config/config-contracts.toml";
+string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-contracts.toml";
 string constant GENESIS_ALLOC_JSON_PATH = "./config/__genesis-alloc.json";
 string constant GENESIS_JSON_PATH = "./config/genesis/genesis.yaml";
 string constant ROLLUP_CONFIG_PATH = "./config/rollup-relayer/config.json.template";
