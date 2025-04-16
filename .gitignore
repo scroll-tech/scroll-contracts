@@ -23,5 +23,3 @@ broadcast
 # OS
 .DS_Store
 
-# config
-scripts/deterministic/config/config-contracts.toml
