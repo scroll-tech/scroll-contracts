@@ -27,12 +27,6 @@ contract GenerateRollupConfig is DeployScroll {
 
     // prettier-ignore
     function generateRollupConfig(string memory PATH) private {
-        // endpoints
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".l1_config.endpoint");
-        vm.writeJson(L2_RPC_ENDPOINT, PATH, ".l1_config.relayer_config.sender_config.endpoint");
-        vm.writeJson(L2_RPC_ENDPOINT, PATH, ".l2_config.endpoint");
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".l2_config.relayer_config.sender_config.endpoint");
-
         // contracts
         vm.writeJson(vm.toString(L1_GAS_PRICE_ORACLE_ADDR), PATH, ".l1_config.relayer_config.gas_price_oracle_contract_address");
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), PATH, ".l2_config.l2_message_queue_address");
@@ -172,10 +166,6 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
         vm.writeJson(vm.toString(L2_ERC721_GATEWAY_PROXY_ADDR), PATH, ".L2.ERC721GatewayAddr");
         vm.writeJson(vm.toString(L2_ERC1155_GATEWAY_PROXY_ADDR), PATH, ".L2.ERC1155GatewayAddr");
 
-        // endpoints
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".L1.endpoint");
-        vm.writeJson(L2_RPC_ENDPOINT, PATH, ".L2.endpoint");
-
         // others
         vm.writeJson(vm.toString(L1_CONTRACT_DEPLOYMENT_BLOCK), PATH, ".L1.startHeight");
     }
@@ -198,22 +188,11 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      *********************/
 
     function generateBalanceCheckerConfig(string memory PATH) private {
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".addresses[0].rpc_url");
         vm.writeJson(vm.toString(L1_COMMIT_SENDER_ADDR), PATH, ".addresses[0].address");
-
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".addresses[1].rpc_url");
         vm.writeJson(vm.toString(L1_FINALIZE_SENDER_ADDR), PATH, ".addresses[1].address");
-
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".addresses[2].rpc_url");
         vm.writeJson(vm.toString(L1_GAS_ORACLE_SENDER_ADDR), PATH, ".addresses[2].address");
-
-        vm.writeJson(L1_RPC_ENDPOINT, PATH, ".addresses[3].rpc_url");
         vm.writeJson(vm.toString(L1_FEE_VAULT_ADDR), PATH, ".addresses[3].address");
-
-        vm.writeJson(L2_RPC_ENDPOINT, PATH, ".addresses[4].rpc_url");
         vm.writeJson(vm.toString(L2_GAS_ORACLE_SENDER_ADDR), PATH, ".addresses[4].address");
-
-        vm.writeJson(L2_RPC_ENDPOINT, PATH, ".addresses[5].rpc_url");
         vm.writeJson(vm.toString(L2_TX_FEE_VAULT_ADDR), PATH, ".addresses[5].address");
     }
 }

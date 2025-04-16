@@ -5,12 +5,12 @@ export FOUNDRY_BYTECODE_HASH="none"
 
 if [ "${L1_RPC_ENDPOINT}" = "" ]; then
     echo "L1_RPC_ENDPOINT is not set"
-    L1_RPC_ENDPOINT="http://host.docker.internal:8543"
+    exit
 fi
 
 if [ "$L2_RPC_ENDPOINT" = "" ]; then
     echo "L2_RPC_ENDPOINT is not set"
-    L2_RPC_ENDPOINT="http://host.docker.internal:8545"
+    exit
 fi
 
 if [ "${BATCH_SIZE}" = "" ]; then
@@ -39,14 +39,3 @@ forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L
 echo ""
 echo "deploying on L2"
 forge script scripts/deterministic/DeployScroll.s.sol:DeployScroll --rpc-url "$L2_RPC_ENDPOINT"  --batch-size "$BATCH_SIZE" --sig "run(string,string)" "L2" "verify-config" --broadcast --legacy || exit 1
-
-# log broadcast files
-echo "" 
-echo "Broadcast files:"
-for file in broadcast/DeployScroll.s.sol/*/*; do
-  if [ -f "$file" ]; then
-    echo "$file:"
-    cat "$file"
-    echo ""
-  fi
-done
