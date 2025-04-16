@@ -19,6 +19,7 @@ string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-c
 string constant GENESIS_ALLOC_JSON_PATH = "../../config/__genesis-alloc.json";
 string constant GENESIS_JSON_PATH = "../../config/genesis/genesis.json";
 string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
+string constant GAS_ORACLE_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
 string constant COORDINATOR_API_CONFIG_PATH = "../../config/coordinator-api/config.json.template";
 string constant COORDINATOR_CRON_CONFIG_PATH = "../../config/coordinator-cron/config.json.template";
 string constant CHAIN_MONITOR_CONFIG_PATH = "../../config/chain-monitorv2/config.json.template";

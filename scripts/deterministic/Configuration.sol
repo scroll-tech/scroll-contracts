@@ -95,9 +95,6 @@ abstract contract Configuration is Script {
         cfg = vm.readFile(CONFIG_PATH);
         contractsCfg = vm.readFile(CONFIG_CONTRACTS_PATH);
 
-        L1_RPC_ENDPOINT = cfg.readString(".general.L1_RPC_ENDPOINT");
-        L2_RPC_ENDPOINT = cfg.readString(".general.L2_RPC_ENDPOINT");
-
         CHAIN_ID_L1 = uint64(cfg.readUint(".general.CHAIN_ID_L1"));
         CHAIN_ID_L2 = uint64(cfg.readUint(".general.CHAIN_ID_L2"));
 
