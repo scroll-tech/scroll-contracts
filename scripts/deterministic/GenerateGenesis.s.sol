@@ -222,9 +222,21 @@ contract GenerateGenesis is DeployScroll {
         vm.writeJson(l1ChainId, GENESIS_JSON_PATH, ".config.scroll.l1Config.l1ChainId");
 
         vm.writeJson(
-            vm.toString(L1_MESSAGE_QUEUE_V2_PROXY_ADDR),
+            vm.toString(SYSTEM_CONFIG_PROXY_ADDR),
+            GENESIS_JSON_PATH,
+            ".config.systemContract.system_contract_address"
+        );
+
+        vm.writeJson(
+            vm.toString(L1_MESSAGE_QUEUE_V1_PROXY_ADDR),
             GENESIS_JSON_PATH,
             ".config.scroll.l1Config.l1MessageQueueAddress"
+        );
+
+        vm.writeJson(
+            vm.toString(L1_MESSAGE_QUEUE_V2_PROXY_ADDR),
+            GENESIS_JSON_PATH,
+            ".config.scroll.l1Config.l1MessageQueueV2Address"
         );
 
         vm.writeJson(
