@@ -28,6 +28,14 @@ contract GenerateRollupConfig is DeployScroll {
 
     // prettier-ignore
     function generateRollupConfig(string memory PATH) private {
+        // initialize template file
+        if (vm.exists(PATH)) {
+            vm.removeFile(PATH);
+        }
+
+        string memory template = vm.readFile(ROLLUP_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(PATH, template);
+
         // contracts
         vm.writeJson(vm.toString(L1_GAS_PRICE_ORACLE_ADDR), PATH, ".l1_config.relayer_config.gas_price_oracle_contract_address");
         vm.writeJson(vm.toString(L2_MESSAGE_QUEUE_ADDR), PATH, ".l2_config.l2_message_queue_address");
@@ -63,6 +71,14 @@ contract GenerateCoordinatorConfig is DeployScroll {
      *********************/
 
     function generateCoordinatorConfig(string memory PATH) private {
+        // initialize template file
+        if (vm.exists(PATH)) {
+            vm.removeFile(PATH);
+        }
+
+        string memory template = vm.readFile(COORDINATOR_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(PATH, template);
+
         // coordinator api
         vm.writeJson(CHUNK_COLLECTION_TIME_SEC, PATH, ".prover_manager.chunk_collection_time_sec");
         vm.writeJson(BATCH_COLLECTION_TIME_SEC, PATH, ".prover_manager.batch_collection_time_sec");
@@ -97,6 +113,14 @@ contract GenerateChainMonitorConfig is DeployScroll {
 
     // prettier-ignore
     function generateChainMonitorConfig(string memory PATH) private {
+        // initialize template file
+        if (vm.exists(PATH)) {
+            vm.removeFile(PATH);
+        }
+
+        string memory template = vm.readFile(CHAIN_MONITOR_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(PATH, template);
+
         // L1
         vm.writeJson(L1_RPC_ENDPOINT, PATH, ".l1_config.l1_url");
         vm.writeJson(vm.toString(L1_CONTRACT_DEPLOYMENT_BLOCK), PATH, ".l1_config.start_number");
@@ -143,6 +167,14 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
 
     // prettier-ignore
     function generateBridgeHistoryConfig(string memory PATH) private {
+        // initialize template file
+        if (vm.exists(PATH)) {
+            vm.removeFile(PATH);
+        }
+
+        string memory template = vm.readFile(BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(PATH, template);
+
         // L1 contracts
         vm.writeJson(vm.toString(L1_MESSAGE_QUEUE_V2_PROXY_ADDR), PATH, ".L1.MessageQueueAddr");
         vm.writeJson(vm.toString(L1_SCROLL_MESSENGER_PROXY_ADDR), PATH, ".L1.MessengerAddr");
@@ -189,6 +221,14 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      *********************/
 
     function generateBalanceCheckerConfig(string memory PATH) private {
+        // initialize template file
+        if (vm.exists(PATH)) {
+            vm.removeFile(PATH);
+        }
+
+        string memory template = vm.readFile(BALANCE_CHECKER_CONFIG_TEMPLATE_PATH);
+        vm.writeFile(PATH, template);
+
         vm.writeJson(vm.toString(L1_COMMIT_SENDER_ADDR), PATH, ".addresses[0].address");
         vm.writeJson(vm.toString(L1_FINALIZE_SENDER_ADDR), PATH, ".addresses[1].address");
         vm.writeJson(vm.toString(L1_GAS_ORACLE_SENDER_ADDR), PATH, ".addresses[2].address");

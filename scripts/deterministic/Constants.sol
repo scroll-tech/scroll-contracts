@@ -14,21 +14,31 @@ uint256 constant FEE_VAULT_MIN_WITHDRAW_AMOUNT = 1 ether;
 // input files
 string constant CONFIG_PATH = "./scripts/deterministic/config/config.toml";
 
+// template files
+string constant CONFIG_CONTRACTS_TEMPLATE_PATH = "./docker/templates/config-contracts.toml";
+string constant GENESIS_JSON_TEMPLATE_PATH = "../../config/genesis/config.json.template";
+string constant ROLLUP_CONFIG_TEMPLATE_PATH = "../../config/rollup-relayer/config.json.template";
+string constant COORDINATOR_CONFIG_TEMPLATE_PATH = "../../config/coordinator-api/config.json.template";
+string constant CHAIN_MONITOR_CONFIG_TEMPLATE_PATH = "../../config/chain-monitorv2/config.json.template";
+string constant BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH = "../../config/bridge-historyv2-fetcher/config.json.template";
+string constant BALANCE_CHECKER_CONFIG_TEMPLATE_PATH = "../../config/balance-checker/config.json.template";
+string constant ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH = "../../config/rollup-explorer-backend/config.json.template";
+string constant ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH = "../../config/scroll-admin-backend/config.json.template";
+
 // output files
-string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-contracts.toml";
 string constant GENESIS_ALLOC_JSON_PATH = "../../config/__genesis-alloc.json";
-string constant GENESIS_JSON_PATH = "../../config/genesis/config.json.template";
-string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
-string constant GAS_ORACLE_CONFIG_PATH = "../../config/rollup-relayer/config.json.template";
-string constant COORDINATOR_API_CONFIG_PATH = "../../config/coordinator-api/config.json.template";
-string constant COORDINATOR_CRON_CONFIG_PATH = "../../config/coordinator-cron/config.json.template";
-string constant CHAIN_MONITOR_CONFIG_PATH = "../../config/chain-monitorv2/config.json.template";
-string constant BRIDGE_HISTORY_API_CONFIG_PATH = "../../config/bridge-historyv2-api/config.json.template";
-string constant BRIDGE_HISTORY_FETCHER_CONFIG_PATH = "../../config/bridge-historyv2-fetcher/config.json.template";
-string constant BALANCE_CHECKER_CONFIG_PATH = "../../config/balance-checker/config.json.template";
-string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "../../config/rollup-explorer-backend/config.json.template";
-string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "../../config/scroll-admin-backend/config.json.template";
-string constant ADMIN_SYSTEM_CRON_CONFIG_PATH = "../../config/scroll-admin-cron/config.json.template";
+string constant GENESIS_JSON_PATH = "../../config/genesis/config.json";
+string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json";
+string constant GAS_ORACLE_CONFIG_PATH = "../../config/rollup-relayer/config.json";
+string constant COORDINATOR_API_CONFIG_PATH = "../../config/coordinator-api/config.json";
+string constant COORDINATOR_CRON_CONFIG_PATH = "../../config/coordinator-cron/config.json";
+string constant CHAIN_MONITOR_CONFIG_PATH = "../../config/chain-monitorv2/config.json";
+string constant BRIDGE_HISTORY_API_CONFIG_PATH = "../../config/bridge-historyv2-api/config.json";
+string constant BRIDGE_HISTORY_FETCHER_CONFIG_PATH = "../../config/bridge-historyv2-fetcher/config.json";
+string constant BALANCE_CHECKER_CONFIG_PATH = "../../config/balance-checker/config.json";
+string constant ROLLUP_EXPLORER_BACKEND_CONFIG_PATH = "../../config/rollup-explorer-backend/config.json";
+string constant ADMIN_SYSTEM_BACKEND_CONFIG_PATH = "../../config/scroll-admin-backend/config.json";
+string constant ADMIN_SYSTEM_CRON_CONFIG_PATH = "../../config/scroll-admin-cron/config.json";
 
 // verifier 0.2.0 VERIFIER_DIGEST
 // https://circuit-release.s3.us-west-2.amazonaws.com/scroll-zkvm/releases/0.2.0/bundle/digest_2.hex

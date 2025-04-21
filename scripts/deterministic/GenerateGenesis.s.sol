@@ -197,6 +197,14 @@ contract GenerateGenesis is DeployScroll {
     }
 
     function generateGenesisJson() private {
+        // initialize template file
+        if (vm.exists(GENESIS_JSON_PATH)) {
+            vm.removeFile(GENESIS_JSON_PATH);
+        }
+
+        string memory template = vm.readFile(GENESIS_JSON_TEMPLATE_PATH);
+        vm.writeFile(GENESIS_JSON_PATH, template);
+
         // general config
         vm.writeJson(vm.toString(CHAIN_ID_L2), GENESIS_JSON_PATH, ".config.chainId");
 
