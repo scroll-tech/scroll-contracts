@@ -25,7 +25,7 @@ string constant ROLLUP_EXPLORER_BACKEND_CONFIG_TEMPLATE_PATH = "../../config/rol
 string constant ADMIN_SYSTEM_BACKEND_CONFIG_TEMPLATE_PATH = "../../config/scroll-admin-backend/config.json.template";
 
 // output files
-string constant CONFIG_CONTRACTS_PATH = "./docker/templates/config-contracts.toml";
+string constant CONFIG_CONTRACTS_PATH = "./scripts/deterministic/config/config-contracts.toml";
 string constant GENESIS_ALLOC_JSON_PATH = "../../config/__genesis-alloc.json";
 string constant GENESIS_JSON_PATH = "../../config/genesis/config.json";
 string constant ROLLUP_CONFIG_PATH = "../../config/rollup-relayer/config.json";
