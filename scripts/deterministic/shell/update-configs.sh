@@ -16,13 +16,13 @@ echo ""
 echo "updating coordinator-config.yaml"
 forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateCoordinatorConfig || exit 1
 
-echo ""
-echo "updating chain-monitor-config.yaml"
-forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateChainMonitorConfig || exit 1
+# echo ""
+# echo "updating chain-monitor-config.yaml"
+# forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateChainMonitorConfig || exit 1
 
-echo ""
-echo "updating bridge-history-config.yaml"
-forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBridgeHistoryConfig || exit 1
+# echo ""
+# echo "updating bridge-history-config.yaml"
+# forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBridgeHistoryConfig || exit 1
 
 echo ""
 echo "updating balance-checker-config.yaml"
