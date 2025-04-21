@@ -24,6 +24,6 @@ forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateCoordinatorConf
 # echo "updating bridge-history-config.yaml"
 # forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBridgeHistoryConfig || exit 1
 
-echo ""
-echo "updating balance-checker-config.yaml"
-forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBalanceCheckerConfig || exit 1
+# echo ""
+# echo "updating balance-checker-config.yaml"
+# forge script scripts/deterministic/GenerateConfigs.s.sol:GenerateBalanceCheckerConfig || exit 1
