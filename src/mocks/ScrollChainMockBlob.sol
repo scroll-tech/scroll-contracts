@@ -19,7 +19,7 @@ contract ScrollChainMockBlob is ScrollChain {
         address _messageQueueV2,
         address _verifier,
         address _system
-    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, address(_system)) {}
+    ) ScrollChain(_chainId, _messageQueueV1, _messageQueueV2, _verifier, _system) {}
 
     /**********************
      * Internal Functions *
@@ -30,7 +30,7 @@ contract ScrollChainMockBlob is ScrollChain {
     }
 
     function setLastFinalizedBatchIndex(uint256 index) external {
-        miscData.lastFinalizedBatchIndex = uint64(index);
+        miscData.lastFinalizedBatchIndex = uint64(index); // Оставил приведение типа, как в оригинале
     }
 
     function setFinalizedStateRoots(uint256 index, bytes32 value) external {
@@ -48,10 +48,7 @@ contract ScrollChainMockBlob is ScrollChain {
         overrideBatchHashCheck = status;
     }
 
-    function _getBlobVersionedHash() internal virtual override returns (bytes32 _blobVersionedHash) {
-        _blobVersionedHash = blobhashes[0];
-    }
-
+    // Объединение двух функций _getBlobVersionedHash в одну.
     function _getBlobVersionedHash(uint256 index) internal virtual override returns (bytes32 _blobVersionedHash) {
         _blobVersionedHash = blobhashes[index];
     }
