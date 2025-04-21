@@ -348,6 +348,7 @@ contract DeployScroll is DeterministicDeployment {
     // @notice initializeL1Contracts initializes contracts deployed on L1.
     function initializeL1Contracts() private broadcast(Layer.L1) only(Layer.L1) {
         initializeScrollChain();
+        initializeSystemConfig();
         initializeL1MessageQueue();
         initializeL1ScrollMessenger();
         initializeEnforcedTxGateway();
@@ -1098,6 +1099,26 @@ contract DeployScroll is DeterministicDeployment {
         if (!ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).isProver(L1_FINALIZE_SENDER_ADDR)) {
             ScrollChain(L1_SCROLL_CHAIN_PROXY_ADDR).addProver(L1_FINALIZE_SENDER_ADDR);
         }
+    }
+
+    function initializeSystemConfig() private {
+        address owner = L1_PROXY_ADMIN_ADDR;
+        address signer = address(0xe0553E076c1a838153f32BDb57cf09125D06cb98);
+        SystemConfig.MessageQueueParameters memory messageQueueParameters = SystemConfig.MessageQueueParameters({
+            maxGasLimit: uint32(MAX_L1_MESSAGE_GAS_LIMIT),
+            baseFeeOverhead: 0,
+            baseFeeScalar: 0
+        });
+        SystemConfig.EnforcedBatchParameters memory enforcedBatchParameters = SystemConfig.EnforcedBatchParameters({
+            maxDelayEnterEnforcedMode: 0,
+            maxDelayMessageQueue: 0
+        });
+        SystemConfig(SYSTEM_CONFIG_PROXY_ADDR).initialize(
+            owner,
+            signer,
+            messageQueueParameters,
+            enforcedBatchParameters
+        );
     }
 
     function initializeL1MessageQueue() private {
