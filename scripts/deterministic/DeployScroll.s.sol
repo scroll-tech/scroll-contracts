@@ -1103,7 +1103,7 @@ contract DeployScroll is DeterministicDeployment {
 
     function initializeSystemConfig() private {
         address owner = L1_PROXY_ADMIN_ADDR;
-        address signer = address(0xe0553E076c1a838153f32BDb57cf09125D06cb98);
+        address signer = L2GETH_SIGNER_ADDRESS;
         SystemConfig.MessageQueueParameters memory messageQueueParameters = SystemConfig.MessageQueueParameters({
             maxGasLimit: uint32(MAX_L1_MESSAGE_GAS_LIMIT),
             baseFeeOverhead: 0,
