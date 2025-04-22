@@ -5,7 +5,7 @@ import {Script} from "forge-std/Script.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import {stdToml} from "forge-std/StdToml.sol";
 
-import {CONFIG_PATH, CONFIG_CONTRACTS_PATH} from "./Constants.sol";
+import {CONFIG_PATH, CONFIG_CONTRACTS_PATH, CONFIG_CONTRACTS_TEMPLATE_PATH} from "./Constants.sol";
 
 /// @notice Configuration allows inheriting contracts to read the TOML configuration file.
 abstract contract Configuration is Script {
@@ -92,6 +92,11 @@ abstract contract Configuration is Script {
      **********************/
 
     function readConfig() internal {
+        if (!vm.exists(CONFIG_CONTRACTS_PATH)) {
+            string memory template = vm.readFile(CONFIG_CONTRACTS_TEMPLATE_PATH);
+            vm.writeFile(CONFIG_CONTRACTS_PATH, template);
+        }
+
         cfg = vm.readFile(CONFIG_PATH);
         contractsCfg = vm.readFile(CONFIG_CONTRACTS_PATH);
 

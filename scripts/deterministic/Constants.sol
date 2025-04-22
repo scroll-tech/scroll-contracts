@@ -15,6 +15,7 @@ uint256 constant FEE_VAULT_MIN_WITHDRAW_AMOUNT = 1 ether;
 string constant CONFIG_PATH = "./scripts/deterministic/config/config.toml";
 
 // template files
+string constant CONFIG_CONTRACTS_TEMPLATE_PATH = "./scripts/deterministic/config/config-contracts.toml.template";
 string constant GENESIS_JSON_TEMPLATE_PATH = "../../config/genesis/config.json.template";
 string constant ROLLUP_CONFIG_TEMPLATE_PATH = "../../config/rollup-relayer/config.json.template";
 string constant COORDINATOR_CONFIG_TEMPLATE_PATH = "../../config/coordinator-api/config.json.template";
