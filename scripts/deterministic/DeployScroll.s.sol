@@ -1113,12 +1113,15 @@ contract DeployScroll is DeterministicDeployment {
             maxDelayEnterEnforcedMode: 0,
             maxDelayMessageQueue: 0
         });
-        SystemConfig(SYSTEM_CONFIG_PROXY_ADDR).initialize(
-            owner,
-            signer,
-            messageQueueParameters,
-            enforcedBatchParameters
-        );
+
+        if (getInitializeCount(SYSTEM_CONFIG_PROXY_ADDR) == 0) {
+            SystemConfig(SYSTEM_CONFIG_PROXY_ADDR).initialize(
+                owner,
+                signer,
+                messageQueueParameters,
+                enforcedBatchParameters
+            );
+        }
     }
 
     function initializeL1MessageQueue() private {
