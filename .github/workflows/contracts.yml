@@ -25,7 +25,8 @@ jobs:
   foundry:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout sources
