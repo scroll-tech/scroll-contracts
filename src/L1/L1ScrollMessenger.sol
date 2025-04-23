@@ -53,6 +53,9 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     /// @notice The address of L1MessageQueueV2 contract.
     address public immutable messageQueueV2;
 
+    /// @notice The address of `EnforcedTxGateway`.
+    address public immutable enforcedTxGateway;
+
     /***********
      * Structs *
      ***********/
@@ -110,17 +113,15 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         address _counterpart,
         address _rollup,
         address _messageQueueV1,
-        address _messageQueueV2
+        address _messageQueueV2,
+        address _enforcedTxGateway
     ) ScrollMessengerBase(_counterpart) {
-        if (_rollup == address(0) || _messageQueueV1 == address(0) || _messageQueueV2 == address(0)) {
-            revert ErrorZeroAddress();
-        }
-
         _disableInitializers();
 
         rollup = _rollup;
         messageQueueV1 = _messageQueueV1;
         messageQueueV2 = _messageQueueV2;
+        enforcedTxGateway = _enforcedTxGateway;
     }
 
     /// @notice Initialize the storage of L1ScrollMessenger.
@@ -193,7 +194,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         }
 
         // @note check more `_to` address to avoid attack in the future when we add more gateways.
-        if (_to == messageQueueV1 || _to == messageQueueV2) {
+        if (_to == messageQueueV1 || _to == messageQueueV2 || _to == enforcedTxGateway) {
             revert ErrorForbidToCallMessageQueue();
         }
         _validateTargetAddress(_to);
