@@ -1,11 +1,5 @@
 name: zizmor GA Security Analysis
 
-on:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["**"]
-
 jobs:
   zizmor:
     name: zizmor
