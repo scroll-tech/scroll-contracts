@@ -1,34 +1,18 @@
 {
     "name": "@scroll-tech/contracts",
     "description": "A library for interacting with Scroll contracts.",
-    "version": "0.0.4",
+    "version": "2.0.1",
     "repository": {
       "type": "git",
       "url": "https://github.com/scroll-tech/scroll.git"
     },
     "files": [
-        "L1/gateways",
-        "L1/rollup/IL1MessageQueue.sol",
-        "L1/rollup/IL2GasPriceOracle.sol",
-        "L1/rollup/IScrollChain.sol",
-        "L1/IL1ScrollMessenger.sol",
-        "L2/gateways",
-        "L2/predeploys/IL1BlockContainer.sol",
-        "L2/predeploys/IL1GasPriceOracle.sol",
-        "L2/IL2ScrollMessenger.sol",
+        "L1",
+        "L2",
         "interfaces",
-        "libraries/callbacks",
-        "libraries/gateway",
-        "libraries/oracle/IGasOracle.sol",
-        "libraries/token/IScrollERC20.sol",
-        "libraries/token/IScrollERC20Extension.sol",
-        "libraries/token/IScrollERC1155.sol",
-        "libraries/token/IScrollERC1155Extension.sol",
-        "libraries/token/IScrollERC721.sol",
-        "libraries/token/IScrollERC721Extension.sol",
-        "libraries/token/IScrollStandardERC20.sol",
-        "libraries/token/IScrollStandardERC20Factory.sol",
-        "libraries/IScrollMessenger.sol"
+        "libraries",
+        "misc",
+        "mocks"
     ],
     "keywords": [
       "solidity",
