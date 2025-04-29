@@ -35,6 +35,8 @@ abstract contract Configuration is Script {
     uint256 internal MAX_BLOCK_IN_CHUNK;
     uint256 internal MAX_BATCH_IN_BUNDLE;
     uint256 internal MAX_L1_MESSAGE_GAS_LIMIT;
+    uint256 internal FINALIZE_BATCH_DEADLINE_SEC;
+    uint256 internal RELAY_MESSAGE_DEADLINE_SEC;
 
     uint256 internal L1_CONTRACT_DEPLOYMENT_BLOCK;
 
@@ -107,6 +109,8 @@ abstract contract Configuration is Script {
         MAX_BLOCK_IN_CHUNK = cfg.readUint(".rollup.MAX_BLOCK_IN_CHUNK");
         MAX_BATCH_IN_BUNDLE = cfg.readUint(".rollup.MAX_BATCH_IN_BUNDLE");
         MAX_L1_MESSAGE_GAS_LIMIT = cfg.readUint(".rollup.MAX_L1_MESSAGE_GAS_LIMIT");
+        FINALIZE_BATCH_DEADLINE_SEC = cfg.readUint(".rollup.FINALIZE_BATCH_DEADLINE_SEC");
+        RELAY_MESSAGE_DEADLINE_SEC = cfg.readUint(".rollup.RELAY_MESSAGE_DEADLINE_SEC");
 
         L1_CONTRACT_DEPLOYMENT_BLOCK = cfg.readUint(".general.L1_CONTRACT_DEPLOYMENT_BLOCK");
 

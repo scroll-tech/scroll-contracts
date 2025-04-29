@@ -1106,12 +1106,12 @@ contract DeployScroll is DeterministicDeployment {
         address signer = L2GETH_SIGNER_ADDRESS;
         SystemConfig.MessageQueueParameters memory messageQueueParameters = SystemConfig.MessageQueueParameters({
             maxGasLimit: uint32(MAX_L1_MESSAGE_GAS_LIMIT),
-            baseFeeOverhead: 0,
-            baseFeeScalar: 0
+            baseFeeOverhead: 1000000000,
+            baseFeeScalar: 1000000000
         });
         SystemConfig.EnforcedBatchParameters memory enforcedBatchParameters = SystemConfig.EnforcedBatchParameters({
-            maxDelayEnterEnforcedMode: 0,
-            maxDelayMessageQueue: 0
+            maxDelayEnterEnforcedMode: uint24(FINALIZE_BATCH_DEADLINE_SEC),
+            maxDelayMessageQueue: uint24(RELAY_MESSAGE_DEADLINE_SEC)
         });
 
         if (getInitializeCount(SYSTEM_CONFIG_PROXY_ADDR) == 0) {
