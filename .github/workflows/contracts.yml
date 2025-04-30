@@ -137,3 +137,75 @@ jobs:
 
       - name: Run hardhat tests
         run: npx hardhat test
+    
+  lint:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # Yarn cache (optional – share the keys you already defined)
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "::set-output name=dir::$(yarn cache dir)"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn install --frozen-lockfile
+
+      # ── Solhint + Prettier Solidity plug-in ────────────────────────────────
+      - name: Run Solhint
+        run: npx solhint "src/**/*.sol"
+
+      - name: Check formatting (Prettier)
+        run: npx prettier --check "src/**/*.sol"
+
+  slither:
+    # only run once the Foundry build passes, re-using its artefacts
+    needs: foundry
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Build once with Foundry so Slither has compiled artefacts & remappings
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@de808b1eea699e761c404bda44ba8f21aba30b2c
+        with: { version: nightly }
+      - run: forge build --evm-version cancun
+
+      # Install & run Slither
+      - name: Install Slither
+        run: |
+          python -m pip install --upgrade pip
+          pip install slither-analyzer==0.11.0 # lock a known-good version
+
+      - name: Run Slither (JSON + human report, fail on med/high)
+        run: |
+          slither . \
+            --config-file slither.config.json \       
+            --exclude-dependencies \                  
+            --json slither-report.json \
+            --markdown-root slither-report.md
+
+      - name: Upload Slither report
+        uses: actions/upload-artifact@v4
+        with:
+          name: slither-static-analysis
+          path: |
+            slither-report.json
+            slither-report.md
+
+        
