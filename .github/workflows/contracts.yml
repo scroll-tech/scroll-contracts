@@ -171,7 +171,7 @@ jobs:
             --exclude-medium \
             --exclude-low \
             --exclude-informational \
-            --fail-on high \
+            --fail-high \
             --json slither-report.json \
             --markdown-root slither-report.md
 
