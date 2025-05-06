@@ -137,10 +137,14 @@ jobs:
 
       - name: Run hardhat tests
         run: npx hardhat test
+
   slither:
     if: github.event.pull_request.draft == false
     needs: foundry
     runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      security-events: write
 
     steps:
       - uses: actions/checkout@v4
@@ -150,7 +154,7 @@ jobs:
           node-version: '18'
       - run: yarn install --frozen-lockfile
 
-      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
           version: nightly
       - name: Build contracts
@@ -161,11 +165,12 @@ jobs:
           python-version: '3.11'
       - run: |
           python -m pip install --upgrade pip
-          pip install slither-analyzer==0.11.1
+          pip install slither-analyzer==0.11.3
 
       - name: Run Slither (High severity gate)
         run: |
           slither . \
+            --filter-paths "src/test/*|src/mocks/*|scripts/*|node_modules" \
             --foundry-out-directory out \
             --exclude-dependencies \
             --exclude-medium \
@@ -181,30 +186,3 @@ jobs:
           path: |
             slither-report.json
             slither-report.md
-
-  slither2:
-    if: github.event.pull_request.draft == false
-    needs: foundry
-    runs-on: ubuntu-latest
-    permissions:
-      statuses: write
-      security-events: write
-
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          persist-credentials: false
-
-      - name: Run Slither
-        uses: crytic/slither-action@4fd765aeef19915d04ddf0be90c2930036a774d8 # v0.4.1
-        id: slither
-        with:
-          sarif: results.sarif
-          fail-on: high
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: ${{ steps.slither.outputs.sarif }}
