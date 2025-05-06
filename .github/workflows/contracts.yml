@@ -147,25 +147,35 @@ jobs:
       security-events: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - name: Install Nodejs
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
-      - run: yarn install --frozen-lockfile
 
-      - uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
+      - name: Install foundry toolchain
+        uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
           version: nightly
-      - name: Build contracts
-        run: forge build --build-info --out out --evm-version cancun
 
-      - uses: actions/setup-python@v5
+      - Name: Install Python and Slither
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - run: |
           python -m pip install --upgrade pip
           pip install slither-analyzer==0.11.3
+
+      - name: Run yarn install
+        run: yarn install --frozen-lockfile
+
+      - name: Build contracts
+        run: forge build --build-info --out out --evm-version cancun
 
       - name: Run Slither (High severity gate)
         run: |
@@ -180,7 +190,8 @@ jobs:
             --json slither-report.json \
             --markdown-root slither-report.md
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
           name: slither-static-analysis
           path: |
