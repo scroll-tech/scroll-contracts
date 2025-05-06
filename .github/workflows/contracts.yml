@@ -181,3 +181,30 @@ jobs:
           path: |
             slither-report.json
             slither-report.md
+
+  slither2:
+    if: github.event.pull_request.draft == false
+    needs: foundry
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      security-events: write
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Run Slither
+        uses: crytic/slither-action@4fd765aeef19915d04ddf0be90c2930036a774d8 # v0.4.1
+        id: slither
+        with:
+          sarif: results.sarif
+          fail-on: high
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.slither.outputs.sarif }}
