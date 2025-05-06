@@ -104,7 +104,7 @@ contract L1GatewayRouter is OwnableUpgradeable, IL1GatewayRouter {
      *****************************/
 
     /// @inheritdoc IL1GatewayRouter
-    /// @dev All the gateways should have reentrancy guard to prevent potential attack though this function.
+    /// @dev All the gateways should have reentrancy guard to prevent potential attack through this function.
     function requestERC20(
         address _sender,
         address _token,
@@ -112,7 +112,11 @@ contract L1GatewayRouter is OwnableUpgradeable, IL1GatewayRouter {
     ) external onlyInContext returns (uint256) {
         address _caller = _msgSender();
         uint256 _balance = IERC20Upgradeable(_token).balanceOf(_caller);
+
+        // only whitelisted caller allowed (onlyInContext modifier).
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20Upgradeable(_token).safeTransferFrom(_sender, _caller, _amount);
+
         _amount = IERC20Upgradeable(_token).balanceOf(_caller) - _balance;
         return _amount;
     }
@@ -157,6 +161,8 @@ contract L1GatewayRouter is OwnableUpgradeable, IL1GatewayRouter {
         // encode msg.sender with _data
         bytes memory _routerData = abi.encode(_msgSender(), _data);
 
+        // gatewayInContext serves as reentrancy guard (onlyNotInContext modifier).
+        // slither-disable-next-line reentrancy-eth
         IL1ERC20Gateway(_gateway).depositERC20AndCall{value: msg.value}(_token, _to, _amount, _routerData, _gasLimit);
 
         // leave deposit context
