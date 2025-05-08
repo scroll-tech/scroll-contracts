@@ -28,7 +28,7 @@ contract L2ScrollMessengerTest is DSTestPlus {
 
     function setUp() public {
         // Deploy L1 contracts
-        l1Messenger = new L1ScrollMessenger(address(1), address(1), address(1));
+        l1Messenger = new L1ScrollMessenger(address(1), address(1), address(1), address(1), address(1));
 
         // Deploy L2 contracts
         whitelist = new Whitelist(address(this));

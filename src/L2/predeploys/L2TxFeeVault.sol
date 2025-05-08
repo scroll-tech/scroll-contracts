@@ -119,7 +119,9 @@ contract L2TxFeeVault is OwnableBase {
 
         emit Withdrawal(_value, recipient, msg.sender);
 
-        // no fee provided
+        // @note no fee provided
+        // transfer to messenger is safe.
+        // slither-disable-next-line arbitrary-send-eth
         IL2ScrollMessenger(messenger).sendMessage{value: _value}(
             recipient,
             _value,

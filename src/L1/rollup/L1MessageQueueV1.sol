@@ -6,7 +6,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {BitMapsUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/structs/BitMapsUpgradeable.sol";
 
 import {IL2GasPriceOracle} from "./IL2GasPriceOracle.sol";
-import {IL1MessageQueue} from "./IL1MessageQueue.sol";
+import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
 
 import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol";
 
@@ -17,7 +17,7 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 /// @title L1MessageQueue
 /// @notice This contract will hold all L1 to L2 messages.
 /// Each appended message is assigned with a unique and increasing `uint256` index.
-contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
+contract L1MessageQueueV1 is OwnableUpgradeable, IL1MessageQueueV1 {
     using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
 
     /*************
@@ -52,7 +52,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @notice The list of queued cross domain messages.
     bytes32[] public messageQueue;
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     uint256 public pendingQueueIndex;
 
     /// @notice The max gas limit of L1 transactions.
@@ -64,7 +64,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
     /// @dev The bitmap for skipped messages, where `skippedMessageBitmap[i]` keeps the bits from `[i*256, (i+1)*256)`.
     mapping(uint256 => uint256) private skippedMessageBitmap;
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     uint256 public nextUnfinalizedQueueIndex;
 
     /// @dev The storage slots for future usage.
@@ -138,31 +138,31 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
      * Public View Functions *
      *************************/
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function nextCrossDomainMessageIndex() external view returns (uint256) {
         return messageQueue.length;
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function getCrossDomainMessage(uint256 _queueIndex) external view returns (bytes32) {
         return messageQueue[_queueIndex];
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function estimateCrossDomainMessageFee(uint256 _gasLimit) external view virtual override returns (uint256) {
         address _oracle = gasOracle;
         if (_oracle == address(0)) return 0;
         return IL2GasPriceOracle(_oracle).estimateCrossDomainMessageFee(_gasLimit);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function calculateIntrinsicGasFee(bytes calldata _calldata) public view virtual override returns (uint256) {
         address _oracle = gasOracle;
         if (_oracle == address(0)) return 0;
         return IL2GasPriceOracle(_oracle).calculateIntrinsicGasFee(_calldata);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function computeTransactionHash(
         address _sender,
         uint256 _queueIndex,
@@ -296,14 +296,14 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         return hash;
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function isMessageSkipped(uint256 _queueIndex) external view returns (bool) {
         if (_queueIndex >= pendingQueueIndex) return false;
 
         return _isMessageSkipped(_queueIndex);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function isMessageDropped(uint256 _queueIndex) external view returns (bool) {
         // it should be a skipped message first.
         return _isMessageSkipped(_queueIndex) && droppedMessageBitmap.get(_queueIndex);
@@ -313,7 +313,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
      * Public Mutating Functions *
      *****************************/
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function appendCrossDomainMessage(
         address _target,
         uint256 _gasLimit,
@@ -328,7 +328,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         _queueTransaction(_sender, _target, 0, _gasLimit, _data);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function appendEnforcedTransaction(
         address _sender,
         address _target,
@@ -346,7 +346,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         _queueTransaction(_sender, _target, _value, _gasLimit, _data);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function popCrossDomainMessage(
         uint256 _startIndex,
         uint256 _count,
@@ -373,7 +373,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         emit DequeueTransaction(_startIndex, _count, _skippedBitmap);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     /// @dev Caller should make sure `_startIndex < pendingQueueIndex` to reduce unnecessary contract call.
     function resetPoppedCrossDomainMessage(uint256 _startIndex) external override onlyScrollChain {
         uint256 cachedPendingQueueIndex = pendingQueueIndex;
@@ -400,7 +400,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         emit ResetDequeuedTransaction(_startIndex);
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function finalizePoppedCrossDomainMessage(uint256 _newFinalizedQueueIndexPlusOne)
         external
         override
@@ -417,7 +417,7 @@ contract L1MessageQueue is OwnableUpgradeable, IL1MessageQueue {
         }
     }
 
-    /// @inheritdoc IL1MessageQueue
+    /// @inheritdoc IL1MessageQueueV1
     function dropCrossDomainMessage(uint256 _index) external onlyMessenger {
         require(_index < nextUnfinalizedQueueIndex, "cannot drop pending message");
 

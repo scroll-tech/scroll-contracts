@@ -2,15 +2,15 @@
 
 pragma solidity =0.8.24;
 
-import {console} from "hardhat/console.sol";
-
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ITransparentUpgradeableProxy, TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {L1MessageQueue} from "../L1/rollup/L1MessageQueue.sol";
+import {L1MessageQueueV1} from "../L1/rollup/L1MessageQueueV1.sol";
+import {L1MessageQueueV2} from "../L1/rollup/L1MessageQueueV2.sol";
 import {ScrollChain, IScrollChain} from "../L1/rollup/ScrollChain.sol";
+import {SystemConfig} from "../L1/system-contract/SystemConfig.sol";
 import {BatchHeaderV0Codec} from "../libraries/codec/BatchHeaderV0Codec.sol";
 import {BatchHeaderV1Codec} from "../libraries/codec/BatchHeaderV1Codec.sol";
 import {BatchHeaderV3Codec} from "../libraries/codec/BatchHeaderV3Codec.sol";
@@ -24,6 +24,9 @@ import {MockRollupVerifier} from "./mocks/MockRollupVerifier.sol";
 // solhint-disable no-inline-assembly
 
 contract ScrollChainTest is DSTestPlus {
+    // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
+    bytes32 private constant blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
+
     // from ScrollChain
     event UpdateSequencer(address indexed account, bool status);
     event UpdateProver(address indexed account, bool status);
@@ -32,604 +35,117 @@ contract ScrollChainTest is DSTestPlus {
     event CommitBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
     event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
     event RevertBatch(uint256 indexed batchIndex, bytes32 indexed batchHash);
+    event RevertBatch(uint256 indexed startBatchIndex, uint256 indexed finishBatchIndex);
+
+    // from L1MessageQueue
+    event DequeueTransaction(uint256 startIndex, uint256 count, uint256 skippedBitmap);
+    event ResetDequeuedTransaction(uint256 startIndex);
+    event FinalizedDequeuedTransaction(uint256 finalizedIndex);
 
     ProxyAdmin internal admin;
     EmptyContract private placeholder;
 
+    SystemConfig private system;
     ScrollChain private rollup;
-    L1MessageQueue internal messageQueue;
+    L1MessageQueueV1 internal messageQueueV1;
+    L1MessageQueueV2 internal messageQueueV2;
     MockRollupVerifier internal verifier;
 
     function setUp() public {
         placeholder = new EmptyContract();
         admin = new ProxyAdmin();
-        messageQueue = L1MessageQueue(_deployProxy(address(0)));
+        system = SystemConfig(_deployProxy(address(0)));
+        messageQueueV1 = L1MessageQueueV1(_deployProxy(address(0)));
+        messageQueueV2 = L1MessageQueueV2(_deployProxy(address(0)));
         rollup = ScrollChain(_deployProxy(address(0)));
         verifier = new MockRollupVerifier();
 
-        // Upgrade the L1MessageQueue implementation and initialize
-        admin.upgrade(
-            ITransparentUpgradeableProxy(address(messageQueue)),
-            address(new L1MessageQueue(address(this), address(rollup), address(1)))
+        // Upgrade the SystemConfig implementation and initialize
+        admin.upgrade(ITransparentUpgradeableProxy(address(system)), address(new SystemConfig()));
+        system.initialize(
+            address(this),
+            address(uint160(1)),
+            SystemConfig.MessageQueueParameters({maxGasLimit: 1000000, baseFeeOverhead: 0, baseFeeScalar: 0}),
+            SystemConfig.EnforcedBatchParameters({maxDelayEnterEnforcedMode: 86400, maxDelayMessageQueue: 86400})
         );
-        messageQueue.initialize(address(this), address(rollup), address(0), address(0), 10000000);
+
+        // Upgrade the L1MessageQueueV1 implementation and initialize
+        admin.upgrade(
+            ITransparentUpgradeableProxy(address(messageQueueV1)),
+            address(new L1MessageQueueV1(address(this), address(rollup), address(1)))
+        );
+        messageQueueV1.initialize(address(this), address(rollup), address(0), address(0), 10000000);
+
+        // Upgrade the L1MessageQueueV2 implementation
+        admin.upgrade(
+            ITransparentUpgradeableProxy(address(messageQueueV2)),
+            address(
+                new L1MessageQueueV2(
+                    address(this),
+                    address(rollup),
+                    address(1),
+                    address(messageQueueV1),
+                    address(system)
+                )
+            )
+        );
+
         // Upgrade the ScrollChain implementation and initialize
         admin.upgrade(
             ITransparentUpgradeableProxy(address(rollup)),
-            address(new ScrollChain(233, address(messageQueue), address(verifier)))
+            address(
+                new ScrollChain(
+                    233,
+                    address(messageQueueV1),
+                    address(messageQueueV2),
+                    address(verifier),
+                    address(system)
+                )
+            )
         );
-        rollup.initialize(address(messageQueue), address(verifier), 100);
+        rollup.initialize(address(messageQueueV1), address(verifier), 100);
     }
 
     function testInitialized() external {
         assertEq(address(this), rollup.owner());
+        assertEq(address(messageQueueV1), rollup.messageQueueV1());
+        assertEq(address(messageQueueV2), rollup.messageQueueV2());
+        assertEq(address(system), rollup.systemConfig());
+        assertEq(address(verifier), rollup.verifier());
         assertEq(rollup.layer2ChainId(), 233);
 
         hevm.expectRevert("Initializable: contract is already initialized");
-        rollup.initialize(address(messageQueue), address(0), 100);
+        rollup.initialize(address(messageQueueV1), address(0), 100);
     }
 
-    function testCommitBatchV1() external {
+    function testInitializeV2(uint256 batches, uint32 time) external {
+        batches = bound(batches, 0, 100);
+
+        rollup.addSequencer(address(0));
+        _upgradeToMockBlob();
+
+        bytes memory header = _commitGenesisBatch();
+        for (uint256 i = 0; i < batches; ++i) {
+            header = _commitBatchV3Codec(6, header, 0, 0);
+        }
+        assertEq(rollup.committedBatches(batches), keccak256(header));
+
+        hevm.warp(time);
+        rollup.initializeV2();
+        (uint256 lastCommittedBatchIndex, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, , ) = rollup
+            .miscData();
+        assertEq(lastCommittedBatchIndex, batches);
+        assertEq(lastFinalizedBatchIndex, 0);
+        assertEq(lastFinalizeTimestamp, time);
+        assertBoolEq(rollup.isEnforcedModeEnabled(), false);
+    }
+
+    function testCommitBatchV3Codec() external {
         bytes memory batchHeader0 = new bytes(89);
 
         // import 10 L1 messages
         for (uint256 i = 0; i < 10; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
-        }
-
-        // import genesis batch first
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
-        }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-        assertEq(rollup.committedBatches(0), keccak256(batchHeader0));
-
-        // caller not sequencer, revert
-        hevm.expectRevert(ScrollChain.ErrorCallerIsNotSequencer.selector);
-        rollup.commitBatch(1, batchHeader0, new bytes[](0), new bytes(0));
-
-        rollup.addSequencer(address(0));
-
-        // batch is empty, revert
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorBatchIsEmpty.selector);
-        rollup.commitBatch(1, batchHeader0, new bytes[](0), new bytes(0));
-        hevm.stopPrank();
-
-        // batch header length too small, revert
-        bytes memory header = new bytes(120);
-        assembly {
-            mstore8(add(header, 0x20), 1) // version
-        }
-        hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV1Codec.ErrorBatchHeaderV1LengthTooSmall.selector);
-        rollup.commitBatch(1, header, new bytes[](1), new bytes(0));
-        hevm.stopPrank();
-
-        // wrong bitmap length, revert
-        header = new bytes(122);
-        assembly {
-            mstore8(add(header, 0x20), 1) // version
-        }
-        hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV1Codec.ErrorIncorrectBitmapLengthV1.selector);
-        rollup.commitBatch(1, header, new bytes[](1), new bytes(0));
-        hevm.stopPrank();
-
-        // incorrect parent batch hash, revert
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 2) // change data hash for batch0
-        }
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.commitBatch(1, batchHeader0, new bytes[](1), new bytes(0));
-        hevm.stopPrank();
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1) // change back
-        }
-
-        bytes[] memory chunks = new bytes[](1);
-        bytes memory chunk0;
-
-        // no block in chunk, revert
-        chunk0 = new bytes(1);
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ChunkCodecV1.ErrorNoBlockInChunkV1.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-
-        // invalid chunk length, revert
-        chunk0 = new bytes(1);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ChunkCodecV1.ErrorIncorrectChunkLengthV1.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-
-        // cannot skip last L1 message, revert
-        chunk0 = new bytes(1 + 60);
-        bytes memory bitmap = new bytes(32);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunk0[58] = bytes1(uint8(1)); // numTransactions = 1
-        chunk0[60] = bytes1(uint8(1)); // numL1Messages = 1
-        bitmap[31] = bytes1(uint8(1));
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorLastL1MessageSkipped.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, bitmap);
-        hevm.stopPrank();
-
-        // num txs less than num L1 msgs, revert
-        chunk0 = new bytes(1 + 60);
-        bitmap = new bytes(32);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunk0[58] = bytes1(uint8(1)); // numTransactions = 1
-        chunk0[60] = bytes1(uint8(3)); // numL1Messages = 3
-        bitmap[31] = bytes1(uint8(3));
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorNumTxsLessThanNumL1Msgs.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, bitmap);
-        hevm.stopPrank();
-
-        // revert when ErrorNoBlobFound
-        chunk0 = new bytes(1 + 60);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorNoBlobFound.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-
-        // @note we cannot check `ErrorFoundMultipleBlobs` here
-
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // this is keccak("");
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(
-            0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
-        );
-
-        bytes32 batchHash0 = rollup.committedBatches(0);
-        bytes memory batchHeader1 = new bytes(121);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
-            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-        }
-
-        // commit batch with one chunk, no tx, correctly
-        chunk0 = new bytes(1 + 60);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        assertEq(rollup.committedBatches(1), bytes32(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-        assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
-
-        // batch is already committed, revert
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-
-        // revert when ErrorIncorrectBatchVersion
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
-        rollup.commitBatch(3, batchHeader1, chunks, new bytes(0));
-        hevm.stopPrank();
-    }
-
-    function testFinalizeBatchWithProof4844() external {
-        // caller not prover, revert
-        hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
-        rollup.finalizeBatchWithProof4844(new bytes(0), bytes32(0), bytes32(0), bytes32(0), new bytes(0), new bytes(0));
-
-        rollup.addProver(address(0));
-        rollup.addSequencer(address(0));
-
-        bytes memory batchHeader0 = new bytes(89);
-
-        // import genesis batch
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
-        }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-
-        bytes[] memory chunks = new bytes[](1);
-        bytes memory chunk0;
-
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
-        bytes
-            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
-
-        bytes32 batchHash0 = rollup.committedBatches(0);
-        bytes memory batchHeader1 = new bytes(121);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
-            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-        }
-        // batch hash is 0xf7d9af8c2c8e1a84f1fa4b6af9425f85c50a61b24cdd28101a5f6d781906a5b9
-
-        // commit one batch
-        chunk0 = new bytes(1 + 60);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        hevm.stopPrank();
-        assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
-
-        // incorrect batch hash, revert
-        batchHeader1[1] = bytes1(uint8(1)); // change random byte
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(0),
-            new bytes(0),
-            new bytes(0)
-        );
-        hevm.stopPrank();
-        batchHeader1[1] = bytes1(uint8(0)); // change back
-
-        // batch header length too small, revert
-        bytes memory header = new bytes(120);
-        assembly {
-            mstore8(add(header, 0x20), 1) // version
-        }
-        hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV1Codec.ErrorBatchHeaderV1LengthTooSmall.selector);
-        rollup.finalizeBatchWithProof4844(
-            header,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(0),
-            new bytes(0),
-            new bytes(0)
-        );
-        hevm.stopPrank();
-
-        // wrong bitmap length, revert
-        header = new bytes(122);
-        assembly {
-            mstore8(add(header, 0x20), 1) // version
-        }
-        hevm.startPrank(address(0));
-        hevm.expectRevert(BatchHeaderV1Codec.ErrorIncorrectBitmapLengthV1.selector);
-        rollup.finalizeBatchWithProof4844(
-            header,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(0),
-            new bytes(0),
-            new bytes(0)
-        );
-        hevm.stopPrank();
-
-        // verify success
-        assertBoolEq(rollup.isBatchFinalized(1), false);
-        hevm.startPrank(address(0));
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(uint256(3)),
-            blobDataProof,
-            new bytes(0)
-        );
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), true);
-        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
-        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 1);
-
-        // batch already verified, revert
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(uint256(3)),
-            blobDataProof,
-            new bytes(0)
-        );
-        hevm.stopPrank();
-    }
-
-    function testCommitAndFinalizeWithL1MessagesV1() external {
-        rollup.addSequencer(address(0));
-        rollup.addProver(address(0));
-
-        // import 300 L1 messages
-        for (uint256 i = 0; i < 300; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
-        }
-
-        // import genesis batch first
-        bytes memory batchHeader0 = new bytes(89);
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
-        }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-        bytes32 batchHash0 = rollup.committedBatches(0);
-
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
-        bytes
-            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
-
-        bytes memory bitmap;
-        bytes[] memory chunks;
-        bytes memory chunk0;
-        bytes memory chunk1;
-
-        // commit batch1, one chunk with one block, 1 tx, 1 L1 message, no skip
-        // => payload for data hash of chunk0
-        //   0000000000000000
-        //   0000000000000000
-        //   0000000000000000000000000000000000000000000000000000000000000000
-        //   0000000000000000
-        //   0001
-        //   a2277fd30bbbe74323309023b56035b376d7768ad237ae4fc46ead7dc9591ae1
-        // => data hash for chunk0
-        //   9ef1e5694bdb014a1eea42be756a8f63bfd8781d6332e9ef3b5126d90c62f110
-        // => data hash for all chunks
-        //   d9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3
-        // => payload for batch header
-        //   01
-        //   0000000000000001
-        //   0000000000000001
-        //   0000000000000001
-        //   d9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3
-        //   013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //   119b828c2a2798d2c957228ebeaff7e10bb099ae0d4e224f3eeb779ff61cba61
-        //   0000000000000000000000000000000000000000000000000000000000000000
-        // => hash for batch header
-        //   66b68a5092940d88a8c6f203d2071303557c024275d8ceaa2e12662bc61c8d8f
-        bytes memory batchHeader1 = new bytes(121 + 32);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex = 1
-            mstore(add(batchHeader1, add(0x20, 9)), shl(192, 1)) // l1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 17)), shl(192, 1)) // totalL1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 25)), 0xd9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-            mstore(add(batchHeader1, add(0x20, 121)), 0) // bitmap0
-        }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 1)) // numTransactions = 1
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 1)) // numL1Messages = 1
-        }
-        chunks = new bytes[](1);
-        chunks[0] = chunk0;
-        bitmap = new bytes(32);
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(1, keccak256(batchHeader1));
-        rollup.commitBatch(1, batchHeader0, chunks, bitmap);
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), false);
-        bytes32 batchHash1 = rollup.committedBatches(1);
-        assertEq(batchHash1, keccak256(batchHeader1));
-
-        // finalize batch1
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit FinalizeBatch(1, batchHash1, bytes32(uint256(2)), bytes32(uint256(3)));
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(uint256(3)),
-            blobDataProof,
-            new bytes(0)
-        );
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), true);
-        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
-        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 1);
-        assertBoolEq(messageQueue.isMessageSkipped(0), false);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
-
-        // commit batch2 with two chunks, correctly
-        // 1. chunk0 has one block, 3 tx, no L1 messages
-        //   => payload for chunk0
-        //    0000000000000000
-        //    0000000000000000
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0003
-        //    ... (some tx hashes)
-        //   => data hash for chunk0
-        //    c4e0d99a191bfcb1ba2edd2964a0f0a56c929b1ecdf149ba3ae4f045d6e6ef8b
-        // 2. chunk1 has three blocks
-        //   2.1 block0 has 5 tx, 3 L1 messages, no skips
-        //   2.2 block1 has 10 tx, 5 L1 messages, even is skipped, last is not skipped
-        //   2.2 block1 has 300 tx, 256 L1 messages, odd position is skipped, last is not skipped
-        //   => payload for chunk1
-        //    0000000000000000
-        //    0000000000000000
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0005
-        //    0000000000000000
-        //    0000000000000000
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    000a
-        //    0000000000000000
-        //    0000000000000000
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    012c
-        //   => data hash for chunk2
-        //    a84759a83bba5f73e3a748d138ae7b6c5a31a8a5273aeb0e578807bf1ef6ed4e
-        // => data hash for all chunks
-        //   dae89323bf398ca9f6f8e83b1b0d603334be063fa3920015b6aa9df77a0ccbcd
-        // => payload for batch header
-        //  01
-        //  0000000000000002
-        //  0000000000000108
-        //  0000000000000109
-        //  dae89323bf398ca9f6f8e83b1b0d603334be063fa3920015b6aa9df77a0ccbcd
-        //  013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //  66b68a5092940d88a8c6f203d2071303557c024275d8ceaa2e12662bc61c8d8f
-        //  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa28000000000000000000000000000000000000000000000000000000000000002a
-        // => hash for batch header
-        //  b9dff5d21381176a73b20a9294eb2703c803113f9559e358708c659fa1cf62eb
-        bytes memory batchHeader2 = new bytes(121 + 32 + 32);
-        assembly {
-            mstore8(add(batchHeader2, 0x20), 1) // version
-            mstore(add(batchHeader2, add(0x20, 1)), shl(192, 2)) // batchIndex = 2
-            mstore(add(batchHeader2, add(0x20, 9)), shl(192, 264)) // l1MessagePopped = 264
-            mstore(add(batchHeader2, add(0x20, 17)), shl(192, 265)) // totalL1MessagePopped = 265
-            mstore(add(batchHeader2, add(0x20, 25)), 0xdae89323bf398ca9f6f8e83b1b0d603334be063fa3920015b6aa9df77a0ccbcd) // dataHash
-            mstore(add(batchHeader2, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader2, add(0x20, 89)), batchHash1) // parentBatchHash
-            mstore(
-                add(batchHeader2, add(0x20, 121)),
-                77194726158210796949047323339125271902179989777093709359638389338608753093160
-            ) // bitmap0
-            mstore(add(batchHeader2, add(0x20, 153)), 42) // bitmap1
-        }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 3)) // numTransactions = 3
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 0)) // numL1Messages = 0
-        }
-        chunk1 = new bytes(1 + 60 * 3);
-        assembly {
-            mstore(add(chunk1, 0x20), shl(248, 3)) // numBlocks = 3
-            mstore(add(chunk1, add(33, 56)), shl(240, 5)) // block0.numTransactions = 5
-            mstore(add(chunk1, add(33, 58)), shl(240, 3)) // block0.numL1Messages = 3
-            mstore(add(chunk1, add(93, 56)), shl(240, 10)) // block1.numTransactions = 10
-            mstore(add(chunk1, add(93, 58)), shl(240, 5)) // block1.numL1Messages = 5
-            mstore(add(chunk1, add(153, 56)), shl(240, 300)) // block1.numTransactions = 300
-            mstore(add(chunk1, add(153, 58)), shl(240, 256)) // block1.numL1Messages = 256
-        }
-        chunks = new bytes[](2);
-        chunks[0] = chunk0;
-        chunks[1] = chunk1;
-        bitmap = new bytes(64);
-        assembly {
-            mstore(
-                add(bitmap, add(0x20, 0)),
-                77194726158210796949047323339125271902179989777093709359638389338608753093160
-            ) // bitmap0
-            mstore(add(bitmap, add(0x20, 32)), 42) // bitmap1
-        }
-
-        // too many txs in one chunk, revert
-        rollup.updateMaxNumTxInChunk(2); // 3 - 1
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatch(1, batchHeader1, chunks, bitmap); // first chunk with too many txs
-        hevm.stopPrank();
-        rollup.updateMaxNumTxInChunk(185); // 5+10+300 - 2 - 127
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatch(1, batchHeader1, chunks, bitmap); // second chunk with too many txs
-        hevm.stopPrank();
-
-        rollup.updateMaxNumTxInChunk(186);
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(2, keccak256(batchHeader2));
-        rollup.commitBatch(1, batchHeader1, chunks, bitmap);
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(2), false);
-        bytes32 batchHash2 = rollup.committedBatches(2);
-        assertEq(batchHash2, keccak256(batchHeader2));
-
-        // verify committed batch correctly
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit FinalizeBatch(2, batchHash2, bytes32(uint256(4)), bytes32(uint256(5)));
-        rollup.finalizeBatchWithProof4844(
-            batchHeader2,
-            bytes32(uint256(2)),
-            bytes32(uint256(4)),
-            bytes32(uint256(5)),
-            blobDataProof,
-            new bytes(0)
-        );
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(2), true);
-        assertEq(rollup.finalizedStateRoots(2), bytes32(uint256(4)));
-        assertEq(rollup.withdrawRoots(2), bytes32(uint256(5)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 2);
-        assertEq(messageQueue.pendingQueueIndex(), 265);
-        // 1 ~ 4, zero
-        for (uint256 i = 1; i < 4; i++) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), false);
-        }
-        // 4 ~ 9, even is nonzero, odd is zero
-        for (uint256 i = 4; i < 9; i++) {
-            if (i % 2 == 1 || i == 8) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            }
-        }
-        // 9 ~ 265, even is nonzero, odd is zero
-        for (uint256 i = 9; i < 265; i++) {
-            if (i % 2 == 1 || i == 264) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            }
-        }
-    }
-
-    function testCommitBatchV3() external {
-        bytes memory batchHeader0 = new bytes(89);
-
-        // import 10 L1 messages
-        for (uint256 i = 0; i < 10; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
+            messageQueueV1.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
         }
         // import genesis batch first
         assembly {
@@ -640,29 +156,31 @@ contract ScrollChainTest is DSTestPlus {
 
         // caller not sequencer, revert
         hevm.expectRevert(ScrollChain.ErrorCallerIsNotSequencer.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         rollup.addSequencer(address(0));
 
         // revert when ErrorIncorrectBatchVersion
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
         rollup.commitBatchWithBlobProof(2, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
+        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorBatchIsEmpty
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorBatchIsEmpty.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](0), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorBatchHeaderV3LengthMismatch
         bytes memory header = new bytes(192);
         assembly {
-            mstore8(add(header, 0x20), 3) // version
+            mstore8(add(header, 0x20), 4) // version
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(BatchHeaderV3Codec.ErrorBatchHeaderV3LengthMismatch.selector);
-        rollup.commitBatchWithBlobProof(3, header, new bytes[](1), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, header, new bytes[](1), new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // revert when ErrorIncorrectBatchHash
@@ -671,7 +189,7 @@ contract ScrollChainTest is DSTestPlus {
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, new bytes[](1), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, new bytes[](1), new bytes(0), new bytes(0));
         hevm.stopPrank();
         assembly {
             mstore(add(batchHeader0, add(0x20, 25)), 1) // change back
@@ -685,7 +203,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ChunkCodecV1.ErrorNoBlockInChunkV1.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // invalid chunk length, revert
@@ -694,7 +212,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ChunkCodecV1.ErrorIncorrectChunkLengthV1.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // cannot skip last L1 message, revert
@@ -707,7 +225,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorLastL1MessageSkipped.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, bitmap, new bytes(0));
         hevm.stopPrank();
 
         // num txs less than num L1 msgs, revert
@@ -720,33 +238,24 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorNumTxsLessThanNumL1Msgs.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, bitmap, new bytes(0));
         hevm.stopPrank();
 
-        // revert when ErrorNoBlobFound
         // revert when ErrorNoBlobFound
         chunk0 = new bytes(1 + 60);
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorNoBlobFound.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         // @note we cannot check `ErrorFoundMultipleBlobs` here
 
         // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
+        _upgradeToMockBlob();
         bytes
             memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
 
         chunk0 = new bytes(1 + 60);
         chunk0[0] = bytes1(uint8(1)); // one block in this chunk
@@ -754,13 +263,13 @@ contract ScrollChainTest is DSTestPlus {
         // revert when ErrorCallPointEvaluationPrecompileFailed
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorCallPointEvaluationPrecompileFailed.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), new bytes(0));
         hevm.stopPrank();
 
         bytes32 batchHash0 = rollup.committedBatches(0);
         bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
             mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
             mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
@@ -775,15 +284,121 @@ contract ScrollChainTest is DSTestPlus {
         // succeed
         hevm.startPrank(address(0));
         assertEq(rollup.committedBatches(1), bytes32(0));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
         assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
 
         // revert when ErrorBatchIsAlreadyCommitted
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
+    }
+
+    function testCommitBatchV5() external {
+        bytes[] memory headers = _prepareBatchesV3Codec(4);
+
+        // revert when ErrorV5BatchNotContainsOnlyOneChunk
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneChunk.selector); // 0 chunk
+        rollup.commitBatchWithBlobProof(5, headers[10], new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneChunk.selector); // 2 chunks
+        rollup.commitBatchWithBlobProof(5, headers[10], new bytes[](2), new bytes(0), new bytes(0));
+        hevm.stopPrank();
+
+        bytes[] memory chunks = new bytes[](1);
+        // revert when ErrorV5BatchNotContainsOnlyOneBlock
+        hevm.startPrank(address(0));
+        chunks[0] = new bytes(1);
+        hevm.expectRevert(ChunkCodecV1.ErrorNoBlockInChunkV1.selector); // 1 chunk, 0 block
+        rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+        for (uint256 i = 2; i < 256; ++i) {
+            chunks[0] = new bytes(1 + 60 * i);
+            chunks[0][0] = bytes1(uint8(i));
+            hevm.expectRevert(ScrollChain.ErrorV5BatchNotContainsOnlyOneBlock.selector); // 1 chunk, i block
+            rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+        }
+        hevm.stopPrank();
+
+        // revert when ErrorV5BatchContainsTransactions
+        hevm.startPrank(address(0));
+        for (uint256 x = 0; x < 5; ++x) {
+            for (uint256 y = 0; y < 5; ++y) {
+                if (x + y == 0) continue;
+                bytes memory chunk = new bytes(1 + 60);
+                chunk[0] = bytes1(uint8(1));
+                uint256 blockPtr;
+                assembly {
+                    blockPtr := add(chunk, 0x21)
+                    mstore(add(blockPtr, 56), shl(240, add(x, y)))
+                    mstore(add(blockPtr, 58), shl(240, y))
+                }
+                assertEq(x + y, ChunkCodecV1.getNumTransactions(blockPtr));
+                assertEq(y, ChunkCodecV1.getNumL1Messages(blockPtr));
+                chunks[0] = chunk;
+                hevm.expectRevert(ScrollChain.ErrorV5BatchContainsTransactions.selector); // 1 chunk, 1 nonempty block
+                rollup.commitBatchWithBlobProof(5, headers[10], chunks, new bytes(0), new bytes(0));
+            }
+        }
+        hevm.stopPrank();
+
+        assertEq(rollup.initialEuclidBatchIndex(), 0);
+        bytes memory v5Header = _commitBatchV3Codec(5, headers[10], 0, 0);
+        assertEq(rollup.initialEuclidBatchIndex(), 11);
+
+        // revert when commit again
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyCommitted.selector);
+        rollup.commitBatchWithBlobProof(5, v5Header, new bytes[](0), new bytes(0), new bytes(0));
+        hevm.stopPrank();
+    }
+
+    function testCommitBatchV7Codec() external {
+        bytes[] memory headers = _prepareBatchesV3Codec(6);
+        (, bytes memory h11) = _constructBatchStructCodecV7(7, headers[10]);
+        (, bytes memory h12) = _constructBatchStructCodecV7(7, h11);
+        (, bytes memory h13) = _constructBatchStructCodecV7(7, h12);
+
+        // caller not sequencer, revert
+        hevm.expectRevert(ScrollChain.ErrorCallerIsNotSequencer.selector);
+        rollup.commitBatches(7, bytes32(0), keccak256(headers[10]));
+
+        // revert ErrorIncorrectBatchVersion
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
+        rollup.commitBatches(6, bytes32(0), keccak256(headers[10]));
+        hevm.stopPrank();
+
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, bytes32(0));
+        // revert ErrorBatchIsEmpty
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorBatchIsEmpty.selector);
+        rollup.commitBatches(7, keccak256(headers[10]), keccak256(headers[10]));
+        hevm.stopPrank();
+
+        // succeed, commit only one batch
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        (uint256 lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 10);
+        hevm.startPrank(address(0));
+        rollup.commitBatches(7, keccak256(headers[10]), keccak256(h11));
+        hevm.stopPrank();
+        (lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 11);
+        assertGt(uint256(rollup.committedBatches(11)), 0);
+
+        // succeed, commit only two batch
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(2, bytes32(0));
+        hevm.startPrank(address(0));
+        rollup.commitBatches(7, keccak256(h11), keccak256(h13));
+        hevm.stopPrank();
+        (lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 13);
+        assertEq(uint256(rollup.committedBatches(12)), 0);
+        assertGt(uint256(rollup.committedBatches(13)), 0);
     }
 
     function testFinalizeBundleWithProof() external {
@@ -802,17 +417,9 @@ contract ScrollChainTest is DSTestPlus {
         rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
 
         // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
+        _upgradeToMockBlob();
         bytes
             memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
 
         bytes[] memory chunks = new bytes[](1);
         bytes memory chunk0;
@@ -820,7 +427,7 @@ contract ScrollChainTest is DSTestPlus {
         bytes32 batchHash0 = rollup.committedBatches(0);
         bytes memory batchHeader1 = new bytes(193);
         assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
+            mstore8(add(batchHeader1, 0x20), 4) // version
             mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
             mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
             mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
@@ -838,7 +445,7 @@ contract ScrollChainTest is DSTestPlus {
         chunks[0] = chunk0;
         hevm.startPrank(address(0));
         assertEq(rollup.committedBatches(1), bytes32(0));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, new bytes(0), blobDataProof);
+        rollup.commitBatchWithBlobProof(4, batchHeader0, chunks, new bytes(0), blobDataProof);
         hevm.stopPrank();
         assertEq(rollup.committedBatches(1), keccak256(batchHeader1));
 
@@ -851,7 +458,7 @@ contract ScrollChainTest is DSTestPlus {
         // revert when ErrorBatchHeaderV3LengthMismatch
         bytes memory header = new bytes(192);
         assembly {
-            mstore8(add(header, 0x20), 3) // version
+            mstore8(add(header, 0x20), 4) // version
         }
         hevm.startPrank(address(0));
         hevm.expectRevert(BatchHeaderV3Codec.ErrorBatchHeaderV3LengthMismatch.selector);
@@ -859,18 +466,23 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
 
         // revert when ErrorIncorrectBatchHash
-        batchHeader1[1] = bytes1(uint8(1)); // change random byte
+        batchHeader1[10] = bytes1(uint8(1)); // change random byte
         hevm.startPrank(address(0));
         hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(1)), bytes32(uint256(2)), new bytes(0));
         hevm.stopPrank();
-        batchHeader1[1] = bytes1(uint8(0)); // change back
+        batchHeader1[10] = bytes1(uint8(0)); // change back
 
         // verify success
+        (, , uint256 lastFinalizeTimestamp, , ) = rollup.miscData();
+        assertEq(lastFinalizeTimestamp, 0);
+        hevm.warp(100);
         assertBoolEq(rollup.isBatchFinalized(1), false);
         hevm.startPrank(address(0));
         rollup.finalizeBundleWithProof(batchHeader1, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
         hevm.stopPrank();
+        (, , lastFinalizeTimestamp, , ) = rollup.miscData();
+        assertEq(lastFinalizeTimestamp, 100);
         assertBoolEq(rollup.isBatchFinalized(1), true);
         assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
         assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
@@ -883,640 +495,396 @@ contract ScrollChainTest is DSTestPlus {
         hevm.stopPrank();
     }
 
-    function _commitBatchV3()
-        internal
-        returns (
-            bytes memory batchHeader0,
-            bytes memory batchHeader1,
-            bytes memory batchHeader2
-        )
-    {
-        // import genesis batch first
-        batchHeader0 = new bytes(89);
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
+    function testFinalizeBundlePostEuclidV2() external {
+        // 0: genesis
+        // 1-10: v6
+        // 11-20: v7
+        bytes[] memory headers = new bytes[](21);
+        {
+            bytes[] memory headersV6 = _prepareBatchesV3Codec(6);
+            for (uint256 i = 0; i <= 10; ++i) {
+                headers[i] = headersV6[i];
+            }
         }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-        bytes32 batchHash0 = rollup.committedBatches(0);
-
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
-        bytes
-            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
-
-        bytes memory bitmap;
-        bytes[] memory chunks;
-        bytes memory chunk0;
-        bytes memory chunk1;
-
-        // commit batch1, one chunk with one block, 1 tx, 1 L1 message, no skip
-        // => payload for data hash of chunk0
-        //   0000000000000000
-        //   0000000000000123
-        //   0000000000000000000000000000000000000000000000000000000000000000
-        //   0000000000000000
-        //   0001
-        //   a2277fd30bbbe74323309023b56035b376d7768ad237ae4fc46ead7dc9591ae1
-        // => data hash for chunk0
-        //   5972b8fa626c873a97abb6db14fb0cb2085e050a6f80ec90b92bb0bbaa12eb5a
-        // => data hash for all chunks
-        //   f6166fe668c1e6a04e3c75e864452bb02a31358f285efcb7a4e6603eb5750359
-        // => payload for batch header
-        //   03
-        //   0000000000000001
-        //   0000000000000001
-        //   0000000000000001
-        //   f6166fe668c1e6a04e3c75e864452bb02a31358f285efcb7a4e6603eb5750359
-        //   013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //   119b828c2a2798d2c957228ebeaff7e10bb099ae0d4e224f3eeb779ff61cba61
-        //   0000000000000123
-        //   2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e687
-        //   53ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0
-        // => hash for batch header
-        //   07e1bede8c5047cf8ca7ac84f5390837fb6224953af83d7e967488fa63a2065e
-        batchHeader1 = new bytes(193);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 3) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex = 1
-            mstore(add(batchHeader1, add(0x20, 9)), shl(192, 1)) // l1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 17)), shl(192, 1)) // totalL1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 25)), 0xf6166fe668c1e6a04e3c75e864452bb02a31358f285efcb7a4e6603eb5750359) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-            mstore(add(batchHeader1, add(0x20, 121)), shl(192, 0x123)) // lastBlockTimestamp
-            mcopy(add(batchHeader1, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
+        messageQueueV2.initialize();
+        rollup.initializeV2();
+        for (uint256 i = 11; i < 21; ++i) {
+            headers[i] = _commitBatchV7Codec(7, headers[i - 1]);
         }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 8)), shl(192, 0x123)) // timestamp = 0x123
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 1)) // numTransactions = 1
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 1)) // numL1Messages = 1
-        }
-        chunks = new bytes[](1);
-        chunks[0] = chunk0;
-        bitmap = new bytes(32);
+
+        // revert ErrorCallerIsNotProver
+        hevm.expectRevert(ScrollChain.ErrorCallerIsNotProver.selector);
+        rollup.finalizeBundlePostEuclidV2(new bytes(0), 0, bytes32(0), bytes32(0), new bytes(0));
+
+        // revert ErrorNotAllV1MessagesAreFinalized
         hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(1, keccak256(batchHeader1));
-        rollup.commitBatchWithBlobProof(3, batchHeader0, chunks, bitmap, blobDataProof);
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), false);
-        bytes32 batchHash1 = rollup.committedBatches(1);
-        assertEq(batchHash1, keccak256(batchHeader1));
-        assertEq(1, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
-        assertBoolEq(messageQueue.isMessageSkipped(0), false);
-
-        // commit batch2 with two chunks, correctly
-        // 1. chunk0 has one block, 3 tx, no L1 messages
-        //   => payload for chunk0
-        //    0000000000000000
-        //    0000000000000456
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0003
-        //    ... (some tx hashes)
-        //   => data hash for chunk0
-        //    1c7649f248aed8448fa7997e44db7b7028581deb119c6d6aa1a2d126d62564cf
-        // 2. chunk1 has three blocks
-        //   2.1 block0 has 5 tx, 3 L1 messages, no skips
-        //   2.2 block1 has 10 tx, 5 L1 messages, even is skipped, last is not skipped
-        //   2.2 block1 has 300 tx, 256 L1 messages, odd position is skipped, last is not skipped
-        //   => payload for chunk1
-        //    0000000000000000
-        //    0000000000000789
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0005
-        //    0000000000000000
-        //    0000000000001234
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    000a
-        //    0000000000000000
-        //    0000000000005678
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    012c
-        //   => data hash for chunk1
-        //    4e82cb576135a69a0ecc2b2070c432abfdeb20076594faaa1aeed77f48d7c856
-        // => data hash for all chunks
-        //   166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239
-        // => payload for batch header
-        //  03
-        //  0000000000000002
-        //  0000000000000108
-        //  0000000000000109
-        //  166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239
-        //  013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //  07e1bede8c5047cf8ca7ac84f5390837fb6224953af83d7e967488fa63a2065e
-        //  0000000000005678
-        //  2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e687
-        //  53ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0
-        // => hash for batch header
-        //  8a59f0de6f1071c0f48d6a49d9b794008d28b63cc586da0f44f8b2b4e13cb231
-        batchHeader2 = new bytes(193);
-        assembly {
-            mstore8(add(batchHeader2, 0x20), 3) // version
-            mstore(add(batchHeader2, add(0x20, 1)), shl(192, 2)) // batchIndex = 2
-            mstore(add(batchHeader2, add(0x20, 9)), shl(192, 264)) // l1MessagePopped = 264
-            mstore(add(batchHeader2, add(0x20, 17)), shl(192, 265)) // totalL1MessagePopped = 265
-            mstore(add(batchHeader2, add(0x20, 25)), 0x166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239) // dataHash
-            mstore(add(batchHeader2, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader2, add(0x20, 89)), batchHash1) // parentBatchHash
-            mstore(add(batchHeader2, add(0x20, 121)), shl(192, 0x5678)) // lastBlockTimestamp
-            mcopy(add(batchHeader2, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
-        }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 8)), shl(192, 0x456)) // timestamp = 0x456
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 3)) // numTransactions = 3
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 0)) // numL1Messages = 0
-        }
-        chunk1 = new bytes(1 + 60 * 3);
-        assembly {
-            mstore(add(chunk1, 0x20), shl(248, 3)) // numBlocks = 3
-            mstore(add(chunk1, add(33, 8)), shl(192, 0x789)) // block0.timestamp = 0x789
-            mstore(add(chunk1, add(33, 56)), shl(240, 5)) // block0.numTransactions = 5
-            mstore(add(chunk1, add(33, 58)), shl(240, 3)) // block0.numL1Messages = 3
-            mstore(add(chunk1, add(93, 8)), shl(192, 0x1234)) // block1.timestamp = 0x1234
-            mstore(add(chunk1, add(93, 56)), shl(240, 10)) // block1.numTransactions = 10
-            mstore(add(chunk1, add(93, 58)), shl(240, 5)) // block1.numL1Messages = 5
-            mstore(add(chunk1, add(153, 8)), shl(192, 0x5678)) // block1.timestamp = 0x5678
-            mstore(add(chunk1, add(153, 56)), shl(240, 300)) // block1.numTransactions = 300
-            mstore(add(chunk1, add(153, 58)), shl(240, 256)) // block1.numL1Messages = 256
-        }
-        chunks = new bytes[](2);
-        chunks[0] = chunk0;
-        chunks[1] = chunk1;
-        bitmap = new bytes(64);
-        assembly {
-            mstore(
-                add(bitmap, add(0x20, 0)),
-                77194726158210796949047323339125271902179989777093709359638389338608753093160
-            ) // bitmap0
-            mstore(add(bitmap, add(0x20, 32)), 42) // bitmap1
-        }
-
-        // too many txs in one chunk, revert
-        rollup.updateMaxNumTxInChunk(2); // 3 - 1
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof); // first chunk with too many txs
-        hevm.stopPrank();
-        rollup.updateMaxNumTxInChunk(185); // 5+10+300 - 2 - 127
-        hevm.startPrank(address(0));
-        hevm.expectRevert(ScrollChain.ErrorTooManyTxsInOneChunk.selector);
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof); // second chunk with too many txs
+        hevm.expectRevert(ScrollChain.ErrorNotAllV1MessagesAreFinalized.selector);
+        rollup.finalizeBundlePostEuclidV2(headers[20], 0, bytes32(0), bytes32(0), new bytes(0));
         hevm.stopPrank();
 
-        rollup.updateMaxNumTxInChunk(186);
+        // finalize all v6 batches
+        (, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, uint256 flags, ) = rollup.miscData();
+        assertEq(lastFinalizedBatchIndex, 0);
+        assertEq(lastFinalizeTimestamp, 0);
+        assertEq(flags, 0);
+        hevm.warp(100);
         hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(2, keccak256(batchHeader2));
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof);
+        rollup.finalizeBundleWithProof(headers[10], keccak256("x10"), keccak256("y10"), new bytes(0));
         hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(2), false);
-        bytes32 batchHash2 = rollup.committedBatches(2);
-        assertEq(batchHash2, keccak256(batchHeader2));
-        assertEq(265, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
+        (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
+        assertEq(lastFinalizedBatchIndex, 10);
+        assertEq(lastFinalizeTimestamp, 100);
+        assertEq(flags, 0);
+        assertEq(rollup.lastFinalizedBatchIndex(), lastFinalizedBatchIndex);
+        assertEq(rollup.finalizedStateRoots(10), keccak256("x10"));
+        assertEq(rollup.withdrawRoots(10), keccak256("y10"));
+        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 10);
+
+        // revert ErrorStateRootIsZero
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorStateRootIsZero.selector);
+        rollup.finalizeBundlePostEuclidV2(headers[11], 9, bytes32(0), bytes32(0), new bytes(0));
+        hevm.stopPrank();
+
+        // finalize batch 11, no l1 messages
+        hevm.warp(101);
+        hevm.startPrank(address(0));
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(11, keccak256(headers[11]), keccak256("x11"), keccak256("y11"));
+        rollup.finalizeBundlePostEuclidV2(headers[11], 10, keccak256("x11"), keccak256("y11"), new bytes(0));
+        hevm.stopPrank();
+        (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
+        assertEq(lastFinalizedBatchIndex, 11);
+        assertEq(lastFinalizeTimestamp, 101);
+        assertEq(flags, 1);
+        assertEq(rollup.lastFinalizedBatchIndex(), lastFinalizedBatchIndex);
+        assertEq(rollup.finalizedStateRoots(11), keccak256("x11"));
+        assertEq(rollup.withdrawRoots(11), keccak256("y11"));
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 10);
+
+        // import 10 L1 messages into message queue V2
+        for (uint256 i = 0; i < 10; i++) {
+            messageQueueV2.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
+        }
+        assertEq(messageQueueV2.nextCrossDomainMessageIndex(), 20);
+
+        // finalize batch 12, 13, 14 and 15, with 7 l1 messages
+        hevm.warp(102);
+        hevm.startPrank(address(0));
+        hevm.expectEmit(false, false, false, true);
+        emit FinalizedDequeuedTransaction(16);
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(15, keccak256(headers[15]), keccak256("x15"), keccak256("y15"));
+        rollup.finalizeBundlePostEuclidV2(headers[15], 17, keccak256("x15"), keccak256("y15"), new bytes(0));
+        hevm.stopPrank();
+        (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
+        assertEq(lastFinalizedBatchIndex, 15);
+        assertEq(lastFinalizeTimestamp, 102);
+        assertEq(flags, 1);
+        assertEq(rollup.lastFinalizedBatchIndex(), lastFinalizedBatchIndex);
+        assertEq(rollup.finalizedStateRoots(15), keccak256("x15"));
+        assertEq(rollup.withdrawRoots(15), keccak256("y15"));
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 17);
+
+        // finalize batch 16~20, with 3 l1 messages
+        hevm.warp(103);
+        hevm.startPrank(address(0));
+        hevm.expectEmit(false, false, false, true);
+        emit FinalizedDequeuedTransaction(19);
+        hevm.expectEmit(true, true, true, true);
+        emit FinalizeBatch(20, keccak256(headers[20]), keccak256("x20"), keccak256("y20"));
+        rollup.finalizeBundlePostEuclidV2(headers[20], 20, keccak256("x20"), keccak256("y20"), new bytes(0));
+        hevm.stopPrank();
+        (, lastFinalizedBatchIndex, lastFinalizeTimestamp, flags, ) = rollup.miscData();
+        assertEq(lastFinalizedBatchIndex, 20);
+        assertEq(lastFinalizeTimestamp, 103);
+        assertEq(flags, 1);
+        assertEq(rollup.lastFinalizedBatchIndex(), lastFinalizedBatchIndex);
+        assertEq(rollup.finalizedStateRoots(20), keccak256("x20"));
+        assertEq(rollup.withdrawRoots(20), keccak256("y20"));
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 20);
+
+        // revert ErrorBatchIsAlreadyVerified
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorBatchIsAlreadyVerified.selector);
+        rollup.finalizeBundlePostEuclidV2(headers[20], 20, keccak256("x20"), keccak256("y20"), new bytes(0));
+        hevm.stopPrank();
     }
 
-    function testCommitAndFinalizeWithL1MessagesV3() external {
-        rollup.addSequencer(address(0));
-        rollup.addProver(address(0));
-
-        // import 300 L1 messages
-        for (uint256 i = 0; i < 300; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
-        }
-
-        (bytes memory batchHeader0, bytes memory batchHeader1, bytes memory batchHeader2) = _commitBatchV3();
-
-        // 1 ~ 4, zero
-        for (uint256 i = 1; i < 4; i++) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), false);
-        }
-        // 4 ~ 9, even is nonzero, odd is zero
-        for (uint256 i = 4; i < 9; i++) {
-            if (i % 2 == 1 || i == 8) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
+    function testCommitAndFinalizeBatchByExpiredMessage() external {
+        // 0: genesis
+        // 1-10: v6
+        // 11-20: v7
+        bytes[] memory headers = new bytes[](21);
+        {
+            bytes[] memory headersV6 = _prepareBatchesV3Codec(6);
+            for (uint256 i = 0; i <= 10; ++i) {
+                headers[i] = headersV6[i];
             }
         }
-        // 9 ~ 265, even is nonzero, odd is zero
-        for (uint256 i = 9; i < 265; i++) {
-            if (i % 2 == 1 || i == 264) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            }
+        messageQueueV2.initialize();
+        rollup.initializeV2();
+        for (uint256 i = 11; i < 21; ++i) {
+            headers[i] = _commitBatchV7Codec(7, headers[i - 1]);
         }
-
-        // finalize batch1 and batch2 together
-        assertBoolEq(rollup.isBatchFinalized(1), false);
-        assertBoolEq(rollup.isBatchFinalized(2), false);
+        // finalize all v6 batches
         hevm.startPrank(address(0));
-        rollup.finalizeBundleWithProof(batchHeader2, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
+        rollup.finalizeBundleWithProof(headers[10], keccak256("x10"), keccak256("y10"), new bytes(0));
         hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), true);
-        assertBoolEq(rollup.isBatchFinalized(2), true);
-        assertEq(rollup.finalizedStateRoots(1), bytes32(0));
-        assertEq(rollup.withdrawRoots(1), bytes32(0));
-        assertEq(rollup.finalizedStateRoots(2), bytes32(uint256(2)));
-        assertEq(rollup.withdrawRoots(2), bytes32(uint256(3)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 2);
-        assertEq(265, messageQueue.nextUnfinalizedQueueIndex());
+        // finalize two v7 batches
+        hevm.startPrank(address(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
+        hevm.stopPrank();
+
+        // revert when ErrorNotInEnforcedBatchMode
+        hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        rollup.commitAndFinalizeBatch(
+            7,
+            bytes32(0),
+            IScrollChain.FinalizeStruct({
+                batchHeader: new bytes(0),
+                totalL1MessagesPoppedOverall: 0,
+                postStateRoot: bytes32(0),
+                withdrawRoot: bytes32(0),
+                zkProof: new bytes(0)
+            })
+        );
+
+        system.updateEnforcedBatchParameters(
+            SystemConfig.EnforcedBatchParameters({
+                maxDelayEnterEnforcedMode: type(uint24).max,
+                maxDelayMessageQueue: 86400
+            })
+        );
+        hevm.warp(100);
+        // import 10 L1 messages into message queue V2
+        for (uint256 i = 0; i < 10; i++) {
+            messageQueueV2.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
+        }
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 10);
+        assertEq(messageQueueV2.nextCrossDomainMessageIndex(), 20);
+        assertEq(messageQueueV2.getFirstUnfinalizedMessageEnqueueTime(), 100);
+        hevm.warp(100 + 86400 + 1);
+
+        // succeed to call commitAndFinalizeBatch 13
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        rollup.commitAndFinalizeBatch(
+            7,
+            keccak256(headers[12]),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[13],
+                totalL1MessagesPoppedOverall: 20,
+                postStateRoot: keccak256("x13"),
+                withdrawRoot: keccak256("y13"),
+                zkProof: new bytes(0)
+            })
+        );
+        (uint256 lastCommittedBatchIndex, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, , ) = rollup
+            .miscData();
+        assertEq(lastCommittedBatchIndex, 13);
+        assertEq(lastFinalizedBatchIndex, 13);
+        assertEq(lastFinalizeTimestamp, 100 + 86400 + 1);
+        assertBoolEq(rollup.isEnforcedModeEnabled(), true);
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 20);
+        assertEq(messageQueueV2.nextCrossDomainMessageIndex(), 20);
+        assertEq(messageQueueV2.getFirstUnfinalizedMessageEnqueueTime(), 100 + 86400 + 1);
+
+        // revert when do commit
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.commitBatchWithBlobProof(0, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.commitBatches(0, bytes32(0), bytes32(0));
+        hevm.stopPrank();
+
+        // revert when do finalize
+        hevm.startPrank(address(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+        hevm.expectRevert(ScrollChain.ErrorInEnforcedBatchMode.selector);
+        rollup.finalizeBundlePostEuclidV2(new bytes(0), 0, bytes32(0), bytes32(0), new bytes(0));
+        hevm.stopPrank();
+
+        // succeed to call commitAndFinalizeBatch 14, no need to warp time
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        rollup.commitAndFinalizeBatch(
+            7,
+            keccak256(headers[13]),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[14],
+                totalL1MessagesPoppedOverall: 20,
+                postStateRoot: keccak256("x14"),
+                withdrawRoot: keccak256("y14"),
+                zkProof: new bytes(0)
+            })
+        );
+        (lastCommittedBatchIndex, lastFinalizedBatchIndex, lastFinalizeTimestamp, , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 14);
+        assertEq(lastFinalizedBatchIndex, 14);
+        assertEq(lastFinalizeTimestamp, 100 + 86400 + 1);
+        assertBoolEq(rollup.isEnforcedModeEnabled(), true);
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 20);
+        assertEq(messageQueueV2.nextCrossDomainMessageIndex(), 20);
+        assertEq(messageQueueV2.getFirstUnfinalizedMessageEnqueueTime(), 100 + 86400 + 1);
+
+        // admin disableEnforcedBatchMode
+        rollup.disableEnforcedBatchMode();
+        (lastCommittedBatchIndex, lastFinalizedBatchIndex, lastFinalizeTimestamp, , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 14);
+        assertEq(lastFinalizedBatchIndex, 14);
+        assertEq(lastFinalizeTimestamp, 100 + 86400 + 1);
+        assertBoolEq(rollup.isEnforcedModeEnabled(), false);
+
+        // not in enforced mode
+        hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        rollup.commitAndFinalizeBatch(
+            7,
+            keccak256(headers[13]),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[14],
+                totalL1MessagesPoppedOverall: 20,
+                postStateRoot: keccak256("x13"),
+                withdrawRoot: keccak256("y13"),
+                zkProof: new bytes(0)
+            })
+        );
     }
 
-    function testRevertBatchWithL1Messages() external {
-        rollup.addSequencer(address(0));
-        rollup.addProver(address(0));
-
-        // import 300 L1 messages
-        for (uint256 i = 0; i < 300; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
-        }
-
-        (bytes memory batchHeader0, bytes memory batchHeader1, bytes memory batchHeader2) = _commitBatchV3();
-
-        // 1 ~ 4, zero
-        for (uint256 i = 1; i < 4; i++) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), false);
-        }
-        // 4 ~ 9, even is nonzero, odd is zero
-        for (uint256 i = 4; i < 9; i++) {
-            if (i % 2 == 1 || i == 8) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
+    function testCommitAndFinalizeBatchByExpiredBatch() external {
+        hevm.warp(100);
+        // 0: genesis
+        // 1-10: v6
+        // 11-20: v7
+        bytes[] memory headers = new bytes[](21);
+        {
+            bytes[] memory headersV6 = _prepareBatchesV3Codec(6);
+            for (uint256 i = 0; i <= 10; ++i) {
+                headers[i] = headersV6[i];
             }
         }
-        // 9 ~ 265, even is nonzero, odd is zero
-        for (uint256 i = 9; i < 265; i++) {
-            if (i % 2 == 1 || i == 264) {
-                assertBoolEq(messageQueue.isMessageSkipped(i), false);
-            } else {
-                assertBoolEq(messageQueue.isMessageSkipped(i), true);
-            }
+        messageQueueV2.initialize();
+        rollup.initializeV2();
+        for (uint256 i = 11; i < 21; ++i) {
+            headers[i] = _commitBatchV7Codec(7, headers[i - 1]);
         }
+        // finalize all v6 batches
+        hevm.startPrank(address(0));
+        rollup.finalizeBundleWithProof(headers[10], keccak256("x10"), keccak256("y10"), new bytes(0));
+        hevm.stopPrank();
+        // finalize two v7 batches
+        hevm.startPrank(address(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
+        hevm.stopPrank();
 
-        // revert batch 1 and batch 2
-        rollup.revertBatch(batchHeader1, batchHeader2);
-        assertEq(0, messageQueue.pendingQueueIndex());
-        assertEq(0, messageQueue.nextUnfinalizedQueueIndex());
-        for (uint256 i = 0; i < 265; i++) {
-            assertBoolEq(messageQueue.isMessageSkipped(i), false);
-        }
-    }
-
-    function testSwitchBatchFromV1ToV3() external {
-        rollup.addSequencer(address(0));
-        rollup.addProver(address(0));
-
-        // import 300 L1 messages
-        for (uint256 i = 0; i < 300; i++) {
-            messageQueue.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
-        }
-
-        // import genesis batch first
-        bytes memory batchHeader0 = new bytes(89);
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
-        }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-        bytes32 batchHash0 = rollup.committedBatches(0);
-
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
+        // revert when ErrorNotInEnforcedBatchMode
+        hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        rollup.commitAndFinalizeBatch(
+            7,
+            bytes32(0),
+            IScrollChain.FinalizeStruct({
+                batchHeader: new bytes(0),
+                totalL1MessagesPoppedOverall: 0,
+                postStateRoot: bytes32(0),
+                withdrawRoot: bytes32(0),
+                zkProof: new bytes(0)
+            })
         );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
-        bytes
-            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
 
-        bytes memory bitmap;
-        bytes[] memory chunks;
-        bytes memory chunk0;
-        bytes memory chunk1;
-
-        // commit batch1 with version v1, one chunk with one block, 1 tx, 1 L1 message, no skip
-        // => payload for data hash of chunk0
-        //   0000000000000000
-        //   0000000000000000
-        //   0000000000000000000000000000000000000000000000000000000000000000
-        //   0000000000000000
-        //   0001
-        //   a2277fd30bbbe74323309023b56035b376d7768ad237ae4fc46ead7dc9591ae1
-        // => data hash for chunk0
-        //   9ef1e5694bdb014a1eea42be756a8f63bfd8781d6332e9ef3b5126d90c62f110
-        // => data hash for all chunks
-        //   d9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3
-        // => payload for batch header
-        //   01
-        //   0000000000000001
-        //   0000000000000001
-        //   0000000000000001
-        //   d9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3
-        //   013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //   119b828c2a2798d2c957228ebeaff7e10bb099ae0d4e224f3eeb779ff61cba61
-        //   0000000000000000000000000000000000000000000000000000000000000000
-        // => hash for batch header
-        //   66b68a5092940d88a8c6f203d2071303557c024275d8ceaa2e12662bc61c8d8f
-        bytes memory batchHeader1 = new bytes(121 + 32);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex = 1
-            mstore(add(batchHeader1, add(0x20, 9)), shl(192, 1)) // l1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 17)), shl(192, 1)) // totalL1MessagePopped = 1
-            mstore(add(batchHeader1, add(0x20, 25)), 0xd9cb6bf9264006fcea490d5c261f7453ab95b1b26033a3805996791b8e3a62f3) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-            mstore(add(batchHeader1, add(0x20, 121)), 0) // bitmap0
-        }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 1)) // numTransactions = 1
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 1)) // numL1Messages = 1
-        }
-        chunks = new bytes[](1);
-        chunks[0] = chunk0;
-        bitmap = new bytes(32);
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(1, keccak256(batchHeader1));
-        rollup.commitBatch(1, batchHeader0, chunks, bitmap);
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), false);
-        bytes32 batchHash1 = rollup.committedBatches(1);
-        assertEq(batchHash1, keccak256(batchHeader1));
-
-        // commit batch2 with version v2, with two chunks, correctly
-        // 1. chunk0 has one block, 3 tx, no L1 messages
-        //   => payload for chunk0
-        //    0000000000000000
-        //    0000000000000456
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0003
-        //    ... (some tx hashes)
-        //   => data hash for chunk0
-        //    1c7649f248aed8448fa7997e44db7b7028581deb119c6d6aa1a2d126d62564cf
-        // 2. chunk1 has three blocks
-        //   2.1 block0 has 5 tx, 3 L1 messages, no skips
-        //   2.2 block1 has 10 tx, 5 L1 messages, even is skipped, last is not skipped
-        //   2.2 block1 has 300 tx, 256 L1 messages, odd position is skipped, last is not skipped
-        //   => payload for chunk1
-        //    0000000000000000
-        //    0000000000000789
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    0005
-        //    0000000000000000
-        //    0000000000001234
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    000a
-        //    0000000000000000
-        //    0000000000005678
-        //    0000000000000000000000000000000000000000000000000000000000000000
-        //    0000000000000000
-        //    012c
-        //   => data hash for chunk1
-        //    4e82cb576135a69a0ecc2b2070c432abfdeb20076594faaa1aeed77f48d7c856
-        // => data hash for all chunks
-        //   166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239
-        // => payload for batch header
-        //  03
-        //  0000000000000002
-        //  0000000000000108
-        //  0000000000000109
-        //  166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239
-        //  013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757
-        //  66b68a5092940d88a8c6f203d2071303557c024275d8ceaa2e12662bc61c8d8f
-        //  0000000000005678
-        //  2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e687
-        //  53ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0
-        // => hash for batch header
-        //  f212a256744ca658dfc4eb32665aa0fe845eb757a030bd625cb2880055e3cc92
-        bytes memory batchHeader2 = new bytes(193);
-        assembly {
-            mstore8(add(batchHeader2, 0x20), 3) // version
-            mstore(add(batchHeader2, add(0x20, 1)), shl(192, 2)) // batchIndex = 2
-            mstore(add(batchHeader2, add(0x20, 9)), shl(192, 264)) // l1MessagePopped = 264
-            mstore(add(batchHeader2, add(0x20, 17)), shl(192, 265)) // totalL1MessagePopped = 265
-            mstore(add(batchHeader2, add(0x20, 25)), 0x166e9d20206ae8cddcdf0f30093e3acc3866937172df5d7f69fb5567d9595239) // dataHash
-            mstore(add(batchHeader2, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader2, add(0x20, 89)), batchHash1) // parentBatchHash
-            mstore(add(batchHeader2, add(0x20, 121)), shl(192, 0x5678)) // lastBlockTimestamp
-            mcopy(add(batchHeader2, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
-        }
-        chunk0 = new bytes(1 + 60);
-        assembly {
-            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
-            mstore(add(chunk0, add(0x21, 8)), shl(192, 0x456)) // timestamp = 0x456
-            mstore(add(chunk0, add(0x21, 56)), shl(240, 3)) // numTransactions = 3
-            mstore(add(chunk0, add(0x21, 58)), shl(240, 0)) // numL1Messages = 0
-        }
-        chunk1 = new bytes(1 + 60 * 3);
-        assembly {
-            mstore(add(chunk1, 0x20), shl(248, 3)) // numBlocks = 3
-            mstore(add(chunk1, add(33, 8)), shl(192, 0x789)) // block0.timestamp = 0x789
-            mstore(add(chunk1, add(33, 56)), shl(240, 5)) // block0.numTransactions = 5
-            mstore(add(chunk1, add(33, 58)), shl(240, 3)) // block0.numL1Messages = 3
-            mstore(add(chunk1, add(93, 8)), shl(192, 0x1234)) // block1.timestamp = 0x1234
-            mstore(add(chunk1, add(93, 56)), shl(240, 10)) // block1.numTransactions = 10
-            mstore(add(chunk1, add(93, 58)), shl(240, 5)) // block1.numL1Messages = 5
-            mstore(add(chunk1, add(153, 8)), shl(192, 0x5678)) // block1.timestamp = 0x5678
-            mstore(add(chunk1, add(153, 56)), shl(240, 300)) // block1.numTransactions = 300
-            mstore(add(chunk1, add(153, 58)), shl(240, 256)) // block1.numL1Messages = 256
-        }
-        chunks = new bytes[](2);
-        chunks[0] = chunk0;
-        chunks[1] = chunk1;
-        bitmap = new bytes(64);
-        assembly {
-            mstore(
-                add(bitmap, add(0x20, 0)),
-                77194726158210796949047323339125271902179989777093709359638389338608753093160
-            ) // bitmap0
-            mstore(add(bitmap, add(0x20, 32)), 42) // bitmap1
-        }
-
-        rollup.updateMaxNumTxInChunk(186);
-        // should revert, when all v1 batch not finalized
-        hevm.startPrank(address(0));
-        hevm.expectRevert("start index mismatch");
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof);
-        hevm.stopPrank();
-
-        // finalize batch1
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit FinalizeBatch(1, batchHash1, bytes32(uint256(2)), bytes32(uint256(3)));
-        rollup.finalizeBatchWithProof4844(
-            batchHeader1,
-            bytes32(uint256(1)),
-            bytes32(uint256(2)),
-            bytes32(uint256(3)),
-            blobDataProof,
-            new bytes(0)
+        system.updateEnforcedBatchParameters(
+            SystemConfig.EnforcedBatchParameters({
+                maxDelayEnterEnforcedMode: 86400,
+                maxDelayMessageQueue: type(uint24).max
+            })
         );
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(1), true);
-        assertEq(rollup.finalizedStateRoots(1), bytes32(uint256(2)));
-        assertEq(rollup.withdrawRoots(1), bytes32(uint256(3)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 1);
-        assertBoolEq(messageQueue.isMessageSkipped(0), false);
-        assertEq(messageQueue.pendingQueueIndex(), 1);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
 
-        hevm.startPrank(address(0));
-        hevm.expectEmit(true, true, false, true);
-        emit CommitBatch(2, keccak256(batchHeader2));
-        rollup.commitBatchWithBlobProof(3, batchHeader1, chunks, bitmap, blobDataProof);
-        hevm.stopPrank();
-        bytes32 batchHash2 = rollup.committedBatches(2);
-        assertEq(batchHash2, keccak256(batchHeader2));
-        assertEq(messageQueue.pendingQueueIndex(), 265);
-        assertEq(messageQueue.nextUnfinalizedQueueIndex(), 1);
-
-        // finalize batch2
-        assertBoolEq(rollup.isBatchFinalized(2), false);
-        hevm.startPrank(address(0));
-        rollup.finalizeBundleWithProof(batchHeader2, bytes32(uint256(2)), bytes32(uint256(3)), new bytes(0));
-        hevm.stopPrank();
-        assertBoolEq(rollup.isBatchFinalized(2), true);
-        assertEq(rollup.finalizedStateRoots(2), bytes32(uint256(2)));
-        assertEq(rollup.withdrawRoots(2), bytes32(uint256(3)));
-        assertEq(rollup.lastFinalizedBatchIndex(), 2);
+        hevm.warp(100 + 86400 + 1);
+        // succeed to call commitAndFinalizeBatch 13
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        rollup.commitAndFinalizeBatch(
+            7,
+            keccak256(headers[12]),
+            IScrollChain.FinalizeStruct({
+                batchHeader: headers[13],
+                totalL1MessagesPoppedOverall: 10,
+                postStateRoot: keccak256("x13"),
+                withdrawRoot: keccak256("y13"),
+                zkProof: new bytes(0)
+            })
+        );
+        (uint256 lastCommittedBatchIndex, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, , ) = rollup
+            .miscData();
+        assertEq(lastCommittedBatchIndex, 13);
+        assertEq(lastFinalizedBatchIndex, 13);
+        assertEq(lastFinalizeTimestamp, 100 + 86400 + 1);
+        assertBoolEq(rollup.isEnforcedModeEnabled(), true);
+        assertEq(messageQueueV2.nextUnfinalizedQueueIndex(), 10);
+        assertEq(messageQueueV2.nextCrossDomainMessageIndex(), 10);
+        assertEq(messageQueueV2.getFirstUnfinalizedMessageEnqueueTime(), 100 + 86400 + 1);
     }
 
     function testRevertBatch() external {
-        // upgrade to ScrollChainMockBlob
-        ScrollChainMockBlob impl = new ScrollChainMockBlob(
-            rollup.layer2ChainId(),
-            rollup.messageQueue(),
-            rollup.verifier()
-        );
-        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
-
-        // from https://etherscan.io/blob/0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757?bid=740652
-        bytes32 blobVersionedHash = 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757;
-        bytes
-            memory blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
-        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(blobVersionedHash);
+        // 0: genesis
+        // 1-10: v6
+        // 11-20: v7
+        bytes[] memory headers = new bytes[](21);
+        {
+            bytes[] memory headersV6 = _prepareBatchesV3Codec(6);
+            for (uint256 i = 0; i <= 10; ++i) {
+                headers[i] = headersV6[i];
+            }
+        }
+        messageQueueV2.initialize();
+        rollup.initializeV2();
+        for (uint256 i = 11; i < 21; ++i) {
+            headers[i] = _commitBatchV7Codec(7, headers[i - 1]);
+        }
+        // finalize all v6 batches
+        hevm.startPrank(address(0));
+        rollup.finalizeBundleWithProof(headers[10], keccak256("x10"), keccak256("y10"), new bytes(0));
+        hevm.stopPrank();
+        // finalize two v7 batches
+        hevm.startPrank(address(0));
+        rollup.finalizeBundlePostEuclidV2(headers[12], 10, keccak256("x12"), keccak256("y12"), new bytes(0));
+        hevm.stopPrank();
 
         // caller not owner, revert
         hevm.startPrank(address(1));
         hevm.expectRevert("Ownable: caller is not the owner");
-        rollup.revertBatch(new bytes(89), new bytes(89));
+        rollup.revertBatch(new bytes(0));
         hevm.stopPrank();
 
-        rollup.addSequencer(address(0));
+        // revert ErrorIncorrectBatchVersion
+        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchVersion.selector);
+        rollup.revertBatch(headers[10]);
 
-        bytes memory batchHeader0 = new bytes(89);
-
-        // import genesis batch
-        assembly {
-            mstore(add(batchHeader0, add(0x20, 25)), 1)
-        }
-        rollup.importGenesisBatch(batchHeader0, bytes32(uint256(1)));
-        bytes32 batchHash0 = rollup.committedBatches(0);
-
-        bytes[] memory chunks = new bytes[](1);
-        bytes memory chunk0;
-
-        // commit one batch
-        chunk0 = new bytes(1 + 60);
-        chunk0[0] = bytes1(uint8(1)); // one block in this chunk
-        chunks[0] = chunk0;
-        hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader0, chunks, new bytes(0));
-        bytes32 batchHash1 = rollup.committedBatches(1);
-        hevm.stopPrank();
-
-        bytes memory batchHeader1 = new bytes(121);
-        assembly {
-            mstore8(add(batchHeader1, 0x20), 1) // version
-            mstore(add(batchHeader1, add(0x20, 1)), shl(192, 1)) // batchIndex
-            mstore(add(batchHeader1, add(0x20, 9)), 0) // l1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 17)), 0) // totalL1MessagePopped
-            mstore(add(batchHeader1, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
-            mstore(add(batchHeader1, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader1, add(0x20, 89)), batchHash0) // parentBatchHash
-        }
-
-        // commit another batch
-        hevm.startPrank(address(0));
-        rollup.commitBatch(1, batchHeader1, chunks, new bytes(0));
-        hevm.stopPrank();
-
-        bytes memory batchHeader2 = new bytes(121);
-        assembly {
-            mstore8(add(batchHeader2, 0x20), 1) // version
-            mstore(add(batchHeader2, add(0x20, 1)), shl(192, 2)) // batchIndex
-            mstore(add(batchHeader2, add(0x20, 9)), 0) // l1MessagePopped
-            mstore(add(batchHeader2, add(0x20, 17)), 0) // totalL1MessagePopped
-            mstore(add(batchHeader2, add(0x20, 25)), 0x246394445f4fe64ed5598554d55d1682d6fb3fe04bf58eb54ef81d1189fafb51) // dataHash
-            mstore(add(batchHeader2, add(0x20, 57)), blobVersionedHash) // blobVersionedHash
-            mstore(add(batchHeader2, add(0x20, 89)), batchHash1) // parentBatchHash
-        }
-
-        // incorrect batch hash of first header, revert
-        batchHeader1[1] = bytes1(uint8(1)); // change random byte
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.revertBatch(batchHeader1, batchHeader0);
-        batchHeader1[1] = bytes1(uint8(0)); // change back
-
-        // incorrect batch hash of second header, revert
-        batchHeader1[1] = bytes1(uint8(1)); // change random byte
-        hevm.expectRevert(ScrollChain.ErrorIncorrectBatchHash.selector);
-        rollup.revertBatch(batchHeader0, batchHeader1);
-        batchHeader1[1] = bytes1(uint8(0)); // change back
-
-        // count must be nonzero, revert
-        hevm.expectRevert(ScrollChain.ErrorRevertZeroBatches.selector);
-        rollup.revertBatch(batchHeader1, batchHeader0);
-
-        // revert middle batch, revert
-        hevm.expectRevert(ScrollChain.ErrorRevertNotStartFromEnd.selector);
-        rollup.revertBatch(batchHeader1, batchHeader1);
-
-        // can only revert unfinalized batch, revert
+        // revert ErrorRevertFinalizedBatch
         hevm.expectRevert(ScrollChain.ErrorRevertFinalizedBatch.selector);
-        rollup.revertBatch(batchHeader0, batchHeader2);
+        rollup.revertBatch(headers[11]);
 
-        // succeed to revert next two pending batches.
+        (uint256 lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 20);
 
-        hevm.expectEmit(true, true, false, true);
-        emit RevertBatch(2, rollup.committedBatches(2));
-        hevm.expectEmit(true, true, false, true);
-        emit RevertBatch(1, rollup.committedBatches(1));
+        // revert batch 20
+        hevm.expectEmit(true, true, true, true);
+        emit RevertBatch(20, 20);
+        rollup.revertBatch(headers[19]);
+        (lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 19);
 
-        assertGt(uint256(rollup.committedBatches(1)), 0);
-        assertGt(uint256(rollup.committedBatches(2)), 0);
-        rollup.revertBatch(batchHeader1, batchHeader2);
-        assertEq(uint256(rollup.committedBatches(1)), 0);
-        assertEq(uint256(rollup.committedBatches(2)), 0);
+        // revert batch 18 and 19
+        hevm.expectEmit(true, true, true, true);
+        emit RevertBatch(18, 19);
+        rollup.revertBatch(headers[17]);
+        (lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 17);
+
+        // revert all batches
+        rollup.revertBatch(headers[12]);
+        (lastCommittedBatchIndex, , , , ) = rollup.miscData();
+        assertEq(lastCommittedBatchIndex, 12);
     }
 
     function testAddAndRemoveSequencer(address _sequencer) external {
@@ -1589,13 +957,17 @@ contract ScrollChainTest is DSTestPlus {
 
         hevm.startPrank(address(0));
         hevm.expectRevert("Pausable: paused");
-        rollup.commitBatch(1, new bytes(0), new bytes[](0), new bytes(0));
+        rollup.commitBatchWithBlobProof(4, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
-        rollup.commitBatchWithBlobProof(3, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(5, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
-        rollup.finalizeBatchWithProof4844(new bytes(0), bytes32(0), bytes32(0), bytes32(0), new bytes(0), new bytes(0));
+        rollup.commitBatchWithBlobProof(6, new bytes(0), new bytes[](0), new bytes(0), new bytes(0));
         hevm.expectRevert("Pausable: paused");
         rollup.finalizeBundleWithProof(new bytes(0), bytes32(0), bytes32(0), new bytes(0));
+        hevm.expectRevert("Pausable: paused");
+        rollup.commitBatches(7, bytes32(0), bytes32(0));
+        hevm.expectRevert("Pausable: paused");
+        rollup.finalizeBundlePostEuclidV2(new bytes(0), 0, bytes32(0), bytes32(0), new bytes(0));
         hevm.stopPrank();
 
         // unpause
@@ -1645,7 +1017,7 @@ contract ScrollChainTest is DSTestPlus {
 
         batchHeader = new bytes(89);
         batchHeader[1] = bytes1(uint8(1)); // batchIndex not zero
-        hevm.expectRevert(ScrollChain.ErrorGenesisBatchHasNonZeroField.selector);
+        hevm.expectRevert(ScrollChain.ErrorBatchNotCommitted.selector);
         rollup.importGenesisBatch(batchHeader, bytes32(uint256(1)));
 
         batchHeader = new bytes(89 + 32);
@@ -1692,5 +1064,193 @@ contract ScrollChainTest is DSTestPlus {
         if (_logic == address(0)) _logic = address(placeholder);
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(_logic, address(admin), new bytes(0));
         return address(proxy);
+    }
+
+    function _upgradeToMockBlob() internal {
+        // upgrade to ScrollChainMockBlob for data mocking
+        ScrollChainMockBlob impl = new ScrollChainMockBlob(
+            rollup.layer2ChainId(),
+            rollup.messageQueueV1(),
+            rollup.messageQueueV2(),
+            rollup.verifier(),
+            rollup.systemConfig()
+        );
+        admin.upgrade(ITransparentUpgradeableProxy(address(rollup)), address(impl));
+        ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
+    }
+
+    /// @dev Prepare 10 batches, each of the first 5 has 2 l1 messages, each of the second 5 has no l1 message.
+    function _prepareBatchesV3Codec(uint8 version) internal returns (bytes[] memory headers) {
+        // grant roles
+        rollup.addProver(address(0));
+        rollup.addSequencer(address(0));
+        _upgradeToMockBlob();
+
+        headers = new bytes[](11);
+        // import 10 L1 messages into message queue V1
+        for (uint256 i = 0; i < 10; i++) {
+            messageQueueV1.appendCrossDomainMessage(address(this), 1000000, new bytes(0));
+        }
+        // commit genesis batch
+        headers[0] = _commitGenesisBatch();
+        // commit 5 batches, each has 2 l1 messages
+        for (uint256 i = 1; i <= 5; ++i) {
+            headers[i] = _commitBatchV3Codec(version, headers[i - 1], 2, 1);
+        }
+        // commit 5 batches, each has 0 l1 message
+        for (uint256 i = 6; i <= 10; ++i) {
+            headers[i] = _commitBatchV3Codec(version, headers[i - 1], 0, 1);
+        }
+    }
+
+    function _commitGenesisBatch() internal returns (bytes memory header) {
+        header = new bytes(89);
+        assembly {
+            mstore(add(header, add(0x20, 25)), 1)
+        }
+        rollup.importGenesisBatch(header, bytes32(uint256(1)));
+        assertEq(rollup.committedBatches(0), keccak256(header));
+    }
+
+    function _constructBatchStructCodecV3(
+        uint8 version,
+        bytes memory parentHeader,
+        uint256 numL1Message,
+        uint256 numL2Transaction
+    )
+        internal
+        view
+        returns (
+            bytes memory bitmap,
+            bytes[] memory chunks,
+            bytes memory blobDataProof,
+            uint256 index,
+            uint256 totalL1MessagePopped,
+            bytes memory header
+        )
+    {
+        uint256 batchPtr;
+        assembly {
+            batchPtr := add(parentHeader, 0x20)
+        }
+        index = BatchHeaderV0Codec.getBatchIndex(batchPtr) + 1;
+        totalL1MessagePopped = BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr) + numL1Message;
+        bytes32 parentHash = keccak256(parentHeader);
+        blobDataProof = hex"2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e68753ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0a5a0c9e8a145c5ef6e415c245690effa2914ec9393f58a7251d30c0657da1453d9ad906eae8b97dd60c9a216f81b4df7af34d01e214e1ec5865f0133ecc16d7459e49dab66087340677751e82097fbdd20551d66076f425775d1758a9dfd186b";
+        bytes32[] memory hashes = new bytes32[](numL1Message);
+        for (uint256 i = 0; i < numL1Message; ++i) {
+            hashes[i] = messageQueueV1.getCrossDomainMessage(BatchHeaderV0Codec.getTotalL1MessagePopped(batchPtr) + i);
+        }
+        // commit batch, one chunk with one block, 1 + numL1Message tx, numL1Message L1 message
+        // payload for data hash of chunk0
+        //   hex(index)                                                         // block number
+        //   hex(index)                                                         // timestamp
+        //   0000000000000000000000000000000000000000000000000000000000000000   // baseFee
+        //   0000000000000000                                                   // gasLimit
+        //   hex(numL2Transaction + numL1Message)                               // numTransactions
+        //   ...                                                                // l1 messages
+        // data hash for chunk0
+        //   keccak256(chunk0)
+        // data hash for all chunks
+        //   keccak256(keccak256(chunk0))
+        // => payload for batch header
+        //   03                                                                 // version
+        //   hex(index)                                                         // batchIndex
+        //   hex(numL1Message)                                                  // l1MessagePopped
+        //   hex(totalL1MessagePopped)                                          // totalL1MessagePopped
+        //   keccak256(keccak256(chunk0))                                       // dataHash
+        //   013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757   // blobVersionedHash
+        //   keccak256(parentHeader)                                            // parentBatchHash
+        //   hex(index)                                                         // lastBlockTimestamp
+        //   2c9d777660f14ad49803a6442935c0d24a0d83551de5995890bf70a17d24e687   // blobDataProof
+        //   53ab0fe6807c7081f0885fe7da741554d658a03730b1fa006f8319f8b993bcb0   // blobDataProof
+        if (numL1Message > 0) bitmap = new bytes(32);
+        chunks = new bytes[](1);
+        bytes memory chunk0;
+        chunk0 = new bytes(1 + 60);
+        assembly {
+            mstore(add(chunk0, 0x20), shl(248, 1)) // numBlocks = 1
+            mstore(add(chunk0, add(0x21, 8)), shl(192, index)) // timestamp = 0x123
+            mstore(add(chunk0, add(0x21, 56)), shl(240, add(numL1Message, numL2Transaction))) // numTransactions = numL2Transaction + numL1Message
+            mstore(add(chunk0, add(0x21, 58)), shl(240, numL1Message)) // numL1Messages
+        }
+        chunks[0] = chunk0;
+        bytes memory chunkData = new bytes(58 + numL1Message * 32);
+        assembly {
+            mcopy(add(chunkData, 0x20), add(chunk0, 0x21), 58)
+            mcopy(add(chunkData, 0x5a), add(hashes, 0x20), mul(32, mload(hashes)))
+        }
+        bytes32 dataHash = keccak256(abi.encode(keccak256(chunkData)));
+        header = new bytes(193);
+        assembly {
+            mstore8(add(header, 0x20), version) // version
+            mstore(add(header, add(0x20, 1)), shl(192, index)) // batchIndex
+            mstore(add(header, add(0x20, 9)), shl(192, numL1Message)) // l1MessagePopped
+            mstore(add(header, add(0x20, 17)), shl(192, totalL1MessagePopped)) // totalL1MessagePopped
+            mstore(add(header, add(0x20, 25)), dataHash) // dataHash
+            mstore(add(header, add(0x20, 57)), 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757) // blobVersionedHash
+            mstore(add(header, add(0x20, 89)), parentHash) // parentBatchHash
+            mstore(add(header, add(0x20, 121)), shl(192, index)) // lastBlockTimestamp
+            mcopy(add(header, add(0x20, 129)), add(blobDataProof, 0x20), 64) // blobDataProof
+        }
+    }
+
+    function _commitBatchV3Codec(
+        uint8 version,
+        bytes memory parentHeader,
+        uint256 numL1Message,
+        uint256 numL2Transaction
+    ) internal returns (bytes memory) {
+        (
+            bytes memory bitmap,
+            bytes[] memory chunks,
+            bytes memory blobDataProof,
+            uint256 index,
+            uint256 totalL1MessagePopped,
+            bytes memory header
+        ) = _constructBatchStructCodecV3(version, parentHeader, numL1Message, numL2Transaction);
+        hevm.startPrank(address(0));
+        if (numL1Message > 0) {
+            hevm.expectEmit(false, false, false, true);
+            emit DequeueTransaction(totalL1MessagePopped - numL1Message, numL1Message, 0);
+        }
+        hevm.expectEmit(true, true, false, true);
+        emit CommitBatch(index, keccak256(header));
+        rollup.commitBatchWithBlobProof(version, parentHeader, chunks, bitmap, blobDataProof);
+        hevm.stopPrank();
+        assertEq(rollup.committedBatches(index), keccak256(header));
+        assertEq(messageQueueV1.pendingQueueIndex(), totalL1MessagePopped);
+        return header;
+    }
+
+    function _constructBatchStructCodecV7(uint8 version, bytes memory parentHeader)
+        internal
+        pure
+        returns (uint256 index, bytes memory header)
+    {
+        uint256 batchPtr;
+        assembly {
+            batchPtr := add(parentHeader, 0x20)
+        }
+        index = BatchHeaderV0Codec.getBatchIndex(batchPtr) + 1;
+        bytes32 parentHash = keccak256(parentHeader);
+        header = new bytes(73);
+        assembly {
+            mstore8(add(header, 0x20), version) // version
+            mstore(add(header, add(0x20, 1)), shl(192, index)) // batchIndex
+            mstore(add(header, add(0x20, 9)), 0x013590dc3544d56629ba81bb14d4d31248f825001653aa575eb8e3a719046757) // blobVersionedHash
+            mstore(add(header, add(0x20, 41)), parentHash) // parentBatchHash
+        }
+    }
+
+    function _commitBatchV7Codec(uint8 version, bytes memory parentHeader) internal returns (bytes memory) {
+        (uint256 index, bytes memory header) = _constructBatchStructCodecV7(version, parentHeader);
+        hevm.startPrank(address(0));
+        hevm.expectEmit(true, true, false, true);
+        emit CommitBatch(index, keccak256(header));
+        rollup.commitBatches(version, keccak256(parentHeader), keccak256(header));
+        hevm.stopPrank();
+        assertEq(rollup.committedBatches(index), keccak256(header));
+        return header;
     }
 }

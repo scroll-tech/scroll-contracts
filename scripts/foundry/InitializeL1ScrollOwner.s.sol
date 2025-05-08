@@ -13,11 +13,12 @@ import {L1CustomERC20Gateway} from "../../src/L1/gateways/L1CustomERC20Gateway.s
 import {L1ERC1155Gateway} from "../../src/L1/gateways/L1ERC1155Gateway.sol";
 import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
 import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
-import {L1MessageQueue} from "../../src/L1/rollup/L1MessageQueue.sol";
+import {L1MessageQueueV1} from "../../src/L1/rollup/L1MessageQueueV1.sol";
 import {ScrollMessengerBase} from "../../src/libraries/ScrollMessengerBase.sol";
 import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
 import {ScrollOwner} from "../../src/misc/ScrollOwner.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
 
@@ -44,9 +45,11 @@ contract InitializeL1ScrollOwner is Script {
     address L1_7D_TIMELOCK_ADDR = vm.envAddress("L1_7D_TIMELOCK_ADDR");
     address L1_14D_TIMELOCK_ADDR = vm.envAddress("L1_14D_TIMELOCK_ADDR");
 
+    address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
-    address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V1_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
     address L2_GAS_PRICE_ORACLE_PROXY_ADDR = vm.envAddress("L2_GAS_PRICE_ORACLE_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
     address L1_GATEWAY_ROUTER_PROXY_ADDR = vm.envAddress("L1_GATEWAY_ROUTER_PROXY_ADDR");
@@ -63,6 +66,8 @@ contract InitializeL1ScrollOwner is Script {
     address L1_ENFORCED_TX_GATEWAY_PROXY_ADDR = vm.envAddress("L1_ENFORCED_TX_GATEWAY_PROXY_ADDR");
     address L1_WHITELIST_ADDR = vm.envAddress("L1_WHITELIST_ADDR");
 
+    address SYSTEM_CONTRACT_ADDR = vm.envAddress("SYSTEM_CONTRACT_ADDR");
+
     ScrollOwner owner;
 
     function run() external {
@@ -72,6 +77,7 @@ contract InitializeL1ScrollOwner is Script {
 
         // @note we don't config 14D access, since the default admin is a 14D timelock which can access all methods.
         configProxyAdmin();
+        configSystemConfig();
         configScrollChain();
         configL1MessageQueue();
         configL1ScrollMessenger();
@@ -94,8 +100,10 @@ contract InitializeL1ScrollOwner is Script {
 
     function transferOwnership() internal {
         Ownable(L1_PROXY_ADMIN_ADDR).transferOwnership(address(owner));
+        Ownable(L1_SYSTEM_CONFIG_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_CHAIN_PROXY_ADDR).transferOwnership(address(owner));
-        Ownable(L1_MESSAGE_QUEUE_PROXY_ADDR).transferOwnership(address(owner));
+        Ownable(L1_MESSAGE_QUEUE_V1_PROXY_ADDR).transferOwnership(address(owner));
+        Ownable(L1_MESSAGE_QUEUE_V2_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_SCROLL_MESSENGER_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L1_ENFORCED_TX_GATEWAY_PROXY_ADDR).transferOwnership(address(owner));
         Ownable(L2_GAS_PRICE_ORACLE_PROXY_ADDR).transferOwnership(address(owner));
@@ -134,12 +142,33 @@ contract InitializeL1ScrollOwner is Script {
         owner.updateAccess(L1_PROXY_ADMIN_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
     }
 
+    function configSystemConfig() internal {
+        bytes4[] memory _selectors;
+
+        // no delay, security council
+        _selectors = new bytes4[](1);
+        _selectors[0] = SystemConfig.updateEnforcedBatchParameters.selector;
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
+
+        // no delay, Scroll multisig
+        _selectors = new bytes4[](2);
+        _selectors[0] = SystemConfig.updateMessageQueueParameters.selector;
+        _selectors[1] = SystemConfig.updateSigner.selector;
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SCROLL_MULTISIG_NO_DELAY_ROLE, true);
+    }
+
     function configScrollChain() internal {
         bytes4[] memory _selectors;
 
+        // no delay, security council
+        _selectors = new bytes4[](1);
+        _selectors[0] = ScrollChain.disableEnforcedBatchMode.selector;
+        // note: finalizeEuclidInitialBatch is removed in phase-2
+        owner.updateAccess(L1_SYSTEM_CONFIG_PROXY_ADDR, _selectors, SECURITY_COUNCIL_NO_DELAY_ROLE, true);
+
         // no delay, scroll multisig and emergency multisig
         _selectors = new bytes4[](4);
-        _selectors[0] = ScrollChain.revertBatch.selector;
+        _selectors[0] = ScrollChain.revertBatch.selector; // new selector!
         _selectors[1] = ScrollChain.removeSequencer.selector;
         _selectors[2] = ScrollChain.removeProver.selector;
         _selectors[3] = ScrollChain.setPause.selector;
@@ -163,9 +192,11 @@ contract InitializeL1ScrollOwner is Script {
 
         // delay 1 day, scroll multisig
         _selectors = new bytes4[](2);
-        _selectors[0] = L1MessageQueue.updateGasOracle.selector;
-        _selectors[1] = L1MessageQueue.updateMaxGasLimit.selector;
-        owner.updateAccess(L1_MESSAGE_QUEUE_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
+        _selectors[0] = L1MessageQueueV1.updateGasOracle.selector;
+        _selectors[1] = L1MessageQueueV1.updateMaxGasLimit.selector;
+        owner.updateAccess(L1_MESSAGE_QUEUE_V1_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
+
+        // no owner methods for V2
     }
 
     function configL1ScrollMessenger() internal {

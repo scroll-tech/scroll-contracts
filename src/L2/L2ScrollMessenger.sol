@@ -156,6 +156,8 @@ contract L2ScrollMessenger is ScrollMessengerBase, IL2ScrollMessenger {
 
         xDomainMessageSender = _from;
         // solhint-disable-next-line avoid-low-level-calls
+        // no reentrancy risk, only alias(l1ScrollMessenger) can call relayMessage.
+        // slither-disable-next-line reentrancy-eth
         (bool success, ) = _to.call{value: _value}(_message);
         // reset value to refund gas.
         xDomainMessageSender = ScrollConstants.DEFAULT_XDOMAIN_MESSAGE_SENDER;

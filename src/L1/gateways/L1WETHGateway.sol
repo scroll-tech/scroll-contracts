@@ -102,6 +102,8 @@ contract L1WETHGateway is L1ERC20Gateway {
         require(_l2Token == l2WETH, "l2 token not WETH");
         require(_amount == msg.value, "msg.value mismatch");
 
+        // deposit to WETH token is safe.
+        // slither-disable-next-line arbitrary-send-eth
         IWETH(_l1Token).deposit{value: _amount}();
     }
 
@@ -114,6 +116,8 @@ contract L1WETHGateway is L1ERC20Gateway {
         require(_token == WETH, "token not WETH");
         require(_amount == msg.value, "msg.value mismatch");
 
+        // deposit to WETH token is safe.
+        // slither-disable-next-line arbitrary-send-eth
         IWETH(_token).deposit{value: _amount}();
     }
 

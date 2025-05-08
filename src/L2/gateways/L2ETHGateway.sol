@@ -86,6 +86,8 @@ contract L2ETHGateway is ScrollGatewayBase, IL2ETHGateway {
         require(msg.value == _amount, "msg.value mismatch");
 
         // solhint-disable-next-line avoid-low-level-calls
+        // no reentrancy risk.
+        // slither-disable-next-line arbitrary-send-eth
         (bool _success, ) = _to.call{value: _amount}("");
         require(_success, "ETH transfer failed");
 

@@ -15,7 +15,9 @@ import {L1ERC1155Gateway} from "../../src/L1/gateways/L1ERC1155Gateway.sol";
 import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
 import {L1ETHGateway} from "../../src/L1/gateways/L1ETHGateway.sol";
 import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
-import {L1MessageQueueWithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueWithGasPriceOracle.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
+import {L1MessageQueueV2} from "../../src/L1/rollup/L1MessageQueueV2.sol";
+import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
 import {L1ScrollMessenger} from "../../src/L1/L1ScrollMessenger.sol";
 import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gateway.sol";
 import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
@@ -23,7 +25,7 @@ import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
 import {MultipleVersionRollupVerifier} from "../../src/L1/rollup/MultipleVersionRollupVerifier.sol";
 import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
 import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
-import {ZkEvmVerifierV1} from "../../src/libraries/verifier/ZkEvmVerifierV1.sol";
+import {ZkEvmVerifierPostEuclid} from "../../src/libraries/verifier/ZkEvmVerifierPostEuclid.sol";
 
 // solhint-disable max-states-count
 // solhint-disable state-visibility
@@ -38,12 +40,17 @@ contract DeployL1BridgeContracts is Script {
     address L2_WETH_ADDR = vm.envAddress("L2_WETH_ADDR");
 
     address L1_PLONK_VERIFIER_ADDR = vm.envAddress("L1_PLONK_VERIFIER_ADDR");
+    bytes32 VERIFIER_DIGEST_1 = vm.envBytes32("VERIFIER_DIGEST_1");
+    bytes32 VERIFIER_DIGEST_2 = vm.envBytes32("VERIFIER_DIGEST_2");
 
     address L1_PROXY_ADMIN_ADDR = vm.envAddress("L1_PROXY_ADMIN_ADDR");
 
     address L1_SCROLL_CHAIN_PROXY_ADDR = vm.envAddress("L1_SCROLL_CHAIN_PROXY_ADDR");
-    address L1_MESSAGE_QUEUE_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V1_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V1_PROXY_ADDR");
+    address L1_MESSAGE_QUEUE_V2_PROXY_ADDR = vm.envAddress("L1_MESSAGE_QUEUE_V2_PROXY_ADDR");
     address L1_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L1_SCROLL_MESSENGER_PROXY_ADDR");
+    address L1_SYSTEM_CONFIG_PROXY_ADDR = vm.envAddress("L1_SYSTEM_CONFIG_PROXY_ADDR");
+    address L1_FEE_VAULT_ADDR = vm.envAddress("L1_FEE_VAULT_ADDR");
 
     address L2_SCROLL_MESSENGER_PROXY_ADDR = vm.envAddress("L2_SCROLL_MESSENGER_PROXY_ADDR");
     address L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR = vm.envAddress("L2_CUSTOM_ERC20_GATEWAY_PROXY_ADDR");
@@ -55,7 +62,7 @@ contract DeployL1BridgeContracts is Script {
     address L2_SCROLL_STANDARD_ERC20_ADDR = vm.envAddress("L2_SCROLL_STANDARD_ERC20_ADDR");
     address L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR = vm.envAddress("L2_SCROLL_STANDARD_ERC20_FACTORY_ADDR");
 
-    ZkEvmVerifierV1 zkEvmVerifierV1;
+    ZkEvmVerifierPostEuclid zkEvmVerifier;
     MultipleVersionRollupVerifier rollupVerifier;
     EnforcedTxGateway enforcedTxGateway;
     ProxyAdmin proxyAdmin;
@@ -66,9 +73,10 @@ contract DeployL1BridgeContracts is Script {
 
         vm.startBroadcast(L1_DEPLOYER_PRIVATE_KEY);
 
-        deployZkEvmVerifierV1();
+        deployZkEvmVerifier();
         deployMultipleVersionRollupVerifier();
         deployL1Whitelist();
+        deploySystemConfig();
         deployEnforcedTxGateway();
         deployL1MessageQueue();
         deployL2GasPriceOracle();
@@ -85,17 +93,17 @@ contract DeployL1BridgeContracts is Script {
         vm.stopBroadcast();
     }
 
-    function deployZkEvmVerifierV1() internal {
-        zkEvmVerifierV1 = new ZkEvmVerifierV1(L1_PLONK_VERIFIER_ADDR);
+    function deployZkEvmVerifier() internal {
+        zkEvmVerifier = new ZkEvmVerifierPostEuclid(L1_PLONK_VERIFIER_ADDR, VERIFIER_DIGEST_1, VERIFIER_DIGEST_2);
 
-        logAddress("L1_ZKEVM_VERIFIER_V1_ADDR", address(zkEvmVerifierV1));
+        logAddress("L1_ZKEVM_VERIFIER_V1_ADDR", address(zkEvmVerifier));
     }
 
     function deployMultipleVersionRollupVerifier() internal {
         uint256[] memory _versions = new uint256[](1);
         address[] memory _verifiers = new address[](1);
-        _versions[0] = 0;
-        _verifiers[0] = address(zkEvmVerifierV1);
+        _versions[0] = 6;
+        _verifiers[0] = address(zkEvmVerifier);
         rollupVerifier = new MultipleVersionRollupVerifier(_versions, _verifiers);
 
         logAddress("L1_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR", address(rollupVerifier));
@@ -108,26 +116,48 @@ contract DeployL1BridgeContracts is Script {
         logAddress("L1_WHITELIST_ADDR", address(whitelist));
     }
 
+    function deploySystemConfig() internal {
+        SystemConfig sysConfig = new SystemConfig();
+        logAddress("L1_SYSTEM_CONFIG_IMPLEMENTATION_ADDR", address(sysConfig));
+    }
+
     function deployScrollChain() internal {
-        ScrollChain impl = new ScrollChain(CHAIN_ID_L2, L1_MESSAGE_QUEUE_PROXY_ADDR, address(rollupVerifier));
+        ScrollChain impl = new ScrollChain(
+            CHAIN_ID_L2,
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
+            address(rollupVerifier),
+            L1_SYSTEM_CONFIG_PROXY_ADDR
+        );
 
         logAddress("L1_SCROLL_CHAIN_IMPLEMENTATION_ADDR", address(impl));
     }
 
     function deployL1MessageQueue() internal {
-        L1MessageQueueWithGasPriceOracle impl = new L1MessageQueueWithGasPriceOracle(
+        L1MessageQueueV1WithGasPriceOracle v1_impl = new L1MessageQueueV1WithGasPriceOracle(
             L1_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             address(enforcedTxGateway)
         );
-        logAddress("L1_MESSAGE_QUEUE_IMPLEMENTATION_ADDR", address(impl));
+        logAddress("L1_MESSAGE_QUEUE_V1_IMPLEMENTATION_ADDR", address(v1_impl));
+
+        L1MessageQueueV2 v2_impl = new L1MessageQueueV2(
+            L1_SCROLL_MESSENGER_PROXY_ADDR,
+            L1_SCROLL_CHAIN_PROXY_ADDR,
+            address(enforcedTxGateway),
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_SYSTEM_CONFIG_PROXY_ADDR
+        );
+        logAddress("L1_MESSAGE_QUEUE_V2_IMPLEMENTATION_ADDR", address(v2_impl));
     }
 
     function deployL1ScrollMessenger() internal {
         L1ScrollMessenger impl = new L1ScrollMessenger(
             L2_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_PROXY_ADDR
+            L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
+            address(enforcedTxGateway)
         );
 
         logAddress("L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR", address(impl));
@@ -215,7 +245,7 @@ contract DeployL1BridgeContracts is Script {
     }
 
     function deployEnforcedTxGateway() internal {
-        EnforcedTxGateway impl = new EnforcedTxGateway();
+        EnforcedTxGateway impl = new EnforcedTxGateway(L1_MESSAGE_QUEUE_V2_PROXY_ADDR, L1_FEE_VAULT_ADDR);
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(impl),
             address(proxyAdmin),

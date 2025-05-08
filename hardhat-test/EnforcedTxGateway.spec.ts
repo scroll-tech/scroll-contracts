@@ -2,10 +2,10 @@
 /* eslint-disable node/no-missing-import */
 import { HardhatEthersSigner, SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
 import { expect } from "chai";
-import { BigNumberish, BytesLike, MaxUint256, ZeroAddress, getBytes } from "ethers";
-import { ethers } from "hardhat";
+import { BigNumberish, BytesLike, MaxUint256, ZeroAddress, getAddress, getBytes, toBeHex } from "ethers";
+import { ethers, network } from "hardhat";
 
-import { EnforcedTxGateway, L1MessageQueue, L2GasPriceOracle, MockCaller } from "../typechain";
+import { EnforcedTxGateway, L1MessageQueueV2, MockCaller, SystemConfig } from "../typechain";
 
 describe("EnforcedTxGateway.spec", async () => {
   let deployer: HardhatEthersSigner;
@@ -13,9 +13,9 @@ describe("EnforcedTxGateway.spec", async () => {
   let signer: HardhatEthersSigner;
 
   let caller: MockCaller;
+  let system: SystemConfig;
   let gateway: EnforcedTxGateway;
-  let oracle: L2GasPriceOracle;
-  let queue: L1MessageQueue;
+  let queue: L1MessageQueueV2;
 
   const deployProxy = async (name: string, admin: string, args: any[]): Promise<string> => {
     const TransparentUpgradeableProxy = await ethers.getContractFactory("TransparentUpgradeableProxy", deployer);
@@ -28,44 +28,57 @@ describe("EnforcedTxGateway.spec", async () => {
   beforeEach(async () => {
     [deployer, feeVault, signer] = await ethers.getSigners();
 
+    const EmptyContract = await ethers.getContractFactory("EmptyContract", deployer);
+    const empty = await EmptyContract.deploy();
+
     const ProxyAdmin = await ethers.getContractFactory("ProxyAdmin", deployer);
     const admin = await ProxyAdmin.deploy();
 
-    gateway = await ethers.getContractAt(
-      "EnforcedTxGateway",
-      await deployProxy("EnforcedTxGateway", await admin.getAddress(), []),
-      deployer
-    );
+    const TransparentUpgradeableProxy = await ethers.getContractFactory("TransparentUpgradeableProxy", deployer);
+    const L1MessageQueueV1 = await ethers.getContractFactory("L1MessageQueueV1", deployer);
+    const L1MessageQueueV2 = await ethers.getContractFactory("L1MessageQueueV2", deployer);
+    const EnforcedTxGateway = await ethers.getContractFactory("EnforcedTxGateway", deployer);
 
-    queue = await ethers.getContractAt(
-      "L1MessageQueue",
-      await deployProxy("L1MessageQueue", await admin.getAddress(), [
-        deployer.address,
-        deployer.address,
-        await gateway.getAddress(),
-      ]),
+    system = await ethers.getContractAt(
+      "SystemConfig",
+      await deployProxy("SystemConfig", await admin.getAddress(), []),
       deployer
     );
+    const queueV1Proxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), admin.getAddress(), "0x");
+    const queueV2Proxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), admin.getAddress(), "0x");
+    const gatewayProxy = await TransparentUpgradeableProxy.deploy(empty.getAddress(), admin.getAddress(), "0x");
 
-    oracle = await ethers.getContractAt(
-      "L2GasPriceOracle",
-      await deployProxy("L2GasPriceOracle", await admin.getAddress(), []),
-      deployer
+    const queueV1Impl = await L1MessageQueueV1.deploy(deployer.address, deployer.address, gatewayProxy.getAddress());
+    const queueV2Impl = await L1MessageQueueV2.deploy(
+      deployer.address,
+      deployer.address,
+      gatewayProxy.getAddress(),
+      queueV1Proxy.getAddress(),
+      system.getAddress()
     );
+    const gatewayImpl = await EnforcedTxGateway.deploy(queueV2Proxy.getAddress(), feeVault.address);
+    await admin.upgrade(queueV1Proxy.getAddress(), queueV1Impl.getAddress());
+    await admin.upgrade(queueV2Proxy.getAddress(), queueV2Impl.getAddress());
+    await admin.upgrade(gatewayProxy.getAddress(), gatewayImpl.getAddress());
+
+    gateway = await ethers.getContractAt("EnforcedTxGateway", await gatewayProxy.getAddress(), deployer);
+    queue = await ethers.getContractAt("L1MessageQueueV2", await queueV2Proxy.getAddress(), deployer);
 
     const MockCaller = await ethers.getContractFactory("MockCaller", deployer);
     caller = await MockCaller.deploy();
 
-    await queue.initialize(ZeroAddress, ZeroAddress, ZeroAddress, oracle.getAddress(), 10000000);
-    await gateway.initialize(queue.getAddress(), feeVault.address);
-    await oracle.initialize(21000, 51000, 8, 16);
-
-    const Whitelist = await ethers.getContractFactory("Whitelist", deployer);
-    const whitelist = await Whitelist.deploy(deployer.address);
-
-    await whitelist.updateWhitelistStatus([deployer.address], true);
-    await oracle.updateWhitelist(whitelist.getAddress());
-    await oracle.setL2BaseFee(1);
+    await system.initialize(
+      deployer.address,
+      deployer.address,
+      {
+        maxGasLimit: 1000000,
+        baseFeeOverhead: 10n ** 9n,
+        baseFeeScalar: 10n ** 18n,
+      },
+      { maxDelayEnterEnforcedMode: 0, maxDelayMessageQueue: 0 }
+    );
+    await queue.initialize();
+    await gateway.initialize();
   });
 
   context("auth", async () => {
@@ -77,25 +90,7 @@ describe("EnforcedTxGateway.spec", async () => {
     });
 
     it("should revert, when initialize again", async () => {
-      await expect(gateway.initialize(ZeroAddress, ZeroAddress)).to.revertedWith(
-        "Initializable: contract is already initialized"
-      );
-    });
-
-    context("#updateFeeVault", async () => {
-      it("should revert, when non-owner call", async () => {
-        await expect(gateway.connect(signer).updateFeeVault(ZeroAddress)).to.revertedWith(
-          "Ownable: caller is not the owner"
-        );
-      });
-
-      it("should succeed", async () => {
-        expect(await gateway.feeVault()).to.eq(feeVault.address);
-        await expect(gateway.updateFeeVault(deployer.address))
-          .to.emit(gateway, "UpdateFeeVault")
-          .withArgs(feeVault.address, deployer.address);
-        expect(await gateway.feeVault()).to.eq(deployer.address);
-      });
+      await expect(gateway.initialize()).to.revertedWith("Initializable: contract is already initialized");
     });
 
     context("#setPause", async () => {
@@ -121,20 +116,9 @@ describe("EnforcedTxGateway.spec", async () => {
       ).to.revertedWith("Pausable: paused");
     });
 
-    it("should revert, when call is not EOA", async () => {
-      const calldata = gateway.interface.encodeFunctionData("sendTransaction(address,uint256,uint256,bytes)", [
-        signer.address,
-        0,
-        0,
-        "0x",
-      ]);
-      await expect(caller.callTarget(gateway.getAddress(), calldata)).to.revertedWith(
-        "Only EOA senders are allowed to send enforced transaction"
-      );
-    });
-
     it("should revert, when insufficient value for fee", async () => {
       const fee = await queue.estimateCrossDomainMessageFee(1000000);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       await expect(
         gateway
           .connect(signer)
@@ -142,34 +126,11 @@ describe("EnforcedTxGateway.spec", async () => {
       ).to.revertedWith("Insufficient value for fee");
     });
 
-    it("should revert, when failed to deduct the fee", async () => {
-      await gateway.updateFeeVault(gateway.getAddress());
-      const fee = await queue.estimateCrossDomainMessageFee(1000000);
-      await expect(
-        gateway
-          .connect(signer)
-          ["sendTransaction(address,uint256,uint256,bytes)"](signer.address, 0, 1000000, "0x", { value: fee })
-      ).to.revertedWith("Failed to deduct the fee");
-    });
-
-    it("should succeed, no refund", async () => {
-      const fee = await queue.estimateCrossDomainMessageFee(1000000);
-      const feeVaultBalanceBefore = await ethers.provider.getBalance(feeVault.address);
-      await expect(
-        gateway
-          .connect(signer)
-          ["sendTransaction(address,uint256,uint256,bytes)"](deployer.address, 0, 1000000, "0x", { value: fee })
-      )
-        .to.emit(queue, "QueueTransaction")
-        .withArgs(signer.address, deployer.address, 0, 0, 1000000, "0x");
-      const feeVaultBalanceAfter = await ethers.provider.getBalance(feeVault.address);
-      expect(feeVaultBalanceAfter - feeVaultBalanceBefore).to.eq(fee);
-    });
-
     it("should succeed, with refund", async () => {
       const fee = await queue.estimateCrossDomainMessageFee(1000000);
       const feeVaultBalanceBefore = await ethers.provider.getBalance(feeVault.address);
       const signerBalanceBefore = await ethers.provider.getBalance(signer.address);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       const tx = await gateway
         .connect(signer)
         ["sendTransaction(address,uint256,uint256,bytes)"](deployer.address, 0, 1000000, "0x", { value: fee + 100n });
@@ -181,6 +142,76 @@ describe("EnforcedTxGateway.spec", async () => {
       const signerBalanceAfter = await ethers.provider.getBalance(signer.address);
       expect(feeVaultBalanceAfter - feeVaultBalanceBefore).to.eq(fee);
       expect(signerBalanceBefore - signerBalanceAfter).to.eq(receipt!.gasUsed * receipt!.gasPrice + fee);
+    });
+  });
+
+  context("#sendTransaction, by Contract", async () => {
+    it("should revert, when contract is paused", async () => {
+      await gateway.setPause(true);
+      await expect(
+        caller.callTarget(
+          gateway.getAddress(),
+          gateway.interface.encodeFunctionData("sendTransaction(address,uint256,uint256,bytes)", [
+            signer.address,
+            0,
+            0,
+            "0x",
+          ])
+        )
+      ).to.revertedWith("Pausable: paused");
+    });
+
+    it("should revert, when insufficient value for fee", async () => {
+      const fee = await queue.estimateCrossDomainMessageFee(1000000);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
+      await expect(
+        caller.callTarget(
+          gateway.getAddress(),
+          gateway.interface.encodeFunctionData("sendTransaction(address,uint256,uint256,bytes)", [
+            signer.address,
+            0,
+            1000000,
+            "0x",
+          ]),
+          { value: fee - 1n }
+        )
+      ).to.revertedWith("Insufficient value for fee");
+    });
+
+    it("should succeed, with refund", async () => {
+      const fee = await queue.estimateCrossDomainMessageFee(1000000);
+      const callerBalanceBefore = await ethers.provider.getBalance(caller.getAddress());
+      const feeVaultBalanceBefore = await ethers.provider.getBalance(feeVault.address);
+      const signerBalanceBefore = await ethers.provider.getBalance(signer.address);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
+      const sender = getAddress(
+        "0x" +
+          toBeHex(
+            (BigInt(await caller.getAddress()) + BigInt("0x1111000000000000000000000000000000001111")) % 2n ** 160n
+          )
+            .slice(2)
+            .padStart(40, "0")
+      );
+      const tx = await caller
+        .connect(signer)
+        .callTarget(
+          gateway.getAddress(),
+          gateway.interface.encodeFunctionData("sendTransaction(address,uint256,uint256,bytes)", [
+            deployer.address,
+            0,
+            1000000,
+            "0x",
+          ]),
+          { value: fee + 100n }
+        );
+      await expect(tx).to.emit(queue, "QueueTransaction").withArgs(sender, deployer.address, 0, 0, 1000000, "0x");
+      const receipt = await tx.wait();
+      const callerBalanceAfter = await ethers.provider.getBalance(caller.getAddress());
+      const feeVaultBalanceAfter = await ethers.provider.getBalance(feeVault.address);
+      const signerBalanceAfter = await ethers.provider.getBalance(signer.address);
+      expect(callerBalanceAfter - callerBalanceBefore).to.eq(100n);
+      expect(feeVaultBalanceAfter - feeVaultBalanceBefore).to.eq(fee);
+      expect(signerBalanceBefore - signerBalanceAfter).to.eq(receipt!.gasUsed * receipt!.gasPrice + fee + 100n);
     });
   });
 
@@ -303,6 +334,7 @@ describe("EnforcedTxGateway.spec", async () => {
     it("should revert, when insufficient value for fee", async () => {
       const signature = await getSignature(signer, signer.address, 0, 1000000, "0x");
       const fee = await queue.estimateCrossDomainMessageFee(1000000);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       await expect(
         gateway
           .connect(deployer)
@@ -320,32 +352,12 @@ describe("EnforcedTxGateway.spec", async () => {
       ).to.revertedWith("Insufficient value for fee");
     });
 
-    it("should revert, when failed to deduct the fee", async () => {
-      await gateway.updateFeeVault(gateway.getAddress());
-      const signature = await getSignature(signer, signer.address, 0, 1000000, "0x");
-      const fee = await queue.estimateCrossDomainMessageFee(1000000);
-      await expect(
-        gateway
-          .connect(deployer)
-          ["sendTransaction(address,address,uint256,uint256,bytes,uint256,bytes,address)"](
-            signer.address,
-            signer.address,
-            0,
-            1000000,
-            "0x",
-            MaxUint256,
-            signature,
-            signer.address,
-            { value: fee }
-          )
-      ).to.revertedWith("Failed to deduct the fee");
-    });
-
     it("should succeed, no refund", async () => {
       const signature = await getSignature(signer, deployer.address, 0, 1000000, "0x");
       const fee = await queue.estimateCrossDomainMessageFee(1000000);
       const feeVaultBalanceBefore = await ethers.provider.getBalance(feeVault.address);
       expect(await gateway.nonces(signer.address)).to.eq(0);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       await expect(
         gateway
           .connect(deployer)
@@ -391,6 +403,7 @@ describe("EnforcedTxGateway.spec", async () => {
       const feeVaultBalanceBefore = await ethers.provider.getBalance(feeVault.address);
       const signerBalanceBefore = await ethers.provider.getBalance(signer.address);
       expect(await gateway.nonces(signer.address)).to.eq(0);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       await expect(
         gateway
           .connect(deployer)
@@ -435,6 +448,7 @@ describe("EnforcedTxGateway.spec", async () => {
     it("should revert, when refund failed", async () => {
       const signature = await getSignature(signer, signer.address, 0, 1000000, "0x1234");
       const fee = await queue.estimateCrossDomainMessageFee(1000000);
+      await network.provider.send("hardhat_setNextBlockBaseFeePerGas", ["0"]);
       await expect(
         gateway
           .connect(deployer)

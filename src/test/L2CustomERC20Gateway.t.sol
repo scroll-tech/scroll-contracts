@@ -81,23 +81,27 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
     }
 
     function testUpdateTokenMappingFailed(address token2) public {
-        // call by non-owner, should revert
+        // revert ErrorCallerIsNotMessenger
         hevm.startPrank(address(1));
-        hevm.expectRevert("Ownable: caller is not the owner");
+        hevm.expectRevert(ErrorCallerIsNotMessenger.selector);
         gateway.updateTokenMapping(token2, token2);
         hevm.stopPrank();
 
-        // l1 token is zero, should revert
-        hevm.expectRevert("token address cannot be 0");
-        gateway.updateTokenMapping(token2, address(0));
+        // revert ErrorCallerIsNotCounterpartGateway
+        hevm.startPrank(address(l2Messenger));
+        hevm.expectRevert(ErrorCallerIsNotCounterpartGateway.selector);
+        gateway.updateTokenMapping(token2, token2);
+        hevm.stopPrank();
     }
 
     function testUpdateTokenMappingSuccess(address token1, address token2) public {
         hevm.assume(token1 != address(0));
 
         assertEq(gateway.getL1ERC20Address(token2), address(0));
-        gateway.updateTokenMapping(token2, token1);
+        _updateTokenMapping(token1, token2);
         assertEq(gateway.getL1ERC20Address(token2), token1);
+        _updateTokenMapping(address(0), token2);
+        assertEq(gateway.getL1ERC20Address(token2), address(0));
     }
 
     function testWithdrawERC20(
@@ -227,7 +231,7 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
         // blacklist some addresses
         hevm.assume(recipient != address(0));
 
-        gateway.updateTokenMapping(address(l2Token), address(l1Token));
+        _updateTokenMapping(address(l1Token), address(l2Token));
 
         amount = bound(amount, 1, l2Token.balanceOf(address(this)));
 
@@ -273,7 +277,7 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
     ) public {
         MockGatewayRecipient recipient = new MockGatewayRecipient();
 
-        gateway.updateTokenMapping(address(l2Token), address(l1Token));
+        _updateTokenMapping(address(l1Token), address(l2Token));
 
         amount = bound(amount, 1, l2Token.balanceOf(address(this)));
 
@@ -364,7 +368,7 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
             gateway.withdrawERC20{value: feeToPay}(address(l2Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l2Token), address(l1Token));
+        _updateTokenMapping(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("withdraw zero amount");
             if (useRouter) {
@@ -442,7 +446,7 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
             gateway.withdrawERC20{value: feeToPay}(address(l2Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l2Token), address(l1Token));
+        _updateTokenMapping(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("withdraw zero amount");
             if (useRouter) {
@@ -521,7 +525,7 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
             gateway.withdrawERC20{value: feeToPay}(address(l2Token), amount, gasLimit);
         }
 
-        gateway.updateTokenMapping(address(l2Token), address(l1Token));
+        _updateTokenMapping(address(l1Token), address(l2Token));
         if (amount == 0) {
             hevm.expectRevert("withdraw zero amount");
             if (useRouter) {
@@ -579,5 +583,17 @@ contract L2CustomERC20GatewayTest is L2GatewayTestBase {
             ITransparentUpgradeableProxy(address(_gateway)),
             address(new L2CustomERC20Gateway(address(counterpartGateway), address(router), address(messenger)))
         );
+    }
+
+    function _updateTokenMapping(address _l1Token, address _l2Token) internal {
+        hevm.startPrank(AddressAliasHelper.applyL1ToL2Alias(address(l1Messenger)));
+        l2Messenger.relayMessage(
+            address(counterpartGateway),
+            address(gateway),
+            0,
+            0,
+            abi.encodeCall(gateway.updateTokenMapping, (_l2Token, _l1Token))
+        );
+        hevm.stopPrank();
     }
 }
