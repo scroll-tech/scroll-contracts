@@ -39,6 +39,8 @@ contract WrappedEther is ERC20Permit {
 
         _burn(_sender, wad);
 
+        // no reentrancy risk (checks-effects-interactions).
+        // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = _sender.call{value: wad}("");
         require(success, "withdraw ETH failed");
 

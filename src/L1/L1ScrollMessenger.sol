@@ -203,6 +203,8 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         require(_from != xDomainMessageSender, "Invalid message sender");
 
         xDomainMessageSender = _from;
+        // xDomainMessageSender serves as reentrancy guard (notInExecution modifier).
+        // slither-disable-next-line reentrancy-eth
         (bool success, ) = _to.call{value: _value}(_message);
         // reset value to refund gas.
         xDomainMessageSender = ScrollConstants.DEFAULT_XDOMAIN_MESSAGE_SENDER;
@@ -316,6 +318,8 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         // @note If the list is very long, the message may never be dropped.
         while (true) {
             // If the `_lastIndex` is from `messageQueueV2`, it will revert in `messageQueueV1.dropCrossDomainMessage`.
+            // call to messageQueueV1 is safe.
+            // slither-disable-next-line reentrancy-no-eth
             IL1MessageQueueV1(messageQueueV1).dropCrossDomainMessage(_lastIndex);
             _lastIndex = prevReplayIndex[_lastIndex];
             if (_lastIndex == 0) break;
@@ -328,6 +332,8 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
 
         // set execution context
         xDomainMessageSender = ScrollConstants.DROP_XDOMAIN_MESSAGE_SENDER;
+        // xDomainMessageSender serves as reentrancy guard (notInExecution modifier).
+        // slither-disable-next-line reentrancy-eth
         IMessageDropCallback(_from).onDropMessage{value: _value}(_message);
         // clear execution context
         xDomainMessageSender = ScrollConstants.DEFAULT_XDOMAIN_MESSAGE_SENDER;
