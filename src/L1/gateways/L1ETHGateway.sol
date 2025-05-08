@@ -90,6 +90,8 @@ contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback 
 
         // @note can possible trigger reentrant call to messenger,
         // but it seems not a big problem.
+        // no reentrancy risk (nonReentrant modifier).
+        // slither-disable-next-line arbitrary-send-eth
         (bool _success, ) = _to.call{value: _amount}("");
         require(_success, "ETH transfer failed");
 
@@ -108,6 +110,8 @@ contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback 
 
         require(_amount == msg.value, "msg.value mismatch");
 
+        // no reentrancy risk (nonReentrant modifier).
+        // slither-disable-next-line arbitrary-send-eth
         (bool _success, ) = _receiver.call{value: _amount}("");
         require(_success, "ETH transfer failed");
 

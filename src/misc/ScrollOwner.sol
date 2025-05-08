@@ -136,6 +136,8 @@ contract ScrollOwner is AccessControlEnumerable {
         bytes calldata _data
     ) private {
         // solhint-disable-next-line avoid-low-level-calls
+        // no reentrancy risk.
+        // slither-disable-next-line arbitrary-send-eth
         (bool success, ) = _target.call{value: _value}(_data);
         if (!success) {
             // solhint-disable-next-line no-inline-assembly

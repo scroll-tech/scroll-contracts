@@ -110,6 +110,8 @@ contract L2WETHGateway is L2ERC20Gateway {
         require(_l2Token == WETH, "l2 token not WETH");
         require(_amount == msg.value, "msg.value mismatch");
 
+        // deposit to WETH token is safe.
+        // slither-disable-next-line arbitrary-send-eth
         IWETH(_l2Token).deposit{value: _amount}();
         IERC20Upgradeable(_l2Token).safeTransfer(_to, _amount);
 
