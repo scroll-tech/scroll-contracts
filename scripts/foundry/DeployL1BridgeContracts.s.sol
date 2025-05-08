@@ -156,7 +156,8 @@ contract DeployL1BridgeContracts is Script {
             L2_SCROLL_MESSENGER_PROXY_ADDR,
             L1_SCROLL_CHAIN_PROXY_ADDR,
             L1_MESSAGE_QUEUE_V1_PROXY_ADDR,
-            L1_MESSAGE_QUEUE_V2_PROXY_ADDR
+            L1_MESSAGE_QUEUE_V2_PROXY_ADDR,
+            address(enforcedTxGateway)
         );
 
         logAddress("L1_SCROLL_MESSENGER_IMPLEMENTATION_ADDR", address(impl));

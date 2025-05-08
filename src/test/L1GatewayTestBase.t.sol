@@ -121,7 +121,8 @@ abstract contract L1GatewayTestBase is ScrollTestBase {
                     address(l2Messenger),
                     address(rollup),
                     address(messageQueueV1),
-                    address(messageQueueV2)
+                    address(messageQueueV2),
+                    address(enforcedTxGateway)
                 )
             )
         );
