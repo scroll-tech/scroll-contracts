@@ -62,6 +62,26 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         l1Messenger.relayMessageWithProof(address(this), address(messageQueueV2), 0, 0, new bytes(0), proof);
     }
 
+    function testForbidCallEnforcedGatewayFromL2() external {
+        bytes32 _xDomainCalldataHash = keccak256(
+            abi.encodeWithSignature(
+                "relayMessage(address,address,uint256,uint256,bytes)",
+                address(this),
+                address(enforcedTxGateway),
+                0,
+                0,
+                new bytes(0)
+            )
+        );
+        prepareL2MessageRoot(_xDomainCalldataHash);
+
+        IL1ScrollMessenger.L2MessageProof memory proof;
+        proof.batchIndex = rollup.lastFinalizedBatchIndex();
+
+        hevm.expectRevert(L1ScrollMessenger.ErrorForbidToCallMessageQueue.selector);
+        l1Messenger.relayMessageWithProof(address(this), address(enforcedTxGateway), 0, 0, new bytes(0), proof);
+    }
+
     function testForbidCallSelfFromL2() external {
         bytes32 _xDomainCalldataHash = keccak256(
             abi.encodeWithSignature(
