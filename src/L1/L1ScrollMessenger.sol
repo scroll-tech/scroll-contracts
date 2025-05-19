@@ -76,6 +76,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
     mapping(bytes32 => bool) public isL2MessageExecuted;
 
     /// @notice Mapping from L1 message hash to drop status.
+    /// @custom:deprecated This is no longer used.
     mapping(bytes32 => bool) public isL1MessageDropped;
 
     /// @dev The storage slot used as Rollup contract, which is deprecated now.
@@ -234,6 +235,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
 
         require(messageSendTimestamp[_xDomainCalldataHash] > 0, "Provided message has not been enqueued");
         // cannot replay dropped message
+        // slither-disable-next-line uninitialized-storage
         require(!isL1MessageDropped[_xDomainCalldataHash], "Message already dropped");
 
         // compute and deduct the messaging fee to fee vault.
