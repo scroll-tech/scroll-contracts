@@ -9,6 +9,7 @@ import {IL2ScrollMessenger} from "../L2/IL2ScrollMessenger.sol";
 import {BatchBridgeCodec} from "./BatchBridgeCodec.sol";
 
 /// @title L2BatchBridgeGateway
+/// @custom:deprecated  This contract is no longer used in production.
 contract L2BatchBridgeGateway is AccessControlEnumerableUpgradeable {
     /**********
      * Events *

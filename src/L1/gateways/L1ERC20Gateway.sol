@@ -10,12 +10,11 @@ import {IL1GatewayRouter} from "./IL1GatewayRouter.sol";
 
 import {IL2ERC20Gateway} from "../../L2/gateways/IL2ERC20Gateway.sol";
 import {ScrollGatewayBase} from "../../libraries/gateway/ScrollGatewayBase.sol";
-import {IMessageDropCallback} from "../../libraries/callbacks/IMessageDropCallback.sol";
 
 /// @title L1ERC20Gateway
 /// @notice The `L1ERC20Gateway` as a base contract for ERC20 gateways in L1.
 /// It has implementation of common used functions for ERC20 gateways.
-abstract contract L1ERC20Gateway is IL1ERC20Gateway, IMessageDropCallback, ScrollGatewayBase {
+abstract contract L1ERC20Gateway is IL1ERC20Gateway, ScrollGatewayBase {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     /*************
@@ -77,25 +76,6 @@ abstract contract L1ERC20Gateway is IL1ERC20Gateway, IMessageDropCallback, Scrol
         _doCallback(_to, _data);
 
         emit FinalizeWithdrawERC20(_l1Token, _l2Token, _from, _to, _amount, _data);
-    }
-
-    /// @inheritdoc IMessageDropCallback
-    function onDropMessage(bytes calldata _message) external payable virtual onlyInDropContext nonReentrant {
-        // _message should start with 0x8431f5c1  =>  finalizeDepositERC20(address,address,address,address,uint256,bytes)
-        require(bytes4(_message[0:4]) == IL2ERC20Gateway.finalizeDepositERC20.selector, "invalid selector");
-
-        // decode (token, receiver, amount)
-        (address _token, , address _receiver, , uint256 _amount, ) = abi.decode(
-            _message[4:],
-            (address, address, address, address, uint256, bytes)
-        );
-
-        // do dome check for each custom gateway
-        _beforeDropMessage(_token, _receiver, _amount);
-
-        IERC20Upgradeable(_token).safeTransfer(_receiver, _amount);
-
-        emit RefundERC20(_token, _receiver, _amount);
     }
 
     /**********************
