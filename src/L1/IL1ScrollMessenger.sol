@@ -62,18 +62,4 @@ interface IL1ScrollMessenger is IScrollMessenger {
         uint32 newGasLimit,
         address refundAddress
     ) external payable;
-
-    /// @notice Drop a skipped message.
-    /// @param from The address of the sender of the message.
-    /// @param to The address of the recipient of the message.
-    /// @param value The msg.value passed to the message call.
-    /// @param messageNonce The nonce for the message to drop.
-    /// @param message The content of the message.
-    function dropMessage(
-        address from,
-        address to,
-        uint256 value,
-        uint256 messageNonce,
-        bytes memory message
-    ) external;
 }
