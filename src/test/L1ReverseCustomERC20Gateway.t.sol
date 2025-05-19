@@ -147,53 +147,6 @@ contract L1ReverseCustomERC20GatewayTest is L1GatewayTestBase {
         _depositERC20(true, 2, amount, recipient, dataToCall, gasLimit, feePerGas);
     }
 
-    function testDropMessage(
-        uint256 amount,
-        address recipient,
-        bytes memory dataToCall
-    ) public {
-        // message 0 is append here
-        gateway.updateTokenMapping{value: 1 ether}(address(l1Token), address(l2Token));
-
-        // finalize message 0
-        hevm.startPrank(address(rollup));
-        messageQueueV1.popCrossDomainMessage(0, 1, 0);
-        messageQueueV1.finalizePoppedCrossDomainMessage(1);
-        hevm.stopPrank();
-        assertEq(messageQueueV1.pendingQueueIndex(), 1);
-        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 1);
-
-        amount = bound(amount, 1, l1Token.balanceOf(address(this)));
-        bytes memory message = abi.encodeWithSelector(
-            IL2ERC20Gateway.finalizeDepositERC20.selector,
-            address(l1Token),
-            address(l2Token),
-            address(this),
-            recipient,
-            amount,
-            dataToCall
-        );
-        gateway.depositERC20AndCall(address(l1Token), recipient, amount, dataToCall, defaultGasLimit);
-
-        // skip message 1
-        hevm.startPrank(address(rollup));
-        messageQueueV1.popCrossDomainMessage(1, 1, 0x1);
-        messageQueueV1.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueueV1.pendingQueueIndex(), 2);
-        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 2);
-        hevm.stopPrank();
-
-        // drop message 1
-        hevm.expectEmit(true, true, false, true);
-        emit RefundERC20(address(l1Token), address(this), amount);
-
-        uint256 balance = l1Token.balanceOf(address(this));
-        uint256 gatewayBalance = l1Token.balanceOf(address(gateway));
-        l1Messenger.dropMessage(address(gateway), address(counterpartGateway), 0, 1, message);
-        assertEq(balance + amount, l1Token.balanceOf(address(this)));
-        assertEq(gatewayBalance, l1Token.balanceOf(address(gateway)));
-    }
-
     function testFinalizeWithdrawERC20(
         address sender,
         uint256 amount,

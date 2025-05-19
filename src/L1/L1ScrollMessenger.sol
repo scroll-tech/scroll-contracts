@@ -10,8 +10,6 @@ import {IScrollMessenger} from "../libraries/IScrollMessenger.sol";
 import {ScrollMessengerBase} from "../libraries/ScrollMessengerBase.sol";
 import {WithdrawTrieVerifier} from "../libraries/verifier/WithdrawTrieVerifier.sol";
 
-import {IMessageDropCallback} from "../libraries/callbacks/IMessageDropCallback.sol";
-
 // solhint-disable avoid-low-level-calls
 // solhint-disable not-rely-on-time
 // solhint-disable reason-string
@@ -279,64 +277,6 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
                 require(_success, "Failed to refund the fee");
             }
         }
-    }
-
-    /// @inheritdoc IL1ScrollMessenger
-    /// @dev Since we don't skip any messages in `L1MessageQueueV2`, only messages from `L1MessageQueueV1` can be dropped.
-    function dropMessage(
-        address _from,
-        address _to,
-        uint256 _value,
-        uint256 _messageNonce,
-        bytes memory _message
-    ) external override whenNotPaused notInExecution {
-        // The criteria for dropping a message:
-        // 1. The message is a L1 message.
-        // 2. The message has not been dropped before.
-        // 3. the message and all of its replacement are finalized in L1.
-        // 4. the message and all of its replacement are skipped.
-        //
-        // Possible denial of service attack:
-        // + replayMessage is called every time someone want to drop the message.
-        // + replayMessage is called so many times for a skipped message, thus results a long list.
-        //
-        // We limit the number of `replayMessage` calls of each message, which may solve the above problem.
-
-        // check message exists
-        bytes memory _xDomainCalldata = _encodeXDomainCalldata(_from, _to, _value, _messageNonce, _message);
-        bytes32 _xDomainCalldataHash = keccak256(_xDomainCalldata);
-        require(messageSendTimestamp[_xDomainCalldataHash] > 0, "Provided message has not been enqueued");
-
-        // check message not dropped
-        require(!isL1MessageDropped[_xDomainCalldataHash], "Message already dropped");
-
-        // check message is finalized
-        uint256 _lastIndex = replayStates[_xDomainCalldataHash].lastIndex;
-        if (_lastIndex == 0) _lastIndex = _messageNonce;
-
-        // check message is skipped and drop it.
-        // @note If the list is very long, the message may never be dropped.
-        while (true) {
-            // If the `_lastIndex` is from `messageQueueV2`, it will revert in `messageQueueV1.dropCrossDomainMessage`.
-            // call to messageQueueV1 is safe.
-            // slither-disable-next-line reentrancy-no-eth
-            IL1MessageQueueV1(messageQueueV1).dropCrossDomainMessage(_lastIndex);
-            _lastIndex = prevReplayIndex[_lastIndex];
-            if (_lastIndex == 0) break;
-            unchecked {
-                _lastIndex = _lastIndex - 1;
-            }
-        }
-
-        isL1MessageDropped[_xDomainCalldataHash] = true;
-
-        // set execution context
-        xDomainMessageSender = ScrollConstants.DROP_XDOMAIN_MESSAGE_SENDER;
-        // xDomainMessageSender serves as reentrancy guard (notInExecution modifier).
-        // slither-disable-next-line reentrancy-eth
-        IMessageDropCallback(_from).onDropMessage{value: _value}(_message);
-        // clear execution context
-        xDomainMessageSender = ScrollConstants.DEFAULT_XDOMAIN_MESSAGE_SENDER;
     }
 
     /************************
