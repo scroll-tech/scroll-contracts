@@ -4,7 +4,21 @@ pragma solidity =0.8.24;
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract L2SystemContract is OwnableUpgradeable {
+contract L2SystemConfig is OwnableUpgradeable {
+    /**********
+     * Events *
+     **********/
+
+    /// @notice Emitted when the base fee overhead is updated.
+    /// @param oldBaseFeeOverhead The old base fee overhead.
+    /// @param newBaseFeeOverhead The new base fee overhead.
+    event BaseFeeOverheadUpdated(uint256 oldBaseFeeOverhead, uint256 newBaseFeeOverhead);
+
+    /// @notice Emitted when the base fee scalar is updated.
+    /// @param oldBaseFeeScalar The old base fee scalar.
+    /// @param newBaseFeeScalar The new base fee scalar.
+    event BaseFeeScalarUpdated(uint256 oldBaseFeeScalar, uint256 newBaseFeeScalar);
+
     /*************
      * Constants *
      *************/
@@ -52,12 +66,16 @@ contract L2SystemContract is OwnableUpgradeable {
     /// @notice Updates the base fee overhead.
     /// @param _baseFeeOverhead The new base fee overhead.
     function updateBaseFeeOverhead(uint256 _baseFeeOverhead) external onlyOwner {
+        uint256 oldBaseFeeOverhead = baseFeeOverhead;
         baseFeeOverhead = _baseFeeOverhead;
+        emit BaseFeeOverheadUpdated(oldBaseFeeOverhead, _baseFeeOverhead);
     }
 
     /// @notice Updates the base fee scalar.
     /// @param _baseFeeScalar The new base fee scalar.
     function updateBaseFeeScalar(uint256 _baseFeeScalar) external onlyOwner {
+        uint256 oldBaseFeeScalar = baseFeeScalar;
         baseFeeScalar = _baseFeeScalar;
+        emit BaseFeeScalarUpdated(oldBaseFeeScalar, _baseFeeScalar);
     }
 }

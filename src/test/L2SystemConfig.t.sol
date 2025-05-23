@@ -6,62 +6,67 @@ import {Test} from "forge-std/Test.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import {L2SystemContract} from "../L2/L2SystemContract.sol";
+import {L2SystemConfig} from "../L2/L2SystemConfig.sol";
 
-contract L2SystemContractTest is Test {
+contract L2SystemConfigTest is Test {
     address public admin;
     address public owner;
     address public nonOwner;
 
-    L2SystemContract public l2SystemContract;
+    L2SystemConfig public l2SystemConfig;
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event BaseFeeOverheadUpdated(uint256 oldBaseFeeOverhead, uint256 newBaseFeeOverhead);
+    event BaseFeeScalarUpdated(uint256 oldBaseFeeScalar, uint256 newBaseFeeScalar);
 
     function setUp() public {
         admin = makeAddr("admin");
         owner = makeAddr("owner");
         nonOwner = makeAddr("nonOwner");
 
-        L2SystemContract implementation = new L2SystemContract();
+        L2SystemConfig implementation = new L2SystemConfig();
         address proxy = address(new TransparentUpgradeableProxy(address(implementation), admin, ""));
-        l2SystemContract = L2SystemContract(proxy);
+        l2SystemConfig = L2SystemConfig(proxy);
 
-        l2SystemContract.initialize(owner);
+        l2SystemConfig.initialize(owner);
     }
 
     function test_Initialize() public {
         // Test initialization
-        assertEq(l2SystemContract.owner(), owner);
+        assertEq(l2SystemConfig.owner(), owner);
 
         // revert when initialize again
         vm.expectRevert("Initializable: contract is already initialized");
-        l2SystemContract.initialize(owner);
+        l2SystemConfig.initialize(owner);
     }
 
     function test_UpdateBaseFeeOverhead(uint256 newBaseFeeOverhead) public {
         // Test that only owner can update base fee overhead
         vm.prank(nonOwner);
         vm.expectRevert("Ownable: caller is not the owner");
-        l2SystemContract.updateBaseFeeOverhead(newBaseFeeOverhead);
+        l2SystemConfig.updateBaseFeeOverhead(newBaseFeeOverhead);
 
         // Test owner can update base fee overhead
-        assertEq(l2SystemContract.baseFeeOverhead(), 0);
+        assertEq(l2SystemConfig.baseFeeOverhead(), 0);
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeOverhead(newBaseFeeOverhead);
-        assertEq(l2SystemContract.baseFeeOverhead(), newBaseFeeOverhead);
+        vm.expectEmit(true, true, true, true);
+        emit BaseFeeOverheadUpdated(0, newBaseFeeOverhead);
+        l2SystemConfig.updateBaseFeeOverhead(newBaseFeeOverhead);
+        assertEq(l2SystemConfig.baseFeeOverhead(), newBaseFeeOverhead);
     }
 
     function test_UpdateBaseFeeScalar(uint256 newBaseFeeScalar) public {
         // Test that only owner can update base fee scalar
         vm.prank(nonOwner);
         vm.expectRevert("Ownable: caller is not the owner");
-        l2SystemContract.updateBaseFeeScalar(newBaseFeeScalar);
+        l2SystemConfig.updateBaseFeeScalar(newBaseFeeScalar);
 
         // Test owner can update base fee scalar
-        assertEq(l2SystemContract.baseFeeScalar(), 0);
+        assertEq(l2SystemConfig.baseFeeScalar(), 0);
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeScalar(newBaseFeeScalar);
-        assertEq(l2SystemContract.baseFeeScalar(), newBaseFeeScalar);
+        vm.expectEmit(true, true, true, true);
+        emit BaseFeeScalarUpdated(0, newBaseFeeScalar);
+        l2SystemConfig.updateBaseFeeScalar(newBaseFeeScalar);
+        assertEq(l2SystemConfig.baseFeeScalar(), newBaseFeeScalar);
     }
 
     function test_GetL2BaseFee(
@@ -75,15 +80,15 @@ contract L2SystemContractTest is Test {
 
         // Set up the contract state
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeScalar(baseFeeScalar);
+        l2SystemConfig.updateBaseFeeScalar(baseFeeScalar);
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeOverhead(baseFeeOverhead);
+        l2SystemConfig.updateBaseFeeOverhead(baseFeeOverhead);
 
         // Calculate expected L2 base fee
         uint256 expectedL2BaseFee = (l1BaseFee * baseFeeScalar) / 1e18 + baseFeeOverhead;
 
         // Test getL2BaseFee function
-        uint256 actualL2BaseFee = l2SystemContract.getL2BaseFee(l1BaseFee);
+        uint256 actualL2BaseFee = l2SystemConfig.getL2BaseFee(l1BaseFee);
         assertEq(actualL2BaseFee, expectedL2BaseFee);
     }
 
@@ -94,15 +99,15 @@ contract L2SystemContractTest is Test {
 
         // Set up the contract state
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeScalar(baseFeeScalar);
+        l2SystemConfig.updateBaseFeeScalar(baseFeeScalar);
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeOverhead(baseFeeOverhead);
+        l2SystemConfig.updateBaseFeeOverhead(baseFeeOverhead);
 
         // Calculate expected L2 base fee
         uint256 expectedL2BaseFee = baseFeeOverhead; // When L1 base fee is 0, only overhead is added
 
         // Test getL2BaseFee function
-        uint256 actualL2BaseFee = l2SystemContract.getL2BaseFee(l1BaseFee);
+        uint256 actualL2BaseFee = l2SystemConfig.getL2BaseFee(l1BaseFee);
         assertEq(actualL2BaseFee, expectedL2BaseFee);
     }
 
@@ -113,15 +118,15 @@ contract L2SystemContractTest is Test {
 
         // Set up the contract state
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeScalar(baseFeeScalar);
+        l2SystemConfig.updateBaseFeeScalar(baseFeeScalar);
         vm.prank(owner);
-        l2SystemContract.updateBaseFeeOverhead(baseFeeOverhead);
+        l2SystemConfig.updateBaseFeeOverhead(baseFeeOverhead);
 
         // Calculate expected L2 base fee
         uint256 expectedL2BaseFee = (l1BaseFee * baseFeeScalar) / 1e18 + baseFeeOverhead;
 
         // Test getL2BaseFee function
-        uint256 actualL2BaseFee = l2SystemContract.getL2BaseFee(l1BaseFee);
+        uint256 actualL2BaseFee = l2SystemConfig.getL2BaseFee(l1BaseFee);
         assertEq(actualL2BaseFee, expectedL2BaseFee);
     }
 }
