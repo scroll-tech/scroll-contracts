@@ -19,3 +19,9 @@ broadcast
 
 # Visual Studio Code
 .vscode
+
+# OS
+.DS_Store
+
+# config
+scripts/deterministic/config/config-contracts.toml
