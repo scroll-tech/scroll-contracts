@@ -3,6 +3,9 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {ITransparentUpgradeableProxy, TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
 import {PauseController} from "../../misc/PauseController.sol";
 import {IPausable} from "../../misc/IPausable.sol";
 import {ScrollOwner} from "../../misc/ScrollOwner.sol";
@@ -20,22 +23,31 @@ contract MockPausable is IPausable {
 }
 
 contract PauseControllerTest is Test {
+    event Pause(address indexed component);
+    event Unpause(address indexed component);
+    event UpdatePauseCooldownPeriod(uint256 oldPauseCooldownPeriod, uint256 newPauseCooldownPeriod);
+
+    uint256 public constant PAUSE_COOLDOWN_PERIOD = 1 days;
+
+    ProxyAdmin public admin;
     PauseController public pauseController;
     MockPausable public mockPausable;
     ScrollOwner public scrollOwner;
     address public owner;
-    uint256 public constant PAUSE_COOLDOWN_PERIOD = 1 days;
-
-    event Pause(address indexed component);
-    event Unpause(address indexed component);
-    event UpdatePauseCooldownPeriod(uint256 oldPauseCooldownPeriod, uint256 newPauseCooldownPeriod);
 
     function setUp() public {
         owner = makeAddr("owner");
         vm.startPrank(owner);
 
+        admin = new ProxyAdmin();
         scrollOwner = new ScrollOwner();
-        pauseController = new PauseController(address(scrollOwner), PAUSE_COOLDOWN_PERIOD);
+        PauseController impl = new PauseController(address(scrollOwner));
+        TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
+            address(impl),
+            address(admin),
+            abi.encodeCall(PauseController.initialize, (PAUSE_COOLDOWN_PERIOD))
+        );
+        pauseController = PauseController(address(proxy));
         mockPausable = new MockPausable();
 
         bytes4[] memory selectors = new bytes4[](1);
@@ -54,9 +66,7 @@ contract PauseControllerTest is Test {
         vm.expectEmit(true, false, false, true);
         emit Pause(address(mockPausable));
         pauseController.pause(mockPausable);
-
         assertTrue(mockPausable.paused());
-        assertEq(pauseController.getLastPauseTime(mockPausable), block.timestamp);
 
         vm.stopPrank();
     }
@@ -76,24 +86,22 @@ contract PauseControllerTest is Test {
         vm.startPrank(owner);
 
         pauseController.pause(mockPausable);
-        uint256 lastPauseTime = pauseController.getLastPauseTime(mockPausable);
-        assertEq(lastPauseTime, block.timestamp);
+        pauseController.unpause(mockPausable);
+        uint256 lastUnpauseTime = pauseController.getLastUnpauseTime(mockPausable);
+        assertEq(lastUnpauseTime, block.timestamp);
 
-        mockPausable.setPause(false);
-
-        vm.warp(lastPauseTime + PAUSE_COOLDOWN_PERIOD - 1);
+        vm.warp(lastUnpauseTime + PAUSE_COOLDOWN_PERIOD - 1);
         vm.expectRevert(PauseController.ErrorCooldownPeriodNotPassed.selector);
         pauseController.pause(mockPausable);
         assertFalse(mockPausable.paused());
 
-        vm.warp(lastPauseTime + PAUSE_COOLDOWN_PERIOD);
+        vm.warp(lastUnpauseTime + PAUSE_COOLDOWN_PERIOD);
         vm.expectRevert(PauseController.ErrorCooldownPeriodNotPassed.selector);
         pauseController.pause(mockPausable);
         assertFalse(mockPausable.paused());
 
-        vm.warp(lastPauseTime + PAUSE_COOLDOWN_PERIOD + 1);
+        vm.warp(lastUnpauseTime + PAUSE_COOLDOWN_PERIOD + 1);
         pauseController.pause(mockPausable);
-        assertEq(pauseController.getLastPauseTime(mockPausable), lastPauseTime + PAUSE_COOLDOWN_PERIOD + 1);
         assertTrue(mockPausable.paused());
 
         vm.stopPrank();
@@ -104,9 +112,11 @@ contract PauseControllerTest is Test {
 
         pauseController.pause(mockPausable);
 
+        assertEq(pauseController.getLastUnpauseTime(mockPausable), 0);
         vm.expectEmit(true, false, false, true);
         emit Unpause(address(mockPausable));
         pauseController.unpause(mockPausable);
+        assertEq(pauseController.getLastUnpauseTime(mockPausable), block.timestamp);
 
         assertFalse(mockPausable.paused());
 

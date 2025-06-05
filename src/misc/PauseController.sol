@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 import {IPausable} from "./IPausable.sol";
 
@@ -10,7 +10,7 @@ import {ScrollOwner} from "./ScrollOwner.sol";
 /// @title PauseController
 /// @notice This contract is used to pause and unpause components in Scroll.
 /// @dev The owner of this contract should be `ScrollOwner` contract to allow fine-grained control over the pause and unpause of components.
-contract PauseController is Ownable {
+contract PauseController is OwnableUpgradeable {
     /**********
      * Events *
      **********/
@@ -68,15 +68,21 @@ contract PauseController is Ownable {
     /// @notice The pause cooldown period. That is the minimum time between two consecutive pauses.
     uint256 public pauseCooldownPeriod;
 
-    /// @notice The last pause time of each component.
-    mapping(address => uint256) private lastPauseTime;
+    /// @notice The last unpause time of each component.
+    mapping(address => uint256) private lastUnpauseTime;
 
     /***************
      * Constructor *
      ***************/
 
-    constructor(address _scrollOwner, uint256 _pauseCooldownPeriod) {
+    constructor(address _scrollOwner) {
         SCROLL_OWNER = _scrollOwner;
+
+        _disableInitializers();
+    }
+
+    function initialize(uint256 _pauseCooldownPeriod) external initializer {
+        __Ownable_init();
 
         _updatePauseCooldownPeriod(_pauseCooldownPeriod);
     }
@@ -85,11 +91,11 @@ contract PauseController is Ownable {
      * Public View Functions *
      *************************/
 
-    /// @notice Get the last pause time of a component.
-    /// @param component The component to get the last pause time.
-    /// @return The last pause time of the component.
-    function getLastPauseTime(IPausable component) external view returns (uint256) {
-        return lastPauseTime[address(component)];
+    /// @notice Get the last unpause timestamp of a component.
+    /// @param component The component to get the last unpause timestamp.
+    /// @return The last unpause timestamp of the component.
+    function getLastUnpauseTime(IPausable component) external view returns (uint256) {
+        return lastUnpauseTime[address(component)];
     }
 
     /************************
@@ -103,11 +109,9 @@ contract PauseController is Ownable {
             revert ErrorComponentAlreadyPaused();
         }
 
-        if (lastPauseTime[address(component)] + pauseCooldownPeriod >= block.timestamp) {
+        if (lastUnpauseTime[address(component)] + pauseCooldownPeriod >= block.timestamp) {
             revert ErrorCooldownPeriodNotPassed();
         }
-
-        lastPauseTime[address(component)] = block.timestamp;
 
         ScrollOwner(payable(SCROLL_OWNER)).execute(
             address(component),
@@ -136,6 +140,8 @@ contract PauseController is Ownable {
             abi.encodeWithSelector(IPausable.setPause.selector, false),
             PAUSE_CONTROLLER_ROLE
         );
+
+        lastUnpauseTime[address(component)] = block.timestamp;
 
         if (component.paused()) {
             revert ErrorExecuteUnpauseFailed();
