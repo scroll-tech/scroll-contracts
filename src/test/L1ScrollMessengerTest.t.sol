@@ -256,13 +256,13 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         //   32B value
         //   32B nonce
         //   message byte array (32B offset + 32B length + bytes (padding to multiple of 32))
-        // So the intrinsic gas must be greater than 21000 + 16 * 228 = 24648
-        uint256 _fee = messageQueueV2.estimateL2BaseFee() * 24648;
-        l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", 24648);
+        // So the intrinsic gas must be greater than 21000 + 40 * 228 = 30120
+        uint256 _fee = messageQueueV2.estimateL2BaseFee() * 30120;
+        l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", 30120);
 
         // insufficient intrinsic gas
         hevm.expectRevert(L1MessageQueueV2.ErrorGasLimitBelowIntrinsicGas.selector);
-        l1Messenger.sendMessage{value: _fee + value}(address(0), 1, hex"0011220033", 24647);
+        l1Messenger.sendMessage{value: _fee + value}(address(0), 1, hex"0011220033", 30119);
 
         // gas limit exceeds the max value
         uint256 gasLimit = 100000000;
