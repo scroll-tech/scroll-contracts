@@ -289,7 +289,7 @@ contract L1ScrollMessenger is ScrollMessengerBase, IL1ScrollMessenger {
         bytes memory _message,
         uint256 _gasLimit,
         address _refundAddress
-    ) internal nonReentrant {
+    ) internal virtual nonReentrant {
         // compute the actual cross domain message calldata.
         uint256 _messageNonce = IL1MessageQueueV2(messageQueueV2).nextCrossDomainMessageIndex();
         bytes memory _xDomainCalldata = _encodeXDomainCalldata(_msgSender(), _to, _value, _messageNonce, _message);
