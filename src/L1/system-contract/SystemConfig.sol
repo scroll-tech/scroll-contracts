@@ -4,6 +4,25 @@ pragma solidity =0.8.24;
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract SystemConfig is OwnableUpgradeable {
+    /**********
+     * Events *
+     **********/
+
+    /// @notice Emitted when the message queue parameters are updated.
+    /// @param oldParams The old parameters.
+    /// @param newParams The new parameters.
+    event MessageQueueParametersUpdated(MessageQueueParameters oldParams, MessageQueueParameters newParams);
+
+    /// @notice Emitted when the enforced batch parameters are updated.
+    /// @param oldParams The old parameters.
+    /// @param newParams The new parameters.
+    event EnforcedBatchParametersUpdated(EnforcedBatchParameters oldParams, EnforcedBatchParameters newParams);
+
+    /// @notice Emitted when the signer is updated.
+    /// @param oldSigner The old signer.
+    /// @param newSigner The new signer.
+    event SignerUpdated(address oldSigner, address newSigner);
+
     /***********
      * Structs *
      ***********/
@@ -83,20 +102,26 @@ contract SystemConfig is OwnableUpgradeable {
     /// @param _params The new message queue parameters.
     /// @dev Only the owner can call this function.
     function updateMessageQueueParameters(MessageQueueParameters memory _params) external onlyOwner {
+        MessageQueueParameters memory oldParams = messageQueueParameters;
         messageQueueParameters = _params;
+        emit MessageQueueParametersUpdated(oldParams, _params);
     }
 
     /// @notice Update the enforced batch parameters.
     /// @param _params The new enforced batch parameters.
     /// @dev Only the owner can call this function.
     function updateEnforcedBatchParameters(EnforcedBatchParameters memory _params) external onlyOwner {
+        EnforcedBatchParameters memory oldParams = enforcedBatchParameters;
         enforcedBatchParameters = _params;
+        emit EnforcedBatchParametersUpdated(oldParams, _params);
     }
 
     /// @notice Update the current signer.
     /// @param _newSigner The address of the new authorized signer.
     /// @dev Only the owner can call this function.
     function updateSigner(address _newSigner) external onlyOwner {
+        address oldSigner = currentSigner;
         currentSigner = _newSigner;
+        emit SignerUpdated(oldSigner, _newSigner);
     }
 }
