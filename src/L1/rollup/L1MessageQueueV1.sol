@@ -17,6 +17,7 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 /// @title L1MessageQueue
 /// @notice This contract will hold all L1 to L2 messages.
 /// Each appended message is assigned with a unique and increasing `uint256` index.
+/// @custom:deprecated This contract is no longer used in production.
 contract L1MessageQueueV1 is OwnableUpgradeable, IL1MessageQueueV1 {
     using BitMapsUpgradeable for BitMapsUpgradeable.BitMap;
 
