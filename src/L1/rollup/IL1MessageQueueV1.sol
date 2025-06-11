@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.24;
 
-/// @custom:deprecated  This contract is no longer used in production.
+/// @custom:deprecated This contract is no longer used in production.
 interface IL1MessageQueueV1 {
     /**********
      * Events *

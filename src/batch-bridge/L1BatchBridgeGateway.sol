@@ -16,7 +16,7 @@ import {BatchBridgeCodec} from "./BatchBridgeCodec.sol";
 import {L2BatchBridgeGateway} from "./L2BatchBridgeGateway.sol";
 
 /// @title L1BatchBridgeGateway
-/// @custom:deprecated  This contract is no longer used in production.
+/// @custom:deprecated This contract is no longer used in production.
 contract L1BatchBridgeGateway is AccessControlEnumerableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 

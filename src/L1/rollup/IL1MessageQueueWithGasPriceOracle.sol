@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 
 import {IL1MessageQueueV1} from "./IL1MessageQueueV1.sol";
 
-/// @custom:deprecated  This contract is no longer used in production.
+/// @custom:deprecated This contract is no longer used in production.
 interface IL1MessageQueueWithGasPriceOracle is IL1MessageQueueV1 {
     /**********
      * Events *

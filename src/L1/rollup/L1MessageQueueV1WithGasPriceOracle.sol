@@ -9,7 +9,7 @@ import {IL2GasPriceOracle} from "./IL2GasPriceOracle.sol";
 
 import {L1MessageQueueV1} from "./L1MessageQueueV1.sol";
 
-/// @custom:deprecated  This contract is no longer used in production.
+/// @custom:deprecated This contract is no longer used in production.
 contract L1MessageQueueV1WithGasPriceOracle is L1MessageQueueV1, IL1MessageQueueWithGasPriceOracle {
     /*************
      * Constants *
