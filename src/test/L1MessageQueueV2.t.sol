@@ -135,7 +135,7 @@ contract L1MessageQueueV2Test is ScrollTestBase {
     }
 
     function testCalculateIntrinsicGasFee(bytes calldata data) external {
-        assertEq(queueV2.calculateIntrinsicGasFee(data), 21000 + data.length * 16);
+        assertEq(queueV2.calculateIntrinsicGasFee(data), 21000 + data.length * 40);
     }
 
     function testAppendCrossDomainMessage(
@@ -143,7 +143,7 @@ contract L1MessageQueueV2Test is ScrollTestBase {
         bytes memory data,
         uint256 timestamp
     ) external {
-        gasLimit = bound(gasLimit, 21000 + data.length * 16, 10000000);
+        gasLimit = bound(gasLimit, 21000 + data.length * 40, 10000000);
         timestamp = bound(timestamp, 1, 2**31 - 1);
 
         // should revert, when non-messenger call
@@ -197,7 +197,7 @@ contract L1MessageQueueV2Test is ScrollTestBase {
         bytes memory data,
         uint256 timestamp
     ) external {
-        gasLimit = bound(gasLimit, 21000 + data.length * 16, 10000000);
+        gasLimit = bound(gasLimit, 21000 + data.length * 40, 10000000);
         timestamp = bound(timestamp, 1, 2**31 - 1);
 
         // should revert, when non-gateway call

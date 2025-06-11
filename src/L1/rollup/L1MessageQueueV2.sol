@@ -53,7 +53,8 @@ contract L1MessageQueueV2 is OwnableUpgradeable, IL1MessageQueueV2 {
     uint256 private constant INTRINSIC_GAS_TX = 21000;
 
     /// @notice The appropriate intrinsic gas for each byte.
-    uint256 private constant APPROPRIATE_INTRINSIC_GAS_PER_BYTE = 16;
+    // @dev This accounts for both intrinsic gas and EIP-7623 floor gas.
+    uint256 private constant APPROPRIATE_INTRINSIC_GAS_PER_BYTE = 40;
 
     uint256 private constant PRECISION = 1e18;
 
