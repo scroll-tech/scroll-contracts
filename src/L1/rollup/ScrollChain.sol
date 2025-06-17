@@ -130,6 +130,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when given batch is not committed before.
     error ErrorBatchNotCommitted();
 
+    /// @dev Thrown when the function call is not the top-level call in the transaction.
+    /// @dev This is checked so that indexers that need to decode calldata continue to work.
+    error ErrorTopLevelCallRequired();
+
     /*************
      * Constants *
      *************/
@@ -239,6 +243,12 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     modifier whenEnforcedBatchNotEnabled() {
         if (isEnforcedModeEnabled()) revert ErrorInEnforcedBatchMode();
+        _;
+    }
+
+    modifier OnlyTopLevelCall() {
+        // disallow contract accounts and delegated EOAs
+        if (msg.sender.code.length != 0) revert ErrorTopLevelCallRequired();
         _;
     }
 
@@ -528,7 +538,7 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint8 version,
         bytes32 parentBatchHash,
         FinalizeStruct calldata finalizeStruct
-    ) external {
+    ) external OnlyTopLevelCall {
         ScrollChainMiscData memory cachedMiscData = miscData;
         if (!isEnforcedModeEnabled()) {
             (uint256 maxDelayEnterEnforcedMode, uint256 maxDelayMessageQueue) = SystemConfig(systemConfig)
