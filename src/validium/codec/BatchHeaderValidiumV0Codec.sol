@@ -12,7 +12,7 @@ pragma solidity ^0.8.24;
 ///   * parentBatchHash         32          bytes32     9       The parent batch hash.
 ///   * postStateRoot           32          bytes32     41      The state root after this batch.
 ///   * withdrawRoot            32          bytes32     73      The withdraw root after this batch.
-///   * commitment              dynamic     bytes3      105     A dynamic data commitment.
+///   * commitment              dynamic     bytes       105     A dynamic data commitment.
 /// ```
 library BatchHeaderValidiumV0Codec {
     /// @dev Thrown when the length of batch header is smaller than 105
@@ -55,12 +55,30 @@ library BatchHeaderValidiumV0Codec {
         }
     }
 
+    /// @notice Get the parent batch hash of the batch.
+    /// @param batchPtr The start memory offset of the batch header in memory.
+    /// @return _parentBatchHash The parent batch hash.
+    function getParentBatchHash(uint256 batchPtr) internal pure returns (bytes32 _parentBatchHash) {
+        assembly {
+            _parentBatchHash := mload(add(batchPtr, 9))
+        }
+    }
+
     /// @notice Get the batch index of the batch.
     /// @param batchPtr The start memory offset of the batch header in memory.
     /// @return _postStateRoot The state root after of the batch.
     function getPostStateRoot(uint256 batchPtr) internal pure returns (bytes32 _postStateRoot) {
         assembly {
             _postStateRoot := mload(add(batchPtr, 41))
+        }
+    }
+
+    /// @notice Get the withdraw root of the batch.
+    /// @param batchPtr The start memory offset of the batch header in memory.
+    /// @return _withdrawRoot The withdraw root of the batch.
+    function getWithdrawRoot(uint256 batchPtr) internal pure returns (bytes32 _withdrawRoot) {
+        assembly {
+            _withdrawRoot := mload(add(batchPtr, 73))
         }
     }
 

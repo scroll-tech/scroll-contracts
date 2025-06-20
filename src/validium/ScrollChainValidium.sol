@@ -20,6 +20,9 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
      * Errors *
      **********/
 
+    /// @dev Thrown when the given genesis batch is invalid.
+    error ErrorInvalidGenesisBatch();
+
     /// @dev Thrown when finalizing a verified batch.
     error ErrorBatchIsAlreadyVerified();
 
@@ -73,9 +76,6 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
 
     /// @inheritdoc IScrollChainValidium
     uint256 public override lastCommittedBatchIndex;
-
-    /// @notice The timestamp of the last finalize transaction.
-    uint256 public lastFinalizeTimestamp;
 
     /// @dev Mapping from batch index to batch hash.
     mapping(uint256 => bytes32) public override committedBatches;
@@ -135,6 +135,19 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     /// @param _batchHeader The header of the genesis batch.
     function importGenesisBatch(bytes calldata _batchHeader) external onlyRole(GENESIS_IMPORTER_ROLE) {
         (uint256 batchPtr, uint256 _length) = BatchHeaderValidiumV0Codec.loadAndValidate(_batchHeader);
+        // batch index should be 0 for genesis batch
+        if (BatchHeaderValidiumV0Codec.getBatchIndex(batchPtr) != 0) {
+            revert ErrorInvalidGenesisBatch();
+        }
+        // parant batch hash should be 0 for genesis batch
+        if (BatchHeaderValidiumV0Codec.getParentBatchHash(batchPtr) != bytes32(0)) {
+            revert ErrorInvalidGenesisBatch();
+        }
+        // withdraw root should be 0 for genesis batch
+        if (BatchHeaderValidiumV0Codec.getWithdrawRoot(batchPtr) != bytes32(0)) {
+            revert ErrorInvalidGenesisBatch();
+        }
+
         bytes32 _postStateRoot = BatchHeaderValidiumV0Codec.getPostStateRoot(batchPtr);
 
         // check state root
@@ -262,7 +275,6 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         bytes32 withdrawRoot
     ) internal {
         lastFinalizedBatchIndex = batchIndex;
-        lastFinalizeTimestamp = block.timestamp;
 
         if (totalL1MessagesPoppedOverall > 0) {
             IL1MessageQueueV2(messageQueueV2).finalizePoppedCrossDomainMessage(totalL1MessagesPoppedOverall);
