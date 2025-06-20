@@ -291,7 +291,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         bytes calldata batchHeader,
         uint256 totalL1MessagesPoppedOverall,
         bytes calldata aggrProof
-    ) internal {
+    ) internal virtual {
         // actions before verification
         (uint256 version, bytes32 batchHash, uint256 batchIndex, uint256 prevBatchIndex) = _beforeFinalizeBatch(
             batchHeader
