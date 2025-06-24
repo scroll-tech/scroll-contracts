@@ -638,6 +638,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // revert when ErrorNotInEnforcedBatchMode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             bytes32(0),
@@ -649,6 +650,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
 
         system.updateEnforcedBatchParameters(
             SystemConfig.EnforcedBatchParameters({
@@ -669,6 +671,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 13
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[12]),
@@ -680,6 +683,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
         (uint256 lastCommittedBatchIndex, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, , ) = rollup
             .miscData();
         assertEq(lastCommittedBatchIndex, 13);
@@ -709,6 +713,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 14, no need to warp time
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[13]),
@@ -720,6 +725,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
         (lastCommittedBatchIndex, lastFinalizedBatchIndex, lastFinalizeTimestamp, , ) = rollup.miscData();
         assertEq(lastCommittedBatchIndex, 14);
         assertEq(lastFinalizedBatchIndex, 14);
@@ -739,6 +745,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // not in enforced mode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[13]),
@@ -750,6 +757,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
     }
 
     function testCommitAndFinalizeBatchByExpiredBatch() external {
@@ -780,6 +788,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // revert when ErrorNotInEnforcedBatchMode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             bytes32(0),
@@ -791,6 +800,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
 
         system.updateEnforcedBatchParameters(
             SystemConfig.EnforcedBatchParameters({
@@ -803,6 +813,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 13
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
+        hevm.startPrank(address(999));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[12]),
@@ -814,6 +825,7 @@ contract ScrollChainTest is DSTestPlus {
                 zkProof: new bytes(0)
             })
         );
+        hevm.stopPrank();
         (uint256 lastCommittedBatchIndex, uint256 lastFinalizedBatchIndex, uint256 lastFinalizeTimestamp, , ) = rollup
             .miscData();
         assertEq(lastCommittedBatchIndex, 13);
