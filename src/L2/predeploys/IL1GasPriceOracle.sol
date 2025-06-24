@@ -23,6 +23,14 @@ interface IL1GasPriceOracle {
     /// @param scalar The current blob fee scalar updated.
     event BlobScalarUpdated(uint256 scalar);
 
+    /// @notice Emitted when current compression penalty threshold is updated.
+    /// @param threshold The new compression penalty threshold.
+    event PenaltyThresholdUpdated(uint256 threshold);
+
+    /// @notice Emitted when current compression penalty factor is updated.
+    /// @param factor The new compression penalty factor.
+    event PenaltyFactorUpdated(uint256 factor);
+
     /// @notice Emitted when current l1 base fee is updated.
     /// @param l1BaseFee The current l1 base fee updated.
     event L1BaseFeeUpdated(uint256 l1BaseFee);
@@ -46,6 +54,12 @@ interface IL1GasPriceOracle {
 
     /// @notice Return the current l1 blob fee scalar.
     function blobScalar() external view returns (uint256);
+
+    /// @notice Return the current compression penalty threshold.
+    function penaltyThreshold() external view returns (uint256);
+
+    /// @notice Return the current compression penalty factor.
+    function penaltyFactor() external view returns (uint256);
 
     /// @notice Return the latest known l1 base fee.
     function l1BaseFee() external view returns (uint256);

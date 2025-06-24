@@ -135,6 +135,23 @@ contract L1GasPriceOracleTest is DSTestPlus {
         oracle.enableCurie();
     }
 
+    function testEnableFeynman() external {
+        // call by non-owner, should revert
+        hevm.startPrank(address(1));
+        hevm.expectRevert("caller is not the owner");
+        oracle.enableFeynman();
+        hevm.stopPrank();
+
+        // call by owner, should succeed
+        assertBoolEq(oracle.isFeynman(), false);
+        oracle.enableFeynman();
+        assertBoolEq(oracle.isFeynman(), true);
+
+        // enable twice, should revert
+        hevm.expectRevert(L1GasPriceOracle.ErrAlreadyInFeynmanFork.selector);
+        oracle.enableFeynman();
+    }
+
     function testSetL1BaseFee(uint256 _baseFee) external {
         _baseFee = bound(_baseFee, 0, 1e9 * 20000); // max 20k gwei
 
@@ -230,6 +247,42 @@ contract L1GasPriceOracleTest is DSTestPlus {
         assertEq(
             oracle.getL1Fee(_data),
             (_commitScalar * _baseFee + _blobScalar * _blobBaseFee * _data.length) / PRECISION
+        );
+    }
+
+    function testGetL1GasUsedFeynman(bytes memory _data) external {
+        oracle.enableFeynman();
+        assertEq(oracle.getL1GasUsed(_data), 0);
+    }
+
+    function testGetL1FeeFeynman(
+        uint256 _baseFee,
+        uint256 _blobBaseFee,
+        uint256 _commitScalar,
+        uint256 _blobScalar,
+        uint256 _penaltyThreshold,
+        uint256 _penaltyFactor,
+        bytes memory _data
+    ) external {
+        _baseFee = bound(_baseFee, 0, 1e9 * 20000); // max 20k gwei
+        _blobBaseFee = bound(_blobBaseFee, 0, 1e9 * 20000); // max 20k gwei
+        _commitScalar = bound(_commitScalar, 0, MAX_COMMIT_SCALAR);
+        _blobScalar = bound(_blobScalar, 0, MAX_BLOB_SCALAR);
+        _penaltyThreshold = bound(_penaltyThreshold, 1e9, 1e9 * 5);
+        _penaltyFactor = bound(_penaltyFactor, 1e9, 1e9 * 10); // min 1x, max 10x penalty
+
+        oracle.enableFeynman();
+        oracle.setCommitScalar(_commitScalar);
+        oracle.setBlobScalar(_blobScalar);
+        oracle.setL1BaseFeeAndBlobBaseFee(_baseFee, _blobBaseFee);
+        oracle.setPenaltyThreshold(_penaltyThreshold);
+        oracle.setPenaltyFactor(_penaltyFactor);
+
+        assertEq(
+            oracle.getL1Fee(_data),
+            ((_commitScalar * _baseFee + _blobScalar * _blobBaseFee) * _data.length * _penaltyFactor) /
+                PRECISION /
+                PRECISION
         );
     }
 }
