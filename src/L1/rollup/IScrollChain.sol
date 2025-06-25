@@ -41,11 +41,6 @@ interface IScrollChain {
     /// @param status The status of the account updated.
     event UpdateProver(address indexed account, bool status);
 
-    /// @notice Emitted when the value of `maxNumTxInChunk` is updated.
-    /// @param oldMaxNumTxInChunk The old value of `maxNumTxInChunk`.
-    /// @param newMaxNumTxInChunk The new value of `maxNumTxInChunk`.
-    event UpdateMaxNumTxInChunk(uint256 oldMaxNumTxInChunk, uint256 newMaxNumTxInChunk);
-
     /// @notice Emitted when we enter or exit enforced batch mode.
     /// @param enabled True if we are entering enforced batch mode, false otherwise.
     /// @param lastCommittedBatchIndex The index of the last committed batch.
@@ -78,26 +73,6 @@ interface IScrollChain {
      * Public Mutating Functions *
      *****************************/
 
-    /// @notice Commit a batch of transactions on layer 1 with blob data proof.
-    ///
-    /// @dev Memory layout of `blobDataProof`:
-    /// |    z    |    y    | kzg_commitment | kzg_proof |
-    /// |---------|---------|----------------|-----------|
-    /// | bytes32 | bytes32 |    bytes48     |  bytes48  |
-    ///
-    /// @param version The version of current batch.
-    /// @param parentBatchHeader The header of parent batch.
-    /// @param chunks The list of encoded chunks, see the comments of `ChunkCodec`.
-    /// @param skippedL1MessageBitmap The bitmap indicates whether each L1 message is skipped or not.
-    /// @param blobDataProof The proof for blob data.
-    function commitBatchWithBlobProof(
-        uint8 version,
-        bytes calldata parentBatchHeader,
-        bytes[] memory chunks,
-        bytes calldata skippedL1MessageBitmap,
-        bytes calldata blobDataProof
-    ) external;
-
     /// @notice Commit one or more batches after the EuclidV2 upgrade.
     /// @param version The version of the committed batches.
     /// @param parentBatchHash The hash of parent batch.
@@ -113,18 +88,6 @@ interface IScrollChain {
     /// @dev one can only revert unfinalized batches.
     /// @param batchHeader The header of the last batch we want to keep.
     function revertBatch(bytes calldata batchHeader) external;
-
-    /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1.
-    /// @param batchHeader The header of last batch in current bundle, see the encoding in comments of `commitBatch.
-    /// @param postStateRoot The state root after current bundle.
-    /// @param withdrawRoot The withdraw trie root after current batch.
-    /// @param aggrProof The aggregation proof for current bundle.
-    function finalizeBundleWithProof(
-        bytes calldata batchHeader,
-        bytes32 postStateRoot,
-        bytes32 withdrawRoot,
-        bytes calldata aggrProof
-    ) external;
 
     /// @notice Finalize a list of committed batches (i.e. bundle) on layer 1 after the EuclidV2 upgrade.
     /// @param batchHeader The header of the last batch in this bundle.

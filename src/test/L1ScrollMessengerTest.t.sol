@@ -126,8 +126,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
 
         exceedValue = bound(exceedValue, 1, address(this).balance / 2);
 
-        l1Messenger.updateMaxReplayTimes(0);
-
         // append a message
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
 
@@ -141,20 +139,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         l1Messenger.replayMessage(address(this), address(0), 100, 0, new bytes(0), defaultGasLimit, refundAddress);
 
         uint256 _fee = messageQueueV2.estimateL2BaseFee() * defaultGasLimit;
-
-        // Exceed maximum replay times
-        hevm.expectRevert("Exceed maximum replay times");
-        l1Messenger.replayMessage{value: _fee}(
-            address(this),
-            address(0),
-            100,
-            0,
-            new bytes(0),
-            defaultGasLimit,
-            refundAddress
-        );
-
-        l1Messenger.updateMaxReplayTimes(1);
 
         // refund exceed fee
         uint256 balanceBefore = refundAddress.balance;
@@ -175,7 +159,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         // 1. send a message with nonce 2
         // 2. replay 3 times
         setL2BaseFee(0);
-        l1Messenger.updateMaxReplayTimes(100);
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
         bytes32 hash = keccak256(
             abi.encodeWithSignature(
@@ -200,21 +183,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
                 assertEq(l1Messenger.prevReplayIndex(i + 3 - j), i + 2 - j + 1);
             }
         }
-    }
-
-    function testUpdateMaxReplayTimes(uint256 _maxReplayTimes) external {
-        // not owner, revert
-        hevm.startPrank(address(1));
-        hevm.expectRevert("Ownable: caller is not the owner");
-        l1Messenger.updateMaxReplayTimes(_maxReplayTimes);
-        hevm.stopPrank();
-
-        hevm.expectEmit(false, false, false, true);
-        emit UpdateMaxReplayTimes(3, _maxReplayTimes);
-
-        assertEq(l1Messenger.maxReplayTimes(), 3);
-        l1Messenger.updateMaxReplayTimes(_maxReplayTimes);
-        assertEq(l1Messenger.maxReplayTimes(), _maxReplayTimes);
     }
 
     function testSetPause() external {

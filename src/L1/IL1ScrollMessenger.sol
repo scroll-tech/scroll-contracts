@@ -5,15 +5,6 @@ pragma solidity ^0.8.24;
 import {IScrollMessenger} from "../libraries/IScrollMessenger.sol";
 
 interface IL1ScrollMessenger is IScrollMessenger {
-    /**********
-     * Events *
-     **********/
-
-    /// @notice Emitted when the maximum number of times each message can be replayed is updated.
-    /// @param oldMaxReplayTimes The old maximum number of times each message can be replayed.
-    /// @param newMaxReplayTimes The new maximum number of times each message can be replayed.
-    event UpdateMaxReplayTimes(uint256 oldMaxReplayTimes, uint256 newMaxReplayTimes);
-
     /***********
      * Structs *
      ***********/
