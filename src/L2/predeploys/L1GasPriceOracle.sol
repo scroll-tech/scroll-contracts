@@ -39,6 +39,17 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// @dev Thrown when we enable Curie fork after Curie fork.
     error ErrAlreadyInCurieFork();
 
+    /// @dev Thrown when the compression penalty threshold exceeds `MAX_PENALTY_THRESHOLD`,
+    /// or is less than 1 * PRECISION.
+    error ErrInvalidPenaltyThreshold();
+
+    /// @dev Thrown when the compression penalty factor exceeds `MAX_PENALTY_FACTOR`,
+    /// or is less than 1 * PRECISION.
+    error ErrInvalidPenaltyFactor();
+
+    /// @dev Thrown when we enable Feynman fork after Feynman fork.
+    error ErrAlreadyInFeynmanFork();
+
     /*************
      * Constants *
      *************/
@@ -70,6 +81,14 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// So, the value should not exceed 10^9 * 1e9 normally.
     uint256 private constant MAX_BLOB_SCALAR = 10**9 * PRECISION;
 
+    /// @dev The maximum possible compression penalty threshold after Feynman.
+    /// The value should not exceed 10^9 * 1e9 normally.
+    uint256 private constant MAX_PENALTY_THRESHOLD = 10**9 * PRECISION;
+
+    /// @dev The maximum possible compression penalty factor after Feynman.
+    /// The value should not exceed 10^9 * 1e9 normally.
+    uint256 private constant MAX_PENALTY_FACTOR = 10**9 * PRECISION;
+
     /*************
      * Variables *
      *************/
@@ -98,6 +117,15 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// @notice Indicates whether the network has gone through the Curie upgrade.
     bool public isCurie;
 
+    /// @inheritdoc IL1GasPriceOracle
+    uint256 public override penaltyThreshold;
+
+    /// @inheritdoc IL1GasPriceOracle
+    uint256 public override penaltyFactor;
+
+    /// @notice Indicates whether the network has gone through the Feynman upgrade.
+    bool public isFeynman;
+
     /*************
      * Modifiers *
      *************/
@@ -121,7 +149,9 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
 
     /// @inheritdoc IL1GasPriceOracle
     function getL1Fee(bytes memory _data) external view override returns (uint256) {
-        if (isCurie) {
+        if (isFeynman) {
+            return _getL1FeeFeynman(_data);
+        } else if (isCurie) {
             return _getL1FeeCurie(_data);
         } else {
             return _getL1FeeBeforeCurie(_data);
@@ -130,7 +160,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
 
     /// @inheritdoc IL1GasPriceOracle
     function getL1GasUsed(bytes memory _data) public view override returns (uint256) {
-        if (isCurie) {
+        if (isFeynman || isCurie) {
             // It is near zero since we put all transactions to blob.
             return 0;
         } else {
@@ -202,6 +232,24 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
         emit BlobScalarUpdated(_scalar);
     }
 
+    /// Allows the owner to modify the penaltyThreshold.
+    /// @param _threshold New threshold
+    function setPenaltyThreshold(uint256 _threshold) external onlyOwner {
+        if (_threshold < PRECISION || _threshold > MAX_PENALTY_THRESHOLD) revert ErrInvalidPenaltyThreshold();
+
+        penaltyThreshold = _threshold;
+        emit PenaltyThresholdUpdated(_threshold);
+    }
+
+    /// Allows the owner to modify the penaltyFactor.
+    /// @param _factor New factor
+    function setPenaltyFactor(uint256 _factor) external onlyOwner {
+        if (_factor < PRECISION || _factor > MAX_PENALTY_FACTOR) revert ErrInvalidPenaltyFactor();
+
+        penaltyFactor = _factor;
+        emit PenaltyFactorUpdated(_factor);
+    }
+
     /// @notice Update whitelist contract.
     /// @dev This function can only called by contract owner.
     /// @param _newWhitelist The address of new whitelist contract.
@@ -220,6 +268,16 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     function enableCurie() external onlyOwner {
         if (isCurie) revert ErrAlreadyInCurieFork();
         isCurie = true;
+    }
+
+    /// @notice Enable the Feynman fork (callable by contract owner).
+    ///
+    /// @dev Since this is a predeploy contract, we will directly set the slot while hard fork
+    /// to avoid external owner operations.
+    /// The reason that we keep this function is for easy unit testing.
+    function enableFeynman() external onlyOwner {
+        if (isFeynman) revert ErrAlreadyInFeynmanFork();
+        isFeynman = true;
     }
 
     /**********************
@@ -263,5 +321,17 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     function _getL1FeeCurie(bytes memory _data) private view returns (uint256) {
         // We have bounded the value of `commitScalar` and `blobScalar`, the whole expression won't overflow.
         return (commitScalar * l1BaseFee + blobScalar * _data.length * l1BlobBaseFee) / PRECISION;
+    }
+
+    /// @dev Internal function to compute the L1 portion of the fee based on the size of the rlp encoded input
+    ///   transaction, the current L1 base fee, and the various dynamic parameters, after the Feynman fork.
+    /// @param _data Signed fully RLP-encoded transaction to get the L1 fee for.
+    /// @return L1 fee that should be paid for the tx
+    function _getL1FeeFeynman(bytes memory _data) private view returns (uint256) {
+        // We have bounded the value of `commitScalar`, `blobScalar`, and `penalty`, the whole expression won't overflow.
+        return
+            ((commitScalar * l1BaseFee + blobScalar * l1BlobBaseFee) * _data.length * penaltyFactor) /
+            PRECISION /
+            PRECISION;
     }
 }
