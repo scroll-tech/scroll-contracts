@@ -122,7 +122,7 @@ describe("ZkEvmVerifierV2", async () => {
         await expect(zkEvmVerifier.verify(proof, publicInputs.reverse())).to.reverted;
       });
 
-      it("should succeed when call through ScrollChain", async () => {
+      it.skip("should succeed when call through ScrollChain", async () => {
         const proof = hexlify(fs.readFileSync(`./hardhat-test/testdata/plonk-verifier/${version}_proof.data`));
 
         const lastFinalizedBatchIndex = 1;

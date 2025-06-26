@@ -6,7 +6,6 @@ import {IL2ETHGateway} from "../../L2/gateways/IL2ETHGateway.sol";
 import {IL1ScrollMessenger} from "../IL1ScrollMessenger.sol";
 import {IL1ETHGateway} from "./IL1ETHGateway.sol";
 
-import {IMessageDropCallback} from "../../libraries/callbacks/IMessageDropCallback.sol";
 import {ScrollGatewayBase} from "../../libraries/gateway/ScrollGatewayBase.sol";
 
 // solhint-disable avoid-low-level-calls
@@ -16,7 +15,7 @@ import {ScrollGatewayBase} from "../../libraries/gateway/ScrollGatewayBase.sol";
 /// finalize withdraw ETH from layer 2.
 /// @dev The deposited ETH tokens are held in this gateway. On finalizing withdraw, the corresponding
 /// ETH will be transfer to the recipient directly.
-contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback {
+contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway {
     /***************
      * Constructor *
      ***************/
@@ -98,24 +97,6 @@ contract L1ETHGateway is ScrollGatewayBase, IL1ETHGateway, IMessageDropCallback 
         _doCallback(_to, _data);
 
         emit FinalizeWithdrawETH(_from, _to, _amount, _data);
-    }
-
-    /// @inheritdoc IMessageDropCallback
-    function onDropMessage(bytes calldata _message) external payable virtual onlyInDropContext nonReentrant {
-        // _message should start with 0x232e8748  =>  finalizeDepositETH(address,address,uint256,bytes)
-        require(bytes4(_message[0:4]) == IL2ETHGateway.finalizeDepositETH.selector, "invalid selector");
-
-        // decode (receiver, amount)
-        (address _receiver, , uint256 _amount, ) = abi.decode(_message[4:], (address, address, uint256, bytes));
-
-        require(_amount == msg.value, "msg.value mismatch");
-
-        // no reentrancy risk (nonReentrant modifier).
-        // slither-disable-next-line arbitrary-send-eth
-        (bool _success, ) = _receiver.call{value: _amount}("");
-        require(_success, "ETH transfer failed");
-
-        emit RefundETH(_receiver, _amount);
     }
 
     /**********************
