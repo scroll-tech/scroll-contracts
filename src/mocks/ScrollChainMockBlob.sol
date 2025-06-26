@@ -48,10 +48,6 @@ contract ScrollChainMockBlob is ScrollChain {
         overrideBatchHashCheck = status;
     }
 
-    function _getBlobVersionedHash() internal virtual override returns (bytes32 _blobVersionedHash) {
-        _blobVersionedHash = blobhashes[0];
-    }
-
     function _getBlobVersionedHash(uint256 index) internal virtual override returns (bytes32 _blobVersionedHash) {
         _blobVersionedHash = blobhashes[index];
     }

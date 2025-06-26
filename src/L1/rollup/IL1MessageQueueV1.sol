@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+/// @custom:deprecated This contract is no longer used in production.
 interface IL1MessageQueueV1 {
     /**********
      * Events *
@@ -63,26 +64,32 @@ interface IL1MessageQueueV1 {
      *************************/
 
     /// @notice The start index of all pending inclusion messages.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.pendingQueueIndex` instead.
     function pendingQueueIndex() external view returns (uint256);
 
     /// @notice The start index of all unfinalized messages.
     /// @dev All messages from `nextUnfinalizedQueueIndex` to `pendingQueueIndex-1` are committed but not finalized.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.nextUnfinalizedQueueIndex` instead.
     function nextUnfinalizedQueueIndex() external view returns (uint256);
 
     /// @notice Return the index of next appended message.
     /// @dev Also the total number of appended messages.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.nextCrossDomainMessageIndex` instead.
     function nextCrossDomainMessageIndex() external view returns (uint256);
 
     /// @notice Return the message of in `queueIndex`.
     /// @param queueIndex The index to query.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.getCrossDomainMessage` instead.
     function getCrossDomainMessage(uint256 queueIndex) external view returns (bytes32);
 
     /// @notice Return the amount of ETH should pay for cross domain message.
     /// @param gasLimit Gas limit required to complete the message relay on L2.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.estimateCrossDomainMessageFee` instead.
     function estimateCrossDomainMessageFee(uint256 gasLimit) external view returns (uint256);
 
     /// @notice Return the amount of intrinsic gas fee should pay for cross domain message.
     /// @param _calldata The calldata of L1-initiated transaction.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.calculateIntrinsicGasFee` instead.
     function calculateIntrinsicGasFee(bytes calldata _calldata) external view returns (uint256);
 
     /// @notice Return the hash of a L1 message.
@@ -92,6 +99,7 @@ interface IL1MessageQueueV1 {
     /// @param target The address of target.
     /// @param gasLimit The gas limit provided.
     /// @param data The calldata passed to target address.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.computeTransactionHash` instead.
     function computeTransactionHash(
         address sender,
         uint256 queueIndex,
@@ -103,10 +111,12 @@ interface IL1MessageQueueV1 {
 
     /// @notice Return whether the message is skipped.
     /// @param queueIndex The queue index of the message to check.
+    /// @custom:deprecated
     function isMessageSkipped(uint256 queueIndex) external view returns (bool);
 
     /// @notice Return whether the message is dropped.
     /// @param queueIndex The queue index of the message to check.
+    /// @custom:deprecated
     function isMessageDropped(uint256 queueIndex) external view returns (bool);
 
     /*****************************
@@ -117,6 +127,7 @@ interface IL1MessageQueueV1 {
     /// @param target The address of target contract to call in L2.
     /// @param gasLimit The maximum gas should be used for relay this message in L2.
     /// @param data The calldata passed to target contract.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.appendCrossDomainMessage` instead.
     function appendCrossDomainMessage(
         address target,
         uint256 gasLimit,
@@ -130,6 +141,7 @@ interface IL1MessageQueueV1 {
     /// @param value The value passed
     /// @param gasLimit The maximum gas should be used for this transaction in L2.
     /// @param data The calldata passed to target contract.
+    /// @custom:deprecated Please use `IL1MessageQueueV2.appendEnforcedTransaction` instead.
     function appendEnforcedTransaction(
         address sender,
         address target,
@@ -146,6 +158,7 @@ interface IL1MessageQueueV1 {
     /// @param startIndex The start index to pop.
     /// @param count The number of messages to pop.
     /// @param skippedBitmap A bitmap indicates whether a message is skipped.
+    /// @custom:deprecated
     function popCrossDomainMessage(
         uint256 startIndex,
         uint256 count,
@@ -157,12 +170,15 @@ interface IL1MessageQueueV1 {
     /// @dev We can only reset unfinalized popped messages.
     ///
     /// @param startIndex The start index to reset.
+    /// @custom:deprecated
     function resetPoppedCrossDomainMessage(uint256 startIndex) external;
 
     /// @notice Finalize status of popped messages.
     /// @param newFinalizedQueueIndexPlusOne The index of message to finalize plus one.
+    /// @custom:deprecated
     function finalizePoppedCrossDomainMessage(uint256 newFinalizedQueueIndexPlusOne) external;
 
     /// @notice Drop a skipped message from the queue.
+    /// @custom:deprecated
     function dropCrossDomainMessage(uint256 index) external;
 }

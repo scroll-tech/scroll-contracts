@@ -126,8 +126,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
 
         exceedValue = bound(exceedValue, 1, address(this).balance / 2);
 
-        l1Messenger.updateMaxReplayTimes(0);
-
         // append a message
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
 
@@ -141,20 +139,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         l1Messenger.replayMessage(address(this), address(0), 100, 0, new bytes(0), defaultGasLimit, refundAddress);
 
         uint256 _fee = messageQueueV2.estimateL2BaseFee() * defaultGasLimit;
-
-        // Exceed maximum replay times
-        hevm.expectRevert("Exceed maximum replay times");
-        l1Messenger.replayMessage{value: _fee}(
-            address(this),
-            address(0),
-            100,
-            0,
-            new bytes(0),
-            defaultGasLimit,
-            refundAddress
-        );
-
-        l1Messenger.updateMaxReplayTimes(1);
 
         // refund exceed fee
         uint256 balanceBefore = refundAddress.balance;
@@ -175,7 +159,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         // 1. send a message with nonce 2
         // 2. replay 3 times
         setL2BaseFee(0);
-        l1Messenger.updateMaxReplayTimes(100);
         l1Messenger.sendMessage{value: 100}(address(0), 100, new bytes(0), defaultGasLimit, refundAddress);
         bytes32 hash = keccak256(
             abi.encodeWithSignature(
@@ -202,21 +185,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         }
     }
 
-    function testUpdateMaxReplayTimes(uint256 _maxReplayTimes) external {
-        // not owner, revert
-        hevm.startPrank(address(1));
-        hevm.expectRevert("Ownable: caller is not the owner");
-        l1Messenger.updateMaxReplayTimes(_maxReplayTimes);
-        hevm.stopPrank();
-
-        hevm.expectEmit(false, false, false, true);
-        emit UpdateMaxReplayTimes(3, _maxReplayTimes);
-
-        assertEq(l1Messenger.maxReplayTimes(), 3);
-        l1Messenger.updateMaxReplayTimes(_maxReplayTimes);
-        assertEq(l1Messenger.maxReplayTimes(), _maxReplayTimes);
-    }
-
     function testSetPause() external {
         // not owner, revert
         hevm.startPrank(address(1));
@@ -237,8 +205,6 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         l1Messenger.relayMessageWithProof(address(0), address(0), 0, 0, new bytes(0), _proof);
         hevm.expectRevert("Pausable: paused");
         l1Messenger.replayMessage(address(0), address(0), 0, 0, new bytes(0), 0, address(0));
-        hevm.expectRevert("Pausable: paused");
-        l1Messenger.dropMessage(address(0), address(0), 0, 0, new bytes(0));
 
         // unpause
         l1Messenger.setPause(false);
@@ -274,112 +240,5 @@ contract L1ScrollMessengerTest is L1GatewayTestBase {
         setL2BaseFee(1e9, gasLimit);
         _fee = messageQueueV2.estimateL2BaseFee() * gasLimit;
         l1Messenger.sendMessage{value: _fee + value}(address(0), value, hex"0011220033", gasLimit);
-    }
-
-    /* comments out, it is tested in `src/test/MessageQueueSwitch.t.sol`.
-    function testDropMessage() external {
-        // Provided message has not been enqueued, revert
-        hevm.expectRevert("Provided message has not been enqueued");
-        l1Messenger.dropMessage(address(0), address(0), 0, 0, new bytes(0));
-
-        // send one message with nonce 0
-        l1Messenger.sendMessage(address(0), 0, new bytes(0), defaultGasLimit);
-        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 1);
-
-        // drop pending message, revert
-        hevm.expectRevert("cannot drop pending message");
-        l1Messenger.dropMessage(address(this), address(0), 0, 0, new bytes(0));
-
-        l1Messenger.updateMaxReplayTimes(10);
-
-        // replay 1 time
-        l1Messenger.replayMessage(address(this), address(0), 0, 0, new bytes(0), defaultGasLimit, address(0));
-        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 2);
-
-        // skip all 2 messages
-        hevm.startPrank(address(rollup));
-        messageQueueV1.popCrossDomainMessage(0, 2, 0x3);
-        messageQueueV1.finalizePoppedCrossDomainMessage(2);
-        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 2);
-        assertEq(messageQueueV1.pendingQueueIndex(), 2);
-        hevm.stopPrank();
-        for (uint256 i = 0; i < 2; ++i) {
-            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
-            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
-        }
-        hevm.expectEmit(false, false, false, true);
-        emit OnDropMessageCalled(new bytes(0));
-        l1Messenger.dropMessage(address(this), address(0), 0, 0, new bytes(0));
-        for (uint256 i = 0; i < 2; ++i) {
-            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
-            assertBoolEq(messageQueueV1.isMessageDropped(i), true);
-        }
-
-        // send one message with nonce 2 and replay 3 times
-        l1Messenger.sendMessage(address(0), 0, new bytes(0), defaultGasLimit);
-        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 3);
-        for (uint256 i = 0; i < 3; i++) {
-            l1Messenger.replayMessage(address(this), address(0), 0, 2, new bytes(0), defaultGasLimit, address(0));
-        }
-        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 6);
-
-        // only first 3 are skipped
-        hevm.startPrank(address(rollup));
-        messageQueueV1.popCrossDomainMessage(2, 4, 0x7);
-        messageQueueV1.finalizePoppedCrossDomainMessage(6);
-        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 6);
-        assertEq(messageQueueV1.pendingQueueIndex(), 6);
-        hevm.stopPrank();
-        for (uint256 i = 2; i < 6; i++) {
-            assertBoolEq(messageQueueV1.isMessageSkipped(i), i < 5);
-            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
-        }
-
-        // drop non-skipped message, revert
-        hevm.expectRevert("drop non-skipped message");
-        l1Messenger.dropMessage(address(this), address(0), 0, 2, new bytes(0));
-
-        // send one message with nonce 6 and replay 4 times
-        l1Messenger.sendMessage(address(0), 0, new bytes(0), defaultGasLimit);
-        for (uint256 i = 0; i < 4; i++) {
-            l1Messenger.replayMessage(address(this), address(0), 0, 6, new bytes(0), defaultGasLimit, address(0));
-        }
-        assertEq(messageQueueV1.nextCrossDomainMessageIndex(), 11);
-
-        // skip all 5 messages
-        hevm.startPrank(address(rollup));
-        messageQueueV1.popCrossDomainMessage(6, 5, 0x1f);
-        messageQueueV1.finalizePoppedCrossDomainMessage(11);
-        assertEq(messageQueueV1.nextUnfinalizedQueueIndex(), 11);
-        assertEq(messageQueueV1.pendingQueueIndex(), 11);
-        hevm.stopPrank();
-        for (uint256 i = 6; i < 11; ++i) {
-            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
-            assertBoolEq(messageQueueV1.isMessageDropped(i), false);
-        }
-        hevm.expectEmit(false, false, false, true);
-        emit OnDropMessageCalled(new bytes(0));
-        l1Messenger.dropMessage(address(this), address(0), 0, 6, new bytes(0));
-        for (uint256 i = 6; i < 11; ++i) {
-            assertBoolEq(messageQueueV1.isMessageSkipped(i), true);
-            assertBoolEq(messageQueueV1.isMessageDropped(i), true);
-        }
-
-        // Message already dropped, revert
-        hevm.expectRevert("Message already dropped");
-        l1Messenger.dropMessage(address(this), address(0), 0, 0, new bytes(0));
-        hevm.expectRevert("Message already dropped");
-        l1Messenger.dropMessage(address(this), address(0), 0, 6, new bytes(0));
-
-        // replay dropped message, revert
-        hevm.expectRevert("Message already dropped");
-        l1Messenger.replayMessage(address(this), address(0), 0, 0, new bytes(0), defaultGasLimit, address(0));
-        hevm.expectRevert("Message already dropped");
-        l1Messenger.replayMessage(address(this), address(0), 0, 6, new bytes(0), defaultGasLimit, address(0));
-    }
-    */
-
-    function onDropMessage(bytes memory message) external payable {
-        emit OnDropMessageCalled(message);
     }
 }

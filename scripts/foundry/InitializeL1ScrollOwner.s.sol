@@ -180,11 +180,6 @@ contract InitializeL1ScrollOwner is Script {
         _selectors[0] = ScrollChain.addSequencer.selector;
         _selectors[1] = ScrollChain.addProver.selector;
         owner.updateAccess(L1_SCROLL_CHAIN_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
-
-        // delay 7 day, scroll multisig
-        _selectors = new bytes4[](1);
-        _selectors[0] = ScrollChain.updateMaxNumTxInChunk.selector;
-        owner.updateAccess(L1_SCROLL_CHAIN_PROXY_ADDR, _selectors, TIMELOCK_7DAY_DELAY_ROLE, true);
     }
 
     function configL1MessageQueue() internal {
@@ -207,11 +202,6 @@ contract InitializeL1ScrollOwner is Script {
         _selectors[0] = ScrollMessengerBase.setPause.selector;
         owner.updateAccess(L1_SCROLL_MESSENGER_PROXY_ADDR, _selectors, SCROLL_MULTISIG_NO_DELAY_ROLE, true);
         owner.updateAccess(L1_SCROLL_MESSENGER_PROXY_ADDR, _selectors, EMERGENCY_MULTISIG_NO_DELAY_ROLE, true);
-
-        // delay 1 day, scroll multisig
-        _selectors = new bytes4[](1);
-        _selectors[0] = L1ScrollMessenger.updateMaxReplayTimes.selector;
-        owner.updateAccess(L1_SCROLL_MESSENGER_PROXY_ADDR, _selectors, TIMELOCK_1DAY_DELAY_ROLE, true);
     }
 
     function configL2GasPriceOracle() internal {

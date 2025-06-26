@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+/// @custom:deprecated This contract is no longer used in production.
 interface IL2GasPriceOracle {
     /// @notice Return the latest known l2 base fee.
     function l2BaseFee() external view returns (uint256);

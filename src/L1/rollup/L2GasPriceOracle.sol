@@ -10,6 +10,7 @@ import {IL2GasPriceOracle} from "./IL2GasPriceOracle.sol";
 
 // solhint-disable reason-string
 
+/// @custom:deprecated This contract is no longer used in production.
 contract L2GasPriceOracle is OwnableUpgradeable, IL2GasPriceOracle {
     /**********
      * Events *

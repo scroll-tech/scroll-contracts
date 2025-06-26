@@ -9,7 +9,6 @@ import {IScrollGateway} from "./IScrollGateway.sol";
 import {IScrollMessenger} from "../IScrollMessenger.sol";
 import {IScrollGatewayCallback} from "../callbacks/IScrollGatewayCallback.sol";
 import {ScrollConstants} from "../constants/ScrollConstants.sol";
-import {ITokenRateLimiter} from "../../rate-limiter/ITokenRateLimiter.sol";
 
 /// @title ScrollGatewayBase
 /// @notice The `ScrollGatewayBase` is a base contract for gateway contracts used in both in L1 and L2.
