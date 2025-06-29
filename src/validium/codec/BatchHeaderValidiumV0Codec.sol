@@ -107,14 +107,14 @@ library BatchHeaderValidiumV0Codec {
     /// @param header The bytes of batch header in memory.
     /// @return batchHash The hash of the corresponding batch.
     function computeBatchHash(bytes memory header) internal pure returns (bytes32 batchHash) {
-        uint256 batchPtr;
+        uint256 dataPtr;
         uint256 length;
         // in the current version, the hash is: keccak(BatchHeader without timestamp)
         assembly {
-            batchPtr := header
-            length := mload(batchPtr)
+            dataPtr := header
+            length := mload(dataPtr)
         }
-        batchHash = computeBatchHash(batchPtr, length);
+        batchHash = computeBatchHash(dataPtr + 32, length);
     }
 
     /// @notice Compute the batch hash.
