@@ -195,6 +195,8 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         committedBatches[cachedLastCommittedBatchIndex] = batchHash;
         stateRoots[cachedLastCommittedBatchIndex] = postStateRoot;
         withdrawRoots[cachedLastCommittedBatchIndex] = withdrawRoot;
+
+        emit CommitBatch(cachedLastCommittedBatchIndex, batchHash);
     }
 
     /// @inheritdoc IScrollChainValidium
