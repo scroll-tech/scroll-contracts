@@ -198,7 +198,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
 
     modifier OnlyTopLevelCall() {
         // disallow contract accounts and delegated EOAs
-        if (msg.sender.code.length != 0) revert ErrorTopLevelCallRequired();
+        if (msg.sender != tx.origin || msg.sender.code.length != 0) {
+            revert ErrorTopLevelCallRequired();
+        }
         _;
     }
 
