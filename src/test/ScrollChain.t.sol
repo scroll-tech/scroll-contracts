@@ -339,7 +339,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // revert when ErrorNotInEnforcedBatchMode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             bytes32(0),
@@ -372,7 +372,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 13
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[12]),
@@ -410,7 +410,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 14, no need to warp time
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[13]),
@@ -442,7 +442,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // not in enforced mode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[13]),
@@ -489,7 +489,7 @@ contract ScrollChainTest is DSTestPlus {
 
         // revert when ErrorNotInEnforcedBatchMode
         hevm.expectRevert(ScrollChain.ErrorNotInEnforcedBatchMode.selector);
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             bytes32(0),
@@ -514,7 +514,7 @@ contract ScrollChainTest is DSTestPlus {
         // succeed to call commitAndFinalizeBatch 13
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(0, blobVersionedHash);
         ScrollChainMockBlob(address(rollup)).setBlobVersionedHash(1, bytes32(0));
-        hevm.startPrank(address(999));
+        hevm.startPrank(address(0x00a329c0648769A73afAc7F9381E08FB43dBEA72));
         rollup.commitAndFinalizeBatch(
             7,
             keccak256(headers[12]),
