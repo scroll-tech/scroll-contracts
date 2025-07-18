@@ -100,11 +100,22 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @inheritdoc IL1ERC20GatewayValidium
     function depositERC20(
         address _token,
-        bytes32 _to,
+        bytes memory _to,
         uint256 _amount,
         uint256 _gasLimit
     ) external payable override {
-        _deposit(_token, _to, _amount, new bytes(0), _gasLimit);
+        _deposit(_token, _msgSender(), _to, _amount, new bytes(0), _gasLimit);
+    }
+
+    /// @inheritdoc IL1ERC20GatewayValidium
+    function depositERC20(
+        address _token,
+        address _realSender,
+        bytes memory _to,
+        uint256 _amount,
+        uint256 _gasLimit
+    ) external payable override {
+        _deposit(_token, _realSender, _to, _amount, new bytes(0), _gasLimit);
     }
 
     /// @inheritdoc IL1ERC20GatewayValidium
@@ -153,9 +164,11 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @dev Internal function to transfer ERC20 token to this contract.
     /// @param _token The address of token to transfer.
     /// @param _amount The amount of token to transfer.
-    function _transferERC20In(address _token, uint256 _amount) internal returns (address, uint256) {
-        address _from = _msgSender();
-
+    function _transferERC20In(
+        address _from,
+        address _token,
+        uint256 _amount
+    ) internal returns (uint256) {
         // common practice to handle fee on transfer token.
         uint256 _before = IERC20Upgradeable(_token).balanceOf(address(this));
         IERC20Upgradeable(_token).safeTransferFrom(_from, address(this), _amount);
@@ -163,7 +176,7 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         // no unchecked here, since some weird token may return arbitrary balance.
         _amount = _after - _before;
 
-        return (_from, _amount);
+        return _amount;
     }
 
     /// @dev Internal function to do all the deposit operations.
@@ -175,14 +188,14 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @param _gasLimit Gas limit required to complete the deposit on L2.
     function _deposit(
         address _token,
-        bytes32 _to,
+        address _from,
+        bytes memory _to,
         uint256 _amount,
         bytes memory _data,
         uint256 _gasLimit
     ) internal virtual nonReentrant {
         // 1. Transfer token into this contract.
-        address _from;
-        (_from, _amount) = _transferERC20In(_token, _amount);
+        _amount = _transferERC20In(_msgSender(), _token, _amount);
         if (_amount == 0) revert ErrorAmountIsZero();
 
         // 2. Generate message passed to L2StandardERC20Gateway.

@@ -2,14 +2,21 @@
 
 pragma solidity =0.8.24;
 
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IWETH} from "../interfaces/IWETH.sol";
 import {IL1ERC20GatewayValidium} from "./IL1ERC20GatewayValidium.sol";
 
 contract L1WETHGatewayValidium {
-    using SafeERC20Upgradeable for IERC20Upgradeable;
+    using SafeERC20 for IERC20;
+
+    /**********
+     * Errors *
+     **********/
+
+    /// @notice The error thrown when the value is insufficient.
+    error ErrorInsufficientValue();
 
     /*************
      * Constants *
@@ -43,9 +50,17 @@ contract L1WETHGatewayValidium {
 
     /// @notice Deposit ETH to L2 through the  `L1ERC20GatewayValidium` contract.
     /// @param _to The encrypted address of recipient in L2 to receive the token.
-    function deposit(bytes32 _to) external payable {
-        IWETH(WETH).deposit{value: msg.value}();
-        IERC20Upgradeable(WETH).safeTransfer(gateway, msg.value);
-        IL1ERC20GatewayValidium(gateway).depositERC20(WETH, _to, msg.value, GAS_LIMIT);
+    function deposit(bytes memory _to, uint256 _amount) external payable {
+        if (msg.value < _amount) revert ErrorInsufficientValue();
+
+        IWETH(WETH).deposit{value: _amount}();
+        IERC20(WETH).safeApprove(gateway, _amount);
+        IL1ERC20GatewayValidium(gateway).depositERC20{value: msg.value - _amount}(
+            WETH,
+            msg.sender,
+            _to,
+            _amount,
+            GAS_LIMIT
+        );
     }
 }

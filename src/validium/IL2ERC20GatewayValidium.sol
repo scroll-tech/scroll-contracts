@@ -19,7 +19,7 @@ interface IL2ERC20GatewayValidium is IL2ERC20Gateway {
         address l1Token,
         address l2Token,
         address from,
-        bytes32 to,
+        bytes memory to,
         uint256 amount,
         bytes calldata data
     ) external payable;

@@ -27,14 +27,14 @@ interface IL1ERC20GatewayValidium {
     /// @param l1Token The address of the token in L1.
     /// @param l2Token The address of the token in L2.
     /// @param from The address of sender in L1.
-    /// @param to The address of recipient in L2.
+    /// @param to The encrypted address of recipient in L2.
     /// @param amount The amount of token will be deposited from L1 to L2.
     /// @param data The optional calldata passed to recipient in L2.
     event DepositERC20(
         address indexed l1Token,
         address indexed l2Token,
         address indexed from,
-        bytes32 to,
+        bytes to,
         uint256 amount,
         bytes data
     );
@@ -59,7 +59,22 @@ interface IL1ERC20GatewayValidium {
     /// @param _gasLimit Gas limit required to complete the deposit on L2.
     function depositERC20(
         address _token,
-        bytes32 _to,
+        bytes memory _to,
+        uint256 _amount,
+        uint256 _gasLimit
+    ) external payable;
+
+    /// @notice Deposit some token to a recipient's account on L2.
+    /// @dev Make this function payable to send relayer fee in Ether.
+    /// @param _token The address of token in L1.
+    /// @param _realSender The address of real sender in L1.
+    /// @param _to The encrypted address of recipient's account on L2.
+    /// @param _amount The amount of token to transfer.
+    /// @param _gasLimit Gas limit required to complete the deposit on L2.
+    function depositERC20(
+        address _token,
+        address _realSender,
+        bytes memory _to,
         uint256 _amount,
         uint256 _gasLimit
     ) external payable;
