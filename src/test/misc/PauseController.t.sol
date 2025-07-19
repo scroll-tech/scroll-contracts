@@ -25,6 +25,7 @@ contract MockPausable is IPausable {
 contract PauseControllerTest is Test {
     event Pause(address indexed component);
     event Unpause(address indexed component);
+    event ResetPauseCooldownPeriod(address indexed component);
     event UpdatePauseCooldownPeriod(uint256 oldPauseCooldownPeriod, uint256 newPauseCooldownPeriod);
 
     uint256 public constant PAUSE_COOLDOWN_PERIOD = 1 days;
@@ -119,6 +120,12 @@ contract PauseControllerTest is Test {
         assertEq(pauseController.getLastUnpauseTime(mockPausable), block.timestamp);
 
         assertFalse(mockPausable.paused());
+
+        // reset pause cooldown period
+        vm.expectEmit(true, false, false, true);
+        emit ResetPauseCooldownPeriod(address(mockPausable));
+        pauseController.resetPauseCooldownPeriod(mockPausable);
+        assertEq(pauseController.getLastUnpauseTime(mockPausable), 0);
 
         vm.stopPrank();
     }
