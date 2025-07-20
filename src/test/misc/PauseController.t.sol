@@ -118,14 +118,22 @@ contract PauseControllerTest is Test {
         emit Unpause(address(mockPausable));
         pauseController.unpause(mockPausable);
         assertEq(pauseController.getLastUnpauseTime(mockPausable), block.timestamp);
-
         assertFalse(mockPausable.paused());
+
+        // cannot pause before cooldown period
+        vm.expectRevert(PauseController.ErrorCooldownPeriodNotPassed.selector);
+        pauseController.pause(mockPausable);
 
         // reset pause cooldown period
         vm.expectEmit(true, false, false, true);
         emit ResetPauseCooldownPeriod(address(mockPausable));
         pauseController.resetPauseCooldownPeriod(mockPausable);
         assertEq(pauseController.getLastUnpauseTime(mockPausable), 0);
+
+        // can pause after reset
+        assertFalse(mockPausable.paused());
+        pauseController.pause(mockPausable);
+        assertTrue(mockPausable.paused());
 
         vm.stopPrank();
     }
