@@ -23,6 +23,10 @@ contract PauseController is OwnableUpgradeable {
     /// @param component The component that is unpaused.
     event Unpause(address indexed component);
 
+    /// @notice Emitted when the pause cooldown period of a component is reset.
+    /// @param component The component that has its pause cooldown period reset.
+    event ResetPauseCooldownPeriod(address indexed component);
+
     /// @notice Emitted when the pause cooldown period is updated.
     /// @param oldPauseCooldownPeriod The old pause cooldown period.
     /// @param newPauseCooldownPeriod The new pause cooldown period.
@@ -148,6 +152,14 @@ contract PauseController is OwnableUpgradeable {
         }
 
         emit Unpause(address(component));
+    }
+
+    /// @notice Reset the pause cooldown period of a component.
+    /// @param component The component to reset the pause cooldown period.
+    function resetPauseCooldownPeriod(IPausable component) external onlyOwner {
+        lastUnpauseTime[address(component)] = 0;
+
+        emit ResetPauseCooldownPeriod(address(component));
     }
 
     /// @notice Set the pause cooldown period.
