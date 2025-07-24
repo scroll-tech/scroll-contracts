@@ -54,8 +54,8 @@ contract ZkEvmVerifierPostFeynman is IZkEvmVerifierV2 {
     ///
     /// @dev Encoding for `publicInput`. And this is exactly the same as `ZkEvmVerifierV2`.
     /// ```text
-    /// | layer2ChainId | numBatches | prevStateRoot | prevBatchHash | postStateRoot | batchHash | withdrawRoot |
-    /// |    8 bytes    |  4  bytes  |   32  bytes   |   32  bytes   |   32  bytes   | 32  bytes |   32 bytes   |
+    /// | layer2ChainId | msgQueueHash | numBatches | prevStateRoot | prevBatchHash | postStateRoot | batchHash | withdrawRoot |
+    /// |    8 bytes    |   32  bytes  |  4  bytes  |   32  bytes   |   32  bytes   |   32  bytes   | 32  bytes |   32 bytes   |
     /// ```
     function verify(bytes calldata bundleProof, bytes calldata publicInput) external view override {
         address _verifier = plonkVerifier;
