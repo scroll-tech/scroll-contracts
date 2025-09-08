@@ -18,12 +18,14 @@ interface IL2ERC20GatewayValidium is IL2ERC20Gateway {
     /// @param to The encrypted address of recipient in L2 to receive the token.
     /// @param amount The amount of the token to deposit.
     /// @param data Optional data to forward to recipient's account.
+    /// @param encryptionKey The encryption key to use for the deposit.
     function finalizeDepositERC20Encrypted(
         address l1Token,
         address l2Token,
         address from,
         bytes memory to,
         uint256 amount,
-        bytes calldata data
+        bytes calldata data,
+        bytes calldata encryptionKey // 33 bytes compressed key
     ) external payable;
 }

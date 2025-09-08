@@ -50,7 +50,11 @@ contract L1WETHGatewayValidium {
 
     /// @notice Deposit ETH to L2 through the  `L1ERC20GatewayValidium` contract.
     /// @param _to The encrypted address of recipient in L2 to receive the token.
-    function deposit(bytes memory _to, uint256 _amount) external payable {
+    function deposit(
+        bytes memory _to,
+        uint256 _amount,
+        uint256 _keyId
+    ) external payable {
         if (msg.value < _amount) revert ErrorInsufficientValue();
 
         // WETH deposit is safe.
@@ -62,7 +66,8 @@ contract L1WETHGatewayValidium {
             msg.sender,
             _to,
             _amount,
-            GAS_LIMIT
+            GAS_LIMIT,
+            _keyId
         );
     }
 }

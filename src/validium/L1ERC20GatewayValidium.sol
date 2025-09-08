@@ -33,6 +33,15 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @dev Error thrown when amount is zero.
     error ErrorAmountIsZero();
 
+    /// @dev Error thrown when encryption key length is invalid.
+    error ErrorInvalidEncryptionKeyLength();
+
+    /// @dev Error thrown the user attempts to use an encryption key that is unknown.
+    error UnknownEncryptionKey();
+
+    /// @dev Error thrown the user attempts to use an encryption key that is deprecated.
+    error DeprecatedEncryptionKey();
+
     /*************
      * Constants *
      *************/
@@ -52,6 +61,9 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// to keep track on whether we have deployed the token in L2 using the L2ScrollStandardERC20Factory and
     /// pass deploy data on first call to the token.
     mapping(address => address) private tokenMapping;
+
+    /// @notice An array of encryption keys (33-byte compressed ECC public keys).
+    bytes[] public encryptionKeys;
 
     /***************
      * Constructor *
@@ -93,6 +105,12 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         return ClonesUpgradeable.predictDeterministicAddress(l2TokenImplementation, _salt, l2TokenFactory);
     }
 
+    function latestEncryptionKey() public view returns (uint256, bytes memory) {
+        uint256 numKeys = encryptionKeys.length;
+        if (numKeys == 0) revert UnknownEncryptionKey();
+        return (numKeys - 1, encryptionKeys[numKeys - 1]);
+    }
+
     /*****************************
      * Public Mutating Functions *
      *****************************/
@@ -102,9 +120,10 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         address _token,
         bytes memory _to,
         uint256 _amount,
-        uint256 _gasLimit
+        uint256 _gasLimit,
+        uint256 _keyId
     ) external payable override {
-        _deposit(_token, _msgSender(), _to, _amount, new bytes(0), _gasLimit);
+        _deposit(_token, _msgSender(), _to, _amount, new bytes(0), _gasLimit, _keyId);
     }
 
     /// @inheritdoc IL1ERC20GatewayValidium
@@ -113,9 +132,10 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         address _realSender,
         bytes memory _to,
         uint256 _amount,
-        uint256 _gasLimit
+        uint256 _gasLimit,
+        uint256 _keyId
     ) external payable override {
-        _deposit(_token, _realSender, _to, _amount, new bytes(0), _gasLimit);
+        _deposit(_token, _realSender, _to, _amount, new bytes(0), _gasLimit, _keyId);
     }
 
     /// @inheritdoc IL1ERC20GatewayValidium
@@ -192,8 +212,15 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         bytes memory _to,
         uint256 _amount,
         bytes memory _data,
-        uint256 _gasLimit
+        uint256 _gasLimit,
+        uint256 _keyId
     ) internal virtual nonReentrant {
+        // Select encryption key for deposit.
+        uint256 _numKeys = encryptionKeys.length;
+        if (_keyId >= _numKeys) revert UnknownEncryptionKey();
+        if (_keyId < _numKeys - 2) revert DeprecatedEncryptionKey(); // Note: we can make deprecation policy more flexible if needed.
+        bytes memory _encryptionKey = encryptionKeys[_keyId];
+
         // 1. Transfer token into this contract.
         _amount = _transferERC20In(_msgSender(), _token, _amount);
         if (_amount == 0) revert ErrorAmountIsZero();
@@ -217,12 +244,23 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         }
         bytes memory _message = abi.encodeCall(
             IL2ERC20GatewayValidium.finalizeDepositERC20Encrypted,
-            (_token, _l2Token, _from, _to, _amount, _l2Data)
+            (_token, _l2Token, _from, _to, _amount, _l2Data, _encryptionKey)
         );
 
         // 3. Send message to L1ScrollMessenger.
         IL1ScrollMessenger(messenger).sendMessage{value: msg.value}(counterpart, 0, _message, _gasLimit, _from);
 
         emit DepositERC20(_token, _l2Token, _from, _to, _amount, _data);
+    }
+
+    /************************
+     * Restricted Functions *
+     ************************/
+
+    function registerNewEncryptionKey(bytes memory _key) external onlyOwner {
+        if (_key.length != 33) revert ErrorInvalidEncryptionKeyLength();
+        uint256 keyId = encryptionKeys.length;
+        encryptionKeys.push(_key);
+        emit NewEncryptionKey(keyId, _key);
     }
 }
