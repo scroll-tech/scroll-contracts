@@ -217,8 +217,10 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     ) internal virtual nonReentrant {
         // Select encryption key for deposit.
         uint256 _numKeys = encryptionKeys.length;
+
+        // Allow ONLY the latest key.
         if (_keyId >= _numKeys) revert UnknownEncryptionKey();
-        if (_keyId < _numKeys - 2) revert DeprecatedEncryptionKey(); // Note: we can make deprecation policy more flexible if needed.
+        if (_keyId < _numKeys - 1) revert DeprecatedEncryptionKey();
         bytes memory _encryptionKey = encryptionKeys[_keyId];
 
         // 1. Transfer token into this contract.
