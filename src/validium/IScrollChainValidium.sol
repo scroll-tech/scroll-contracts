@@ -24,6 +24,12 @@ interface IScrollChainValidium {
     /// @param withdrawRoot The merkle root on layer2 after this batch.
     event FinalizeBatch(uint256 indexed batchIndex, bytes32 indexed batchHash, bytes32 stateRoot, bytes32 withdrawRoot);
 
+    /// @notice Emitted when a new encryption key is added.
+    /// @param keyId The incremental index of the key.
+    /// @param msgIndex The message queue index at the time of key rotation.
+    /// @param key The encryption key.
+    event NewEncryptionKey(uint256 indexed keyId, uint256 msgIndex, bytes key);
+
     /*************************
      * Public View Functions *
      *************************/
@@ -49,6 +55,14 @@ interface IScrollChainValidium {
     /// @param batchIndex The index of the batch.
     /// @return Whether the batch is finalized by batch index.
     function isBatchFinalized(uint256 batchIndex) external view returns (bool);
+
+    /// @return The key-id of the latest encryption key.
+    /// @return The latest encryption key.
+    function getLatestEncryptionKey() external view returns (uint256, bytes);
+
+    /// @param keyId The incremental index for the encryption key.
+    /// @return The encryption key with the given key-id.
+    function getEncryptionKey(uint256 keyId) external view returns (bytes);
 
     /*****************************
      * Public Mutating Functions *

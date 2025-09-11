@@ -39,9 +39,6 @@ interface IL1ERC20GatewayValidium {
         bytes data
     );
 
-    /// @notice Emitted when a new encryption key is added.
-    event NewEncryptionKey(uint256 indexed keyId, bytes key);
-
     /*************************
      * Public View Functions *
      *************************/
