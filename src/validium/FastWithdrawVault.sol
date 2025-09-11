@@ -32,18 +32,10 @@ contract FastWithdrawVault is AccessControlUpgradeable, ReentrancyGuardUpgradeab
     /// @notice Emitted when a withdraw is processed.
     /// @param l1Token The address of the L1 token.
     /// @param l2Token The address of the L2 token.
-    /// @param from The address of the sender.
     /// @param to The address of the recipient.
     /// @param amount The amount of tokens withdrawn.
     /// @param messageHash The hash of the message.
-    event Withdraw(
-        address indexed l1Token,
-        address indexed l2Token,
-        address indexed from,
-        address to,
-        uint256 amount,
-        bytes32 messageHash
-    );
+    event Withdraw(address indexed l1Token, address indexed l2Token, address to, uint256 amount, bytes32 messageHash);
 
     /**********
      * Errors *
@@ -59,9 +51,7 @@ contract FastWithdrawVault is AccessControlUpgradeable, ReentrancyGuardUpgradeab
     /// @dev The typehash of the `Withdraw` struct.
     // solhint-disable-next-line var-name-mixedcase
     bytes32 private constant _WITHDRAW_TYPEHASH =
-        keccak256(
-            "Withdraw(address l1Token,address l2Token,address from,address to,uint256 amount,bytes32 messageHash)"
-        );
+        keccak256("Withdraw(address l1Token,address l2Token,address to,uint256 amount,bytes32 messageHash)");
 
     /// @notice The role of the sequencer.
     bytes32 public constant SEQUENCER_ROLE = keccak256("SEQUENCER_ROLE");
@@ -118,21 +108,19 @@ contract FastWithdrawVault is AccessControlUpgradeable, ReentrancyGuardUpgradeab
 
     /// @notice Fast withdraw some tokens from L2 to L1 with signature from sequencer.
     /// @param l1Token The address of the L1 token.
-    /// @param from The address of the sender.
     /// @param to The address of the recipient.
     /// @param amount The amount of tokens to withdraw.
     /// @param messageHash The hash of the message, which is the corresponding withdraw message hash in L2.
     /// @param signature The signature of the message from sequencer.
     function claimFastWithdraw(
         address l1Token,
-        address from,
         address to,
         uint256 amount,
         bytes32 messageHash,
         bytes memory signature
     ) external nonReentrant {
         address l2Token = IL1ERC20Gateway(gateway).getL2ERC20Address(l1Token);
-        bytes32 structHash = keccak256(abi.encode(_WITHDRAW_TYPEHASH, l1Token, l2Token, from, to, amount, messageHash));
+        bytes32 structHash = keccak256(abi.encode(_WITHDRAW_TYPEHASH, l1Token, l2Token, to, amount, messageHash));
         if (isWithdrawn[structHash]) revert ErrorWithdrawAlreadyProcessed();
         isWithdrawn[structHash] = true;
 
@@ -147,7 +135,7 @@ contract FastWithdrawVault is AccessControlUpgradeable, ReentrancyGuardUpgradeab
             IERC20Upgradeable(l1Token).safeTransfer(to, amount);
         }
 
-        emit Withdraw(l1Token, l2Token, from, to, amount, messageHash);
+        emit Withdraw(l1Token, l2Token, to, amount, messageHash);
     }
 
     /************************

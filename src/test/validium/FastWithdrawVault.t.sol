@@ -24,10 +24,7 @@ contract FastWithdrawVaultHelper is FastWithdrawVault {
     constructor(address _weth, address _gateway) FastWithdrawVault(_weth, _gateway) {}
 
     function getWithdrawTypehash() public pure returns (bytes32) {
-        return
-            keccak256(
-                "Withdraw(address l1Token,address l2Token,address from,address to,uint256 amount,bytes32 messageHash)"
-            );
+        return keccak256("Withdraw(address l1Token,address l2Token,address to,uint256 amount,bytes32 messageHash)");
     }
 
     function hashTypedDataV4(bytes32 structHash) public view returns (bytes32) {
@@ -36,14 +33,7 @@ contract FastWithdrawVaultHelper is FastWithdrawVault {
 }
 
 contract FastWithdrawVaultTest is ValidiumTestBase {
-    event Withdraw(
-        address indexed l1Token,
-        address indexed l2Token,
-        address indexed from,
-        address to,
-        uint256 amount,
-        bytes32 messageHash
-    );
+    event Withdraw(address indexed l1Token, address indexed l2Token, address to, uint256 amount, bytes32 messageHash);
 
     L1ERC20GatewayValidium private gateway;
 
@@ -111,7 +101,6 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
     }
 
     function testClaimFastWithdrawERC20(
-        address from,
         address to,
         uint256 amount,
         bytes32 messageHash
@@ -128,7 +117,6 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
                 vault.getWithdrawTypehash(),
                 address(l1Token),
                 address(l2Token), // l2Token
-                from,
                 to,
                 amount,
                 messageHash
@@ -140,9 +128,9 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
 
         // revert when the signature is invalid
         hevm.expectRevert("ECDSA: invalid signature length");
-        vault.claimFastWithdraw(address(l1Token), from, to, amount, messageHash, bytes("invalid"));
+        vault.claimFastWithdraw(address(l1Token), to, amount, messageHash, bytes("invalid"));
         hevm.expectRevert("ECDSA: invalid signature");
-        vault.claimFastWithdraw(address(l1Token), from, to, amount, messageHash, new bytes(65));
+        vault.claimFastWithdraw(address(l1Token), to, amount, messageHash, new bytes(65));
 
         // revert when signer mismatch is not sequencer
         bytes memory invalidSignature;
@@ -158,7 +146,7 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
                 StringsUpgradeable.toHexString(uint256(vault.SEQUENCER_ROLE()), 32)
             )
         );
-        vault.claimFastWithdraw(address(l1Token), from, to, amount, messageHash, invalidSignature);
+        vault.claimFastWithdraw(address(l1Token), to, amount, messageHash, invalidSignature);
 
         // Sign the hash with sequencer's private key
         bytes memory signature;
@@ -171,8 +159,8 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
         uint256 toBalanceBefore = l1Token.balanceOf(to);
         uint256 vaultBalanceBefore = l1Token.balanceOf(address(vault));
         hevm.expectEmit(true, true, true, true);
-        emit Withdraw(address(l1Token), address(l2Token), from, to, amount, messageHash);
-        vault.claimFastWithdraw(address(l1Token), from, to, amount, messageHash, signature);
+        emit Withdraw(address(l1Token), address(l2Token), to, amount, messageHash);
+        vault.claimFastWithdraw(address(l1Token), to, amount, messageHash, signature);
         uint256 toBalanceAfter = l1Token.balanceOf(to);
         uint256 vaultBalanceAfter = l1Token.balanceOf(address(vault));
 
@@ -186,7 +174,7 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
         // revert when claim again on the same struct hash
         hevm.expectRevert(FastWithdrawVault.ErrorWithdrawAlreadyProcessed.selector);
         hevm.startPrank(sequencer);
-        vault.claimFastWithdraw(address(l1Token), from, to, amount, messageHash, signature);
+        vault.claimFastWithdraw(address(l1Token), to, amount, messageHash, signature);
         hevm.stopPrank();
     }
 
@@ -204,7 +192,6 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
                 vault.getWithdrawTypehash(),
                 wethAddr,
                 address(l2Token), // l2Token
-                from,
                 to,
                 amount,
                 messageHash
@@ -230,10 +217,10 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
 
         // Expect the Withdraw event
         hevm.expectEmit(true, true, true, true);
-        emit Withdraw(wethAddr, address(l2Token), from, to, amount, messageHash);
+        emit Withdraw(wethAddr, address(l2Token), to, amount, messageHash);
 
         // Call claimFastWithdraw
-        vault.claimFastWithdraw(wethAddr, from, to, amount, messageHash, signature);
+        vault.claimFastWithdraw(wethAddr, to, amount, messageHash, signature);
 
         // Verify the withdraw is marked as processed
         assertTrue(vault.isWithdrawn(structHash));
