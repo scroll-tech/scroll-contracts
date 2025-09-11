@@ -39,6 +39,10 @@ abstract contract Configuration is Script {
         return cfg.readString(key);
     }
 
+    function writeToml(address addr, string memory tomlPath) internal {
+        vm.writeToml(vm.toString(addr), cfg, tomlPath);
+    }
+
     /// @dev Ensure that `addr` is not the zero address.
     ///      This helps catch bugs arising from incorrect deployment order.
     function notnull(address addr) internal pure returns (address) {

@@ -14,8 +14,8 @@ contract GenerateRollupConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateRollupConfig(ROLLUP_CONFIG_PATH);
@@ -58,8 +58,8 @@ contract GenerateCoordinatorConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateCoordinatorConfig(COORDINATOR_API_CONFIG_PATH);
@@ -100,8 +100,8 @@ contract GenerateChainMonitorConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateChainMonitorConfig(CHAIN_MONITOR_CONFIG_PATH);
@@ -153,8 +153,8 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateBridgeHistoryConfig(BRIDGE_HISTORY_API_CONFIG_PATH);
@@ -209,8 +209,8 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateBalanceCheckerConfig(BALANCE_CHECKER_CONFIG_PATH);

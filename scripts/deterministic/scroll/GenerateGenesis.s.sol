@@ -16,8 +16,8 @@ contract GenerateGenesis is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateGenesisAlloc();

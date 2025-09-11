@@ -38,8 +38,6 @@ abstract contract DeterministicDeployment is Configuration {
     string private saltPrefix;
     bool private skipDeploy;
 
-    string private cfgContractsPath;
-
     /**********************
      * Internal interface *
      **********************/
@@ -47,8 +45,6 @@ abstract contract DeterministicDeployment is Configuration {
     function initialize(ScriptMode _mode, string memory workdir) internal {
         mode = _mode;
         skipDeploy = false;
-
-        cfgContractsPath = string(abi.encodePacked(workdir, "/config-contracts.toml"));
 
         if (mode != ScriptMode.EmptyConfig) {
             super.initialize(workdir);
@@ -211,7 +207,7 @@ abstract contract DeterministicDeployment is Configuration {
         string memory tomlPath = string(abi.encodePacked(".", name, "_ADDR"));
 
         if (mode == ScriptMode.WriteConfig) {
-            vm.writeToml(vm.toString(addr), cfgContractsPath, tomlPath); // TODO: move to helpers
+            writeToml(addr, tomlPath);
             return;
         }
 
