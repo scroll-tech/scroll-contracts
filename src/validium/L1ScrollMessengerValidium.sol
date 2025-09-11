@@ -40,21 +40,6 @@ contract L1ScrollMessengerValidium is L1ScrollMessenger {
         whitelist = _whitelist;
     }
 
-    /*****************************
-     * Public Mutating Functions *
-     *****************************/
-
-    /// @inheritdoc L1ScrollMessenger
-    function dropMessage(
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes memory
-    ) external virtual override {
-        revert("Not implemented");
-    }
-
     /**********************
      * Internal Functions *
      **********************/
