@@ -430,11 +430,11 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         // Start from the "latest" key and continue fetching keys until we find the key
         // that was rotated before the message index we have been provided.
         uint256 _numKeys = encryptionKeys.length;
-        if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
+        if (_numKeys == 0) revert ErrorUnknownEncryptionKey();
         EncryptionKey memory _encryptionKey = encryptionKeys[--_numKeys];
 
         while (_encryptionKey.msgIndex > _msgIndex) {
-            if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
+            if (_numKeys == 0) revert ErrorUnknownEncryptionKey();
             _encryptionKey = encryptionKeys[--_numKeys];
         }
 
