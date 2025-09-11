@@ -63,6 +63,9 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     /// @notice The role for prover who can finalize batch.
     bytes32 public constant PROVER_ROLE = keccak256("PROVER_ROLE");
 
+    /// @notice The role that can rotate encryption keys.
+    bytes32 public constant KEY_REGISTERER_ROLE = keccak256("KEY_REGISTERER_ROLE");
+
     /***********************
      * Immutable Variables *
      ***********************/
@@ -151,14 +154,14 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     }
 
     /// @inheritdoc IScrollChainValidium
-    function getLatestEncryptionKey() external view override returns (uint256, bytes) {
+    function getLatestEncryptionKey() external view override returns (uint256, bytes memory) {
         uint256 _numKeys = encryptionKeys.length;
         if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
         return (_numKeys - 1, encryptionKeys[_numKeys - 1].key);
     }
 
     /// @inheritdoc IScrollChainValidium
-    function getEncryptionKey(uint256 _keyId) external view override returns (bytes) {
+    function getEncryptionKey(uint256 _keyId) external view override returns (bytes memory) {
         uint256 _numKeys = encryptionKeys.length;
         if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
         if (_keyId >= _numKeys) revert ErrorUnknownEncryptionKey();
@@ -271,7 +274,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
      * Restricted Functions *
      ************************/
 
-    function registerNewEncryptionKey(bytes memory _key) external onlyOwner {
+    function registerNewEncryptionKey(bytes memory _key) external onlyRole(KEY_REGISTERER_ROLE) {
         if (_key.length != 33) revert ErrorInvalidEncryptionKeyLength();
         uint256 _keyId = encryptionKeys.length;
 
@@ -359,7 +362,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         bytes32 withdrawRoot = withdrawRoots[batchIndex];
 
         // Get the encryption key at the time of on-chain message queue index.
-        bytes encryptionKey = _getEncryptionKey(totalL1MessagesPoppedOverall - 1);
+        bytes memory encryptionKey = _getEncryptionKey(totalL1MessagesPoppedOverall - 1);
 
         bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,
@@ -421,7 +424,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     /// @dev Internal function to get the relevant encryption key that was used to encrypt messages up to the provided message index.
     /// @param _msgIndex The on-chain message queue index being finalised.
     /// @return The encryption key used at the time of the provided on-chain message queue index.
-    function _getEncryptionKey(uint256 _msgIndex) external view override returns (bytes) {
+    function _getEncryptionKey(uint256 _msgIndex) internal view returns (bytes memory) {
         // Start from the "latest" key and continue fetching keys until we find the key
         // that was rotated before the message index we have been provided.
         uint256 _numKeys = encryptionKeys.length;

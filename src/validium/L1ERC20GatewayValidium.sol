@@ -10,6 +10,7 @@ import {SafeERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ER
 import {IL1ScrollMessenger} from "../L1/IL1ScrollMessenger.sol";
 import {IL1ERC20GatewayValidium} from "./IL1ERC20GatewayValidium.sol";
 import {IL2ERC20GatewayValidium} from "./IL2ERC20GatewayValidium.sol";
+import {IScrollChainValidium} from "./IScrollChainValidium.sol";
 
 import {ScrollGatewayBase} from "../libraries/gateway/ScrollGatewayBase.sol";
 

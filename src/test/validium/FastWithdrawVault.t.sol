@@ -267,7 +267,8 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
                     address(counterpartGateway),
                     address(messenger),
                     address(template),
-                    address(factory)
+                    address(factory),
+                    address(scrollChainValidium)
                 )
             )
         );

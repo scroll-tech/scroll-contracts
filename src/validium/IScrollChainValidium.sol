@@ -58,11 +58,11 @@ interface IScrollChainValidium {
 
     /// @return The key-id of the latest encryption key.
     /// @return The latest encryption key.
-    function getLatestEncryptionKey() external view returns (uint256, bytes);
+    function getLatestEncryptionKey() external view returns (uint256, bytes memory);
 
     /// @param keyId The incremental index for the encryption key.
     /// @return The encryption key with the given key-id.
-    function getEncryptionKey(uint256 keyId) external view returns (bytes);
+    function getEncryptionKey(uint256 keyId) external view returns (bytes memory);
 
     /*****************************
      * Public Mutating Functions *
