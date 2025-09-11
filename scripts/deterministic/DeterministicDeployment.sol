@@ -207,7 +207,7 @@ abstract contract DeterministicDeployment is Configuration {
         string memory tomlPath = string(abi.encodePacked(".", name, "_ADDR"));
 
         if (mode == ScriptMode.WriteConfig) {
-            writeToml(addr, tomlPath);
+            writeContract(addr, tomlPath);
             return;
         }
 

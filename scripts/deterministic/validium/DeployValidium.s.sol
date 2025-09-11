@@ -197,9 +197,13 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         deployHostWeth();
         deployHostProxyAdmin();
 
-        // todo
-        HOST_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR = address(1);
+        // Note: we do not use the enforced gateway on the validium L3,
+        // but it is required to be a non-zero address for initializing
+        // some other contracts. We just use address(1).
         HOST_ENFORCED_TX_GATEWAY_ADDR = address(1);
+
+        // TODO: deploy verifier
+        HOST_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR = address(1);
 
         // deploy empty proxies
         HOST_VALIDIUM_ADDR = deployHostProxy("HOST_VALIDIUM_PROXY");
@@ -223,7 +227,9 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
     function deployValidiumContracts1stPass() private broadcast(Layer.Validium) {
         deployValidiumProxyAdmin();
 
-        // todo
+        // Note: we do not use the gateway router on the validium L3,
+        // but it is required to be a non-zero address for initializing
+        // some other contracts. We just use address(1).
         VALIDIUM_GATEWAY_ROUTER_ADDR = address(1);
 
         // predeploys
@@ -307,7 +313,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
             notnull(HOST_MULTIPLE_VERSION_ROLLUP_VERIFIER_ADDR)
         );
 
-        // TODO
+        // TODO: disable mock mode
         // bytes memory creationCode = type(ScrollChainValidium).creationCode;
         bytes memory creationCode = type(ScrollChainValidiumMock).creationCode;
 
@@ -379,7 +385,8 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
             notnull(VALIDIUM_ERC20_GATEWAY_ADDR),
             notnull(HOST_MESSENGER_ADDR),
             notnull(VALIDIUM_STANDARD_ERC20_TOKEN_ADDR),
-            notnull(VALIDIUM_STANDARD_ERC20_FACTORY_ADDR)
+            notnull(VALIDIUM_STANDARD_ERC20_FACTORY_ADDR),
+            notnull(HOST_VALIDIUM_ADDR)
         );
 
         address impl = deploy("HOST_ERC20_GATEWAY_IMPLEMENTATION", type(L1ERC20GatewayValidium).creationCode, args);
@@ -474,22 +481,34 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
      ************************/
 
     function initializeHostValidium() private {
-        if (getInitializeCount(HOST_VALIDIUM_ADDR) == 0) {
-            ScrollChainValidium(HOST_VALIDIUM_ADDR).initialize(
-                notnull(OWNER_ADDR) // TODO
-            );
+        ScrollChainValidium validium = ScrollChainValidium(HOST_VALIDIUM_ADDR);
+
+        if (getInitializeCount(HOST_VALIDIUM_ADDR) != 0) {
+            // assume initialization went through correctly
+            return;
         }
 
-        // TODO
-        ScrollChainValidium(HOST_VALIDIUM_ADDR).grantRole(keccak256("GENESIS_IMPORTER_ROLE"), COMMIT_SENDER_ADDR);
-        ScrollChainValidium(HOST_VALIDIUM_ADDR).grantRole(keccak256("SEQUENCER_ROLE"), COMMIT_SENDER_ADDR);
-        ScrollChainValidium(HOST_VALIDIUM_ADDR).grantRole(keccak256("PROVER_ROLE"), FINALIZE_SENDER_ADDR);
+        // temporarily set deployer as admin
+        validium.initialize(notnull(DEPLOYER_ADDR));
 
-        ScrollChainValidium(HOST_VALIDIUM_ADDR).registerNewEncryptionKey(vm.parseBytes(SEQUENCER_ENCRYPTION_KEY));
+        // grant operational roles
+        validium.grantRole(validium.GENESIS_IMPORTER_ROLE(), notnull(COMMIT_SENDER_ADDR));
+        validium.grantRole(validium.SEQUENCER_ROLE(), notnull(COMMIT_SENDER_ADDR));
+        validium.grantRole(validium.PROVER_ROLE(), notnull(FINALIZE_SENDER_ADDR));
+        validium.grantRole(validium.KEY_MANAGER_ROLE(), notnull(DEPLOYER_ADDR));
+
+        validium.registerNewEncryptionKey(vm.parseBytes(SEQUENCER_ENCRYPTION_KEY));
+
+        // transfer roles to owner
+        validium.grantRole(validium.KEY_MANAGER_ROLE(), notnull(OWNER_ADDR));
+        validium.renounceRole(validium.KEY_MANAGER_ROLE(), DEPLOYER_ADDR);
+
+        validium.grantRole(validium.DEFAULT_ADMIN_ROLE(), notnull(OWNER_ADDR));
+        validium.renounceRole(validium.DEFAULT_ADMIN_ROLE(), DEPLOYER_ADDR);
     }
 
     function initializeHostSystemConfig() private {
-        address owner = HOST_PROXY_ADMIN_ADDR; // TODO
+        address owner = OWNER_ADDR;
         address signer = SEQUENCER_SIGNER_ADDRESS;
 
         SystemConfig.MessageQueueParameters memory messageQueueParameters = SystemConfig.MessageQueueParameters({
