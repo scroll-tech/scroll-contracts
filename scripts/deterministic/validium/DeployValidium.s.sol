@@ -485,7 +485,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         ScrollChainValidium(HOST_VALIDIUM_ADDR).grantRole(keccak256("SEQUENCER_ROLE"), COMMIT_SENDER_ADDR);
         ScrollChainValidium(HOST_VALIDIUM_ADDR).grantRole(keccak256("PROVER_ROLE"), FINALIZE_SENDER_ADDR);
 
-        // ScrollChainValidium(HOST_VALIDIUM_ADDR).updateEncryptionKey(vm.parseBytes(SEQUENCER_ENCRYPTION_KEY));
+        ScrollChainValidium(HOST_VALIDIUM_ADDR).registerNewEncryptionKey(vm.parseBytes(SEQUENCER_ENCRYPTION_KEY));
     }
 
     function initializeHostSystemConfig() private {
