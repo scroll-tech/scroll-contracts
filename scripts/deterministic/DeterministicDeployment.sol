@@ -8,8 +8,11 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC1967Upgrade} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-import {DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
 import {Configuration} from "./Configuration.sol";
+
+/// @dev The address of DeterministicDeploymentProxy.
+///      See https://github.com/Arachnid/deterministic-deployment-proxy.
+address constant DETERMINISTIC_DEPLOYMENT_PROXY_ADDR = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
 /// @notice DeterministicDeployment provides utilities for deterministic contract deployments.
 abstract contract DeterministicDeployment is Configuration {
@@ -56,7 +59,7 @@ abstract contract DeterministicDeployment is Configuration {
         if (bytes(DEPLOYMENT_SALT).length != 0) {
             saltPrefix = DEPLOYMENT_SALT;
         } else {
-            saltPrefix = DEFAULT_DEPLOYMENT_SALT;
+            revert("Missing deployment salt");
         }
 
         // sanity check: make sure DeterministicDeploymentProxy exists

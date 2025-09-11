@@ -4,7 +4,7 @@ pragma solidity =0.8.24;
 import {Script} from "forge-std/Script.sol";
 import {stdToml} from "forge-std/StdToml.sol";
 
-import {Configuration} from "./Configuration.sol";
+import {Configuration} from "../Configuration.sol";
 
 /// @notice ScrollConfiguration allows inheriting contracts to read the TOML configuration file.
 abstract contract ScrollConfiguration is Script, Configuration {
