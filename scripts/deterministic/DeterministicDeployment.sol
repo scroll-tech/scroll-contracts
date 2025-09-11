@@ -8,8 +8,11 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC1967Upgrade} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-import {CONFIG_CONTRACTS_PATH, DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
 import {Configuration} from "./Configuration.sol";
+
+/// @dev The address of DeterministicDeploymentProxy.
+///      See https://github.com/Arachnid/deterministic-deployment-proxy.
+address constant DETERMINISTIC_DEPLOYMENT_PROXY_ADDR = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
 /// @notice DeterministicDeployment provides utilities for deterministic contract deployments.
 abstract contract DeterministicDeployment is Configuration {
@@ -39,19 +42,20 @@ abstract contract DeterministicDeployment is Configuration {
      * Internal interface *
      **********************/
 
-    function initialize(ScriptMode _mode) internal {
+    function initialize(ScriptMode _mode, string memory workdir) internal {
         mode = _mode;
         skipDeploy = false;
 
         if (mode != ScriptMode.EmptyConfig) {
-            readConfig();
+            super.initialize(workdir);
         }
 
         // salt prefix used for deterministic deployments
+        string memory DEPLOYMENT_SALT = readString(".contracts.DEPLOYMENT_SALT");
         if (bytes(DEPLOYMENT_SALT).length != 0) {
             saltPrefix = DEPLOYMENT_SALT;
         } else {
-            saltPrefix = DEFAULT_DEPLOYMENT_SALT;
+            revert("Missing deployment salt");
         }
 
         // sanity check: make sure DeterministicDeploymentProxy exists
@@ -203,7 +207,7 @@ abstract contract DeterministicDeployment is Configuration {
         string memory tomlPath = string(abi.encodePacked(".", name, "_ADDR"));
 
         if (mode == ScriptMode.WriteConfig) {
-            vm.writeToml(vm.toString(addr), CONFIG_CONTRACTS_PATH, tomlPath);
+            writeToml(addr, tomlPath);
             return;
         }
 

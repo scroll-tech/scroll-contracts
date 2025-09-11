@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
-import {L1GasPriceOracle} from "../../src/L2/predeploys/L1GasPriceOracle.sol";
-import {L2MessageQueue} from "../../src/L2/predeploys/L2MessageQueue.sol";
-import {L2TxFeeVault} from "../../src/L2/predeploys/L2TxFeeVault.sol";
-import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
-import {WrappedEther} from "../../src/L2/predeploys/WrappedEther.sol";
+import {L1GasPriceOracle} from "../../../src/L2/predeploys/L1GasPriceOracle.sol";
+import {L2MessageQueue} from "../../../src/L2/predeploys/L2MessageQueue.sol";
+import {L2TxFeeVault} from "../../../src/L2/predeploys/L2TxFeeVault.sol";
+import {Whitelist} from "../../../src/L2/predeploys/Whitelist.sol";
+import {WrappedEther} from "../../../src/L2/predeploys/WrappedEther.sol";
 
-import {DETERMINISTIC_DEPLOYMENT_PROXY_ADDR, FEE_VAULT_MIN_WITHDRAW_AMOUNT, GENESIS_ALLOC_JSON_PATH, GENESIS_JSON_PATH, GENESIS_JSON_TEMPLATE_PATH} from "./Constants.sol";
+import {FEE_VAULT_MIN_WITHDRAW_AMOUNT, GENESIS_ALLOC_JSON_PATH, GENESIS_JSON_PATH, GENESIS_JSON_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
-import {DeterministicDeployment} from "./DeterministicDeployment.sol";
+import {DeterministicDeployment, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "../DeterministicDeployment.sol";
 
 contract GenerateGenesis is DeployScroll {
     /***************
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateGenesisAlloc();

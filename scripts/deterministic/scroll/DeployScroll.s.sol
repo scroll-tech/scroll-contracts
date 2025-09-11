@@ -2,54 +2,55 @@
 pragma solidity =0.8.24;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {ProxyAdminSetOwner} from "./contracts/ProxyAdminSetOwner.sol";
+import {ProxyAdminSetOwner} from "../contracts/ProxyAdminSetOwner.sol";
 import {TransparentUpgradeableProxy, ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {EmptyContract} from "../../src/misc/EmptyContract.sol";
+import {EmptyContract} from "../../../src/misc/EmptyContract.sol";
 
-import {EnforcedTxGateway} from "../../src/L1/gateways/EnforcedTxGateway.sol";
-import {L1CustomERC20Gateway} from "../../src/L1/gateways/L1CustomERC20Gateway.sol";
-import {L1ERC1155Gateway} from "../../src/L1/gateways/L1ERC1155Gateway.sol";
-import {L1ERC721Gateway} from "../../src/L1/gateways/L1ERC721Gateway.sol";
-import {L1ETHGateway} from "../../src/L1/gateways/L1ETHGateway.sol";
-import {L1GatewayRouter} from "../../src/L1/gateways/L1GatewayRouter.sol";
-import {L1MessageQueueV1WithGasPriceOracle} from "../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
-import {L1MessageQueueV2} from "../../src/L1/rollup/L1MessageQueueV2.sol";
-import {SystemConfig} from "../../src/L1/system-contract/SystemConfig.sol";
-import {L1ScrollMessenger} from "../../src/L1/L1ScrollMessenger.sol";
-import {L1StandardERC20Gateway} from "../../src/L1/gateways/L1StandardERC20Gateway.sol";
-import {L1WETHGateway} from "../../src/L1/gateways/L1WETHGateway.sol";
-import {L2GasPriceOracle} from "../../src/L1/rollup/L2GasPriceOracle.sol";
-import {MultipleVersionRollupVerifierSetOwner} from "./contracts/MultipleVersionRollupVerifierSetOwner.sol";
-import {ScrollChain} from "../../src/L1/rollup/ScrollChain.sol";
-import {ZkEvmVerifierV2} from "../../src/libraries/verifier/ZkEvmVerifierV2.sol";
-import {L2CustomERC20Gateway} from "../../src/L2/gateways/L2CustomERC20Gateway.sol";
-import {L2ERC1155Gateway} from "../../src/L2/gateways/L2ERC1155Gateway.sol";
-import {L2ERC721Gateway} from "../../src/L2/gateways/L2ERC721Gateway.sol";
-import {L2ETHGateway} from "../../src/L2/gateways/L2ETHGateway.sol";
-import {L2GatewayRouter} from "../../src/L2/gateways/L2GatewayRouter.sol";
-import {L2ScrollMessenger} from "../../src/L2/L2ScrollMessenger.sol";
-import {L2StandardERC20Gateway} from "../../src/L2/gateways/L2StandardERC20Gateway.sol";
-import {L2WETHGateway} from "../../src/L2/gateways/L2WETHGateway.sol";
-import {L1GasPriceOracle} from "../../src/L2/predeploys/L1GasPriceOracle.sol";
-import {L2MessageQueue} from "../../src/L2/predeploys/L2MessageQueue.sol";
-import {L2TxFeeVault} from "../../src/L2/predeploys/L2TxFeeVault.sol";
-import {Whitelist} from "../../src/L2/predeploys/Whitelist.sol";
-import {WrappedEther} from "../../src/L2/predeploys/WrappedEther.sol";
-import {ScrollStandardERC20} from "../../src/libraries/token/ScrollStandardERC20.sol";
-import {ScrollStandardERC20FactorySetOwner} from "./contracts/ScrollStandardERC20FactorySetOwner.sol";
+import {EnforcedTxGateway} from "../../../src/L1/gateways/EnforcedTxGateway.sol";
+import {L1CustomERC20Gateway} from "../../../src/L1/gateways/L1CustomERC20Gateway.sol";
+import {L1ERC1155Gateway} from "../../../src/L1/gateways/L1ERC1155Gateway.sol";
+import {L1ERC721Gateway} from "../../../src/L1/gateways/L1ERC721Gateway.sol";
+import {L1ETHGateway} from "../../../src/L1/gateways/L1ETHGateway.sol";
+import {L1GatewayRouter} from "../../../src/L1/gateways/L1GatewayRouter.sol";
+import {L1MessageQueueV1WithGasPriceOracle} from "../../../src/L1/rollup/L1MessageQueueV1WithGasPriceOracle.sol";
+import {L1MessageQueueV2} from "../../../src/L1/rollup/L1MessageQueueV2.sol";
+import {SystemConfig} from "../../../src/L1/system-contract/SystemConfig.sol";
+import {L1ScrollMessenger} from "../../../src/L1/L1ScrollMessenger.sol";
+import {L1StandardERC20Gateway} from "../../../src/L1/gateways/L1StandardERC20Gateway.sol";
+import {L1WETHGateway} from "../../../src/L1/gateways/L1WETHGateway.sol";
+import {L2GasPriceOracle} from "../../../src/L1/rollup/L2GasPriceOracle.sol";
+import {ScrollChain} from "../../../src/L1/rollup/ScrollChain.sol";
+import {ZkEvmVerifierV2} from "../../../src/libraries/verifier/ZkEvmVerifierV2.sol";
+import {L2CustomERC20Gateway} from "../../../src/L2/gateways/L2CustomERC20Gateway.sol";
+import {L2ERC1155Gateway} from "../../../src/L2/gateways/L2ERC1155Gateway.sol";
+import {L2ERC721Gateway} from "../../../src/L2/gateways/L2ERC721Gateway.sol";
+import {L2ETHGateway} from "../../../src/L2/gateways/L2ETHGateway.sol";
+import {L2GatewayRouter} from "../../../src/L2/gateways/L2GatewayRouter.sol";
+import {L2ScrollMessenger} from "../../../src/L2/L2ScrollMessenger.sol";
+import {L2StandardERC20Gateway} from "../../../src/L2/gateways/L2StandardERC20Gateway.sol";
+import {L2WETHGateway} from "../../../src/L2/gateways/L2WETHGateway.sol";
+import {L1GasPriceOracle} from "../../../src/L2/predeploys/L1GasPriceOracle.sol";
+import {L2MessageQueue} from "../../../src/L2/predeploys/L2MessageQueue.sol";
+import {L2TxFeeVault} from "../../../src/L2/predeploys/L2TxFeeVault.sol";
+import {Whitelist} from "../../../src/L2/predeploys/Whitelist.sol";
+import {WrappedEther} from "../../../src/L2/predeploys/WrappedEther.sol";
+import {ScrollStandardERC20} from "../../../src/libraries/token/ScrollStandardERC20.sol";
 
-import {ScrollChainMockFinalize} from "../../src/mocks/ScrollChainMockFinalize.sol";
+import {MultipleVersionRollupVerifierSetOwner} from "../contracts/MultipleVersionRollupVerifierSetOwner.sol";
+import {ScrollStandardERC20FactorySetOwner} from "../contracts/ScrollStandardERC20FactorySetOwner.sol";
+
+import {ScrollChainMockFinalize} from "../../../src/mocks/ScrollChainMockFinalize.sol";
 
 import "./Constants.sol";
-import "./Configuration.sol";
-import "./DeterministicDeployment.sol";
+import {ScrollConfiguration} from "./ScrollConfiguration.sol";
+import "../DeterministicDeployment.sol";
 
 /// @dev The minimum deployer account balance.
 uint256 constant MINIMUM_DEPLOYER_BALANCE = 0.1 ether;
 
-contract DeployScroll is DeterministicDeployment {
+contract DeployScroll is DeterministicDeployment, ScrollConfiguration {
     using stdToml for string;
 
     /*********
@@ -178,11 +179,15 @@ contract DeployScroll is DeterministicDeployment {
      * Entry point *
      ***************/
 
-    function run(string memory layer, string memory scriptMode) public {
+    function run(
+        string memory workdir,
+        string memory layer,
+        string memory scriptMode
+    ) public {
         broadcastLayer = parseLayer(layer);
         ScriptMode mode = parseScriptMode(scriptMode);
 
-        DeterministicDeployment.initialize(mode);
+        DeterministicDeployment.initialize(mode, workdir);
 
         checkDeployerBalance();
         deployAllContracts();

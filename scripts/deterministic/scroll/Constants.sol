@@ -1,13 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity =0.8.24;
 
-/// @dev The default deterministic deployment salt prefix.
-string constant DEFAULT_DEPLOYMENT_SALT = "ScrollStack";
-
-/// @dev The address of DeterministicDeploymentProxy.
-///      See https://github.com/Arachnid/deterministic-deployment-proxy.
-address constant DETERMINISTIC_DEPLOYMENT_PROXY_ADDR = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
 /// @dev The default minimum withdraw amount configured on L2TxFeeVault.
 uint256 constant FEE_VAULT_MIN_WITHDRAW_AMOUNT = 1 ether;
 

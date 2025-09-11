@@ -5,7 +5,7 @@ import {stdToml} from "forge-std/StdToml.sol";
 
 import {ADMIN_SYSTEM_BACKEND_CONFIG_PATH, ADMIN_SYSTEM_CRON_CONFIG_PATH, BALANCE_CHECKER_CONFIG_PATH, BALANCE_CHECKER_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_API_CONFIG_PATH, BRIDGE_HISTORY_CONFIG_TEMPLATE_PATH, BRIDGE_HISTORY_FETCHER_CONFIG_PATH, CHAIN_MONITOR_CONFIG_PATH, CHAIN_MONITOR_CONFIG_TEMPLATE_PATH, COORDINATOR_API_CONFIG_PATH, COORDINATOR_CONFIG_TEMPLATE_PATH, COORDINATOR_CRON_CONFIG_PATH, GAS_ORACLE_CONFIG_PATH, GENESIS_ALLOC_JSON_PATH, GENESIS_JSON_PATH, ROLLUP_CONFIG_PATH, ROLLUP_CONFIG_TEMPLATE_PATH, ROLLUP_EXPLORER_BACKEND_CONFIG_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
-import {DeterministicDeployment} from "./DeterministicDeployment.sol";
+import {DeterministicDeployment} from "../DeterministicDeployment.sol";
 
 contract GenerateRollupConfig is DeployScroll {
     using stdToml for string;
@@ -14,8 +14,8 @@ contract GenerateRollupConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateRollupConfig(ROLLUP_CONFIG_PATH);
@@ -58,8 +58,8 @@ contract GenerateCoordinatorConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateCoordinatorConfig(COORDINATOR_API_CONFIG_PATH);
@@ -100,8 +100,8 @@ contract GenerateChainMonitorConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateChainMonitorConfig(CHAIN_MONITOR_CONFIG_PATH);
@@ -153,8 +153,8 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateBridgeHistoryConfig(BRIDGE_HISTORY_API_CONFIG_PATH);
@@ -209,8 +209,8 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      * Entry point *
      ***************/
 
-    function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+    function run(string memory workdir) public {
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, workdir);
         predictAllContracts();
 
         generateBalanceCheckerConfig(BALANCE_CHECKER_CONFIG_PATH);
