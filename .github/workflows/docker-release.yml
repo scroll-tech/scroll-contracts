@@ -8,8 +8,7 @@ jobs:
   build:
     name: Clone, Build, Publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
 
     steps:
       - name: Check out repository
