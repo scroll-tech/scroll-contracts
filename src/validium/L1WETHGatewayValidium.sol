@@ -53,6 +53,8 @@ contract L1WETHGatewayValidium {
     function deposit(bytes memory _to, uint256 _amount) external payable {
         if (msg.value < _amount) revert ErrorInsufficientValue();
 
+        // WETH deposit is safe.
+        // slither-disable-next-line arbitrary-send-eth
         IWETH(WETH).deposit{value: _amount}();
         IERC20(WETH).safeApprove(gateway, _amount);
         IL1ERC20GatewayValidium(gateway).depositERC20{value: msg.value - _amount}(
