@@ -43,13 +43,13 @@ import {ScrollStandardERC20FactorySetOwner} from "./contracts/ScrollStandardERC2
 import {ScrollChainMockFinalize} from "../../src/mocks/ScrollChainMockFinalize.sol";
 
 import "./Constants.sol";
-import "./Configuration.sol";
+import {ScrollConfiguration} from "./ScrollConfiguration.sol";
 import "./DeterministicDeployment.sol";
 
 /// @dev The minimum deployer account balance.
 uint256 constant MINIMUM_DEPLOYER_BALANCE = 0.1 ether;
 
-contract DeployScroll is DeterministicDeployment {
+contract DeployScroll is DeterministicDeployment, ScrollConfiguration {
     using stdToml for string;
 
     /*********
@@ -178,11 +178,15 @@ contract DeployScroll is DeterministicDeployment {
      * Entry point *
      ***************/
 
-    function run(string memory layer, string memory scriptMode) public {
+    function run(
+        string memory workdir,
+        string memory layer,
+        string memory scriptMode
+    ) public {
         broadcastLayer = parseLayer(layer);
         ScriptMode mode = parseScriptMode(scriptMode);
 
-        DeterministicDeployment.initialize(mode);
+        DeterministicDeployment.initialize(mode, workdir);
 
         checkDeployerBalance();
         deployAllContracts();

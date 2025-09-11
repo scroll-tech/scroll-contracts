@@ -8,7 +8,7 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC1967Upgrade} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Upgrade.sol";
 
-import {CONFIG_CONTRACTS_PATH, DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
+import {DEFAULT_DEPLOYMENT_SALT, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "./Constants.sol";
 import {Configuration} from "./Configuration.sol";
 
 /// @notice DeterministicDeployment provides utilities for deterministic contract deployments.
@@ -35,19 +35,24 @@ abstract contract DeterministicDeployment is Configuration {
     string private saltPrefix;
     bool private skipDeploy;
 
+    string private cfgContractsPath;
+
     /**********************
      * Internal interface *
      **********************/
 
-    function initialize(ScriptMode _mode) internal {
+    function initialize(ScriptMode _mode, string memory workdir) internal {
         mode = _mode;
         skipDeploy = false;
 
+        cfgContractsPath = string(abi.encodePacked(workdir, "/config-contracts.toml"));
+
         if (mode != ScriptMode.EmptyConfig) {
-            readConfig();
+            super.initialize(workdir);
         }
 
         // salt prefix used for deterministic deployments
+        string memory DEPLOYMENT_SALT = readString(".contracts.DEPLOYMENT_SALT");
         if (bytes(DEPLOYMENT_SALT).length != 0) {
             saltPrefix = DEPLOYMENT_SALT;
         } else {
@@ -203,7 +208,7 @@ abstract contract DeterministicDeployment is Configuration {
         string memory tomlPath = string(abi.encodePacked(".", name, "_ADDR"));
 
         if (mode == ScriptMode.WriteConfig) {
-            vm.writeToml(vm.toString(addr), CONFIG_CONTRACTS_PATH, tomlPath);
+            vm.writeToml(vm.toString(addr), cfgContractsPath, tomlPath); // TODO: move to helpers
             return;
         }
 

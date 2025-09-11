@@ -15,7 +15,7 @@ contract GenerateRollupConfig is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateRollupConfig(ROLLUP_CONFIG_PATH);
@@ -59,7 +59,7 @@ contract GenerateCoordinatorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateCoordinatorConfig(COORDINATOR_API_CONFIG_PATH);
@@ -101,7 +101,7 @@ contract GenerateChainMonitorConfig is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateChainMonitorConfig(CHAIN_MONITOR_CONFIG_PATH);
@@ -154,7 +154,7 @@ contract GenerateBridgeHistoryConfig is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateBridgeHistoryConfig(BRIDGE_HISTORY_API_CONFIG_PATH);
@@ -210,7 +210,7 @@ contract GenerateBalanceCheckerConfig is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateBalanceCheckerConfig(BALANCE_CHECKER_CONFIG_PATH);

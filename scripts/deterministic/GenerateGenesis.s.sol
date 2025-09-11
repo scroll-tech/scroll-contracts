@@ -17,7 +17,7 @@ contract GenerateGenesis is DeployScroll {
      ***************/
 
     function run() public {
-        DeterministicDeployment.initialize(ScriptMode.VerifyConfig);
+        DeterministicDeployment.initialize(ScriptMode.VerifyConfig, ""); // TODO
         predictAllContracts();
 
         generateGenesisAlloc();
