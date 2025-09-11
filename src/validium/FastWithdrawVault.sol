@@ -15,13 +15,15 @@ import {IL1ERC20Gateway} from "../L1/gateways/IL1ERC20Gateway.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
 
 /// @title FastWithdrawVault
-/// @notice The vault for fast withdraw from L2 to L2.
-/// @dev This contract is used to fast withdraw tokens from L3 to L2 with signature from sequencer.
-/// The process for a fast withdraw is:
-/// 1. The user in L3 initiate a withdraw request and set the recipient address as this `FastWithdrawVault` contract, with
-///    proper amount of tokens.
+/// @notice The vault for fast withdrawals from L2 to L1.
+/// @dev For consistency with our existing contracts, we use "L1" for the host layer, and "L2" for the validium layer.
+///      For most deployments, these should be mapped as "L1" = Scroll (L2), "L2" = Validium (L3).
+/// @dev This contract is used to fast withdraw tokens from L2 to L1 with a permit from sequencer.
+/// The process for a fast withdrawal is:
+/// 1. The user on L2 initiates a withdraw request and sets the recipient address as this `FastWithdrawVault` contract,
+///    also sending the proper amount of tokens.
 /// 2. The sequencer signs the withdraw request and sends it to the vault.
-/// 3. The vault verifies the signature and the message hash, and then withdraws the tokens from L3 to L2.
+/// 3. The vault verifies the signature and the message hash, and then withdraws the tokens from L2 to L1.
 contract FastWithdrawVault is AccessControlUpgradeable, ReentrancyGuardUpgradeable, EIP712Upgradeable {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 

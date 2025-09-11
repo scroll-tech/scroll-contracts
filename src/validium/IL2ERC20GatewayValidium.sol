@@ -9,6 +9,9 @@ interface IL2ERC20GatewayValidium is IL2ERC20Gateway {
     /// @dev Make this function payable to handle WETH deposit/withdraw.
     ///      The function should only be called by L2ScrollMessenger.
     ///      The function should also only be called by L1ERC20Gateway in L1.
+    /// @dev This function is not implemented. Instead, it is used to signal to the sequencer
+    //       that the target address is encrypted. The sequencer should then decrypt the address
+    //       and call the standard `finalizeDepositERC20` function with the decrypted address.
     /// @param l1Token The address of corresponding L1 token.
     /// @param l2Token The address of corresponding L2 token.
     /// @param from The address of account who deposits the token in L1.
