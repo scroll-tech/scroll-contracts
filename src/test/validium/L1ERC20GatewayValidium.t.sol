@@ -14,6 +14,7 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 import {IL1ERC20GatewayValidium} from "../../validium/IL1ERC20GatewayValidium.sol";
 import {IL2ERC20GatewayValidium} from "../../validium/IL2ERC20GatewayValidium.sol";
 import {L1ERC20GatewayValidium} from "../../validium/L1ERC20GatewayValidium.sol";
+import {ScrollChainValidium} from "../../validium/ScrollChainValidium.sol";
 
 import {TransferReentrantToken} from "../mocks/tokens/TransferReentrantToken.sol";
 import {FeeOnTransferToken} from "../mocks/tokens/FeeOnTransferToken.sol";
@@ -128,47 +129,63 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         _deposit(sender, amount, recipient, gasLimit);
     }
 
+    function testDepositERC20WrongKey(
+        uint256 amount,
+        bytes memory recipient,
+        uint256 gasLimit
+    ) public {
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+        hevm.expectRevert(ScrollChainValidium.ErrorUnknownEncryptionKey.selector);
+        gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId + 1);
+    }
+
     function testDepositReentrantToken(uint256 amount) public {
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+
         // should revert, reentrant before transfer
         reentrantToken.setReentrantCall(
             address(gateway),
             0,
             abi.encodeWithSignature(
-                "depositERC20(address,bytes,uint256,uint256)",
+                "depositERC20(address,bytes,uint256,uint256,uint256)",
                 address(reentrantToken),
                 new bytes(0),
                 amount,
-                defaultGasLimit
+                defaultGasLimit,
+                keyId
             ),
             true
         );
         amount = bound(amount, 1, reentrantToken.balanceOf(address(this)));
         hevm.expectRevert("ReentrancyGuard: reentrant call");
-        gateway.depositERC20(address(reentrantToken), new bytes(0), amount, defaultGasLimit);
+
+        gateway.depositERC20(address(reentrantToken), new bytes(0), amount, defaultGasLimit, keyId);
 
         // should revert, reentrant after transfer
         reentrantToken.setReentrantCall(
             address(gateway),
             0,
             abi.encodeWithSignature(
-                "depositERC20(address,bytes,uint256,uint256)",
+                "depositERC20(address,bytes,uint256,uint256,uint256)",
                 address(reentrantToken),
                 new bytes(0),
                 amount,
-                defaultGasLimit
+                defaultGasLimit,
+                keyId
             ),
             false
         );
         amount = bound(amount, 1, reentrantToken.balanceOf(address(this)));
         hevm.expectRevert("ReentrancyGuard: reentrant call");
-        gateway.depositERC20(address(reentrantToken), new bytes(0), amount, defaultGasLimit);
+        gateway.depositERC20(address(reentrantToken), new bytes(0), amount, defaultGasLimit, keyId);
     }
 
     function testFeeOnTransferTokenFailed(uint256 amount) public {
         feeToken.setFeeRate(1e9);
         amount = bound(amount, 1, feeToken.balanceOf(address(this)));
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
         hevm.expectRevert(L1ERC20GatewayValidium.ErrorAmountIsZero.selector);
-        gateway.depositERC20(address(feeToken), new bytes(0), amount, defaultGasLimit);
+        gateway.depositERC20(address(feeToken), new bytes(0), amount, defaultGasLimit, keyId);
     }
 
     function testFeeOnTransferTokenSucceed(uint256 amount, uint256 feeRate) public {
@@ -179,7 +196,8 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         // should succeed, for valid amount
         uint256 balanceBefore = feeToken.balanceOf(address(gateway));
         uint256 fee = (amount * feeRate) / 1e9;
-        gateway.depositERC20(address(feeToken), new bytes(0), amount, defaultGasLimit);
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+        gateway.depositERC20(address(feeToken), new bytes(0), amount, defaultGasLimit, keyId);
         uint256 balanceAfter = feeToken.balanceOf(address(gateway));
         assertEq(balanceBefore + amount - fee, balanceAfter);
     }
@@ -245,7 +263,8 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
 
         // deposit some token to L1ERC20GatewayValidium
-        gateway.depositERC20(address(l1Token), new bytes(0), amount, defaultGasLimit);
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+        gateway.depositERC20(address(l1Token), new bytes(0), amount, defaultGasLimit, keyId);
 
         // do finalize withdraw token
         bytes memory message = abi.encodeWithSelector(
@@ -302,7 +321,8 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         amount = bound(amount, 1, l1Token.balanceOf(address(this)));
 
         // deposit some token to L1ERC20GatewayValidium
-        gateway.depositERC20(address(l1Token), new bytes(0), amount, defaultGasLimit);
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+        gateway.depositERC20(address(l1Token), new bytes(0), amount, defaultGasLimit, keyId);
 
         // do finalize withdraw token
         bytes memory message = abi.encodeWithSelector(
@@ -385,11 +405,12 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         );
 
         if (amount == 0) {
+            (uint256 keyId, ) = rollup.getLatestEncryptionKey();
             hevm.expectRevert(L1ERC20GatewayValidium.ErrorAmountIsZero.selector);
             if (from == address(this)) {
-                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit);
+                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
             } else {
-                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit);
+                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit, keyId);
             }
         } else {
             // emit QueueTransaction from L1MessageQueueV2
@@ -412,10 +433,11 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
             uint256 gatewayBalance = l1Token.balanceOf(address(gateway));
             uint256 feeVaultBalance = address(feeVault).balance;
             assertEq(l1Messenger.messageSendTimestamp(keccak256(xDomainCalldata)), 0);
+            (uint256 keyId, ) = rollup.getLatestEncryptionKey();
             if (from == address(this)) {
-                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit);
+                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
             } else {
-                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit);
+                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit, keyId);
             }
             assertEq(amount + gatewayBalance, l1Token.balanceOf(address(gateway)));
             assertEq(feeVaultBalance, address(feeVault).balance);
@@ -433,7 +455,8 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
                     address(counterpartGateway),
                     address(messenger),
                     address(template),
-                    address(factory)
+                    address(factory),
+                    address(rollup)
                 )
             )
         );

@@ -130,6 +130,8 @@ abstract contract ValidiumTestBase is ScrollTestBase {
             address(new ScrollChainValidium(_chainId, address(messageQueueV2), address(verifier)))
         );
         rollup.initialize(address(this));
+        rollup.grantRole(rollup.KEY_MANAGER_ROLE(), address(this));
+        rollup.registerNewEncryptionKey(hex"123456789012345678901234567890123456789012345678901234567890123456");
 
         // Make nonzero block.timestamp
         hevm.warp(1);

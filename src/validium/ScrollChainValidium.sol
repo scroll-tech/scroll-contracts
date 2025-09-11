@@ -64,7 +64,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     bytes32 public constant PROVER_ROLE = keccak256("PROVER_ROLE");
 
     /// @notice The role that can rotate encryption keys.
-    bytes32 public constant KEY_REGISTERER_ROLE = keccak256("KEY_REGISTERER_ROLE");
+    bytes32 public constant KEY_MANAGER_ROLE = keccak256("KEY_MANAGER_ROLE");
 
     /***********************
      * Immutable Variables *
@@ -156,14 +156,14 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     /// @inheritdoc IScrollChainValidium
     function getLatestEncryptionKey() external view override returns (uint256, bytes memory) {
         uint256 _numKeys = encryptionKeys.length;
-        if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
+        if (_numKeys == 0) revert ErrorUnknownEncryptionKey();
         return (_numKeys - 1, encryptionKeys[_numKeys - 1].key);
     }
 
     /// @inheritdoc IScrollChainValidium
     function getEncryptionKey(uint256 _keyId) external view override returns (bytes memory) {
         uint256 _numKeys = encryptionKeys.length;
-        if (_numKeys == 0) revert ErrorInvalidEncryptionKeyLength();
+        if (_numKeys == 0) revert ErrorUnknownEncryptionKey();
         if (_keyId >= _numKeys) revert ErrorUnknownEncryptionKey();
         if (_keyId < _numKeys - 1) revert ErrorDeprecatedEncryptionKey();
         return encryptionKeys[_numKeys - 1].key;
@@ -274,7 +274,7 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
      * Restricted Functions *
      ************************/
 
-    function registerNewEncryptionKey(bytes memory _key) external onlyRole(KEY_REGISTERER_ROLE) {
+    function registerNewEncryptionKey(bytes memory _key) external onlyRole(KEY_MANAGER_ROLE) {
         if (_key.length != 33) revert ErrorInvalidEncryptionKeyLength();
         uint256 _keyId = encryptionKeys.length;
 
@@ -362,7 +362,9 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
         bytes32 withdrawRoot = withdrawRoots[batchIndex];
 
         // Get the encryption key at the time of on-chain message queue index.
-        bytes memory encryptionKey = _getEncryptionKey(totalL1MessagesPoppedOverall - 1);
+        bytes memory encryptionKey = totalL1MessagesPoppedOverall == 0
+            ? _getEncryptionKey(0)
+            : _getEncryptionKey(totalL1MessagesPoppedOverall - 1);
 
         bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,

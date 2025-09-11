@@ -108,13 +108,15 @@ contract L1WETHGatewayValidiumTest is ValidiumTestBase {
             message
         );
 
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+
         if (amount == 0) {
             hevm.expectRevert(L1ERC20GatewayValidium.ErrorAmountIsZero.selector);
-            wethGateway.deposit(recipient, amount);
+            wethGateway.deposit(recipient, amount, keyId);
         } else {
             // revert when ErrorInsufficientValue
             hevm.expectRevert(L1WETHGatewayValidium.ErrorInsufficientValue.selector);
-            wethGateway.deposit{value: amount - 1}(recipient, amount);
+            wethGateway.deposit{value: amount - 1}(recipient, amount, keyId);
 
             // emit QueueTransaction from L1MessageQueueV2
             {
@@ -137,7 +139,7 @@ contract L1WETHGatewayValidiumTest is ValidiumTestBase {
             uint256 gatewayBalance = weth.balanceOf(address(gateway));
             uint256 feeVaultBalance = address(feeVault).balance;
             assertEq(l1Messenger.messageSendTimestamp(keccak256(xDomainCalldata)), 0);
-            wethGateway.deposit{value: amount}(recipient, amount);
+            wethGateway.deposit{value: amount}(recipient, amount, keyId);
             assertEq(ethBalance - amount, address(this).balance);
             assertEq(amount + gatewayBalance, weth.balanceOf(address(gateway)));
             assertEq(feeVaultBalance, address(feeVault).balance);
@@ -155,7 +157,8 @@ contract L1WETHGatewayValidiumTest is ValidiumTestBase {
                     address(counterpartGateway),
                     address(messenger),
                     address(template),
-                    address(factory)
+                    address(factory),
+                    address(rollup)
                 )
             )
         );

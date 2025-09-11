@@ -203,8 +203,8 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         uint256 _gasLimit,
         uint256 _keyId
     ) internal virtual nonReentrant {
-        // Fetch the encryption key with the given key-id.
-        bytes memory _encryptionKey = IScrollChainValidium(scrollChainValidium).getEncryptionKey(_keyId);
+        // Validate the encryption key with the given key-id.
+        IScrollChainValidium(scrollChainValidium).getEncryptionKey(_keyId);
 
         // 1. Transfer token into this contract.
         _amount = _transferERC20In(_msgSender(), _token, _amount);
