@@ -179,6 +179,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         return deploy(name, type(TransparentUpgradeableProxy).creationCode, args);
     }
 
+    // TODO: transfer all contracts to OWNER
     function transferOwnership(address addr, address newOwner) private {
         if (Ownable(addr).owner() != newOwner) {
             Ownable(addr).transferOwnership(newOwner);
@@ -347,7 +348,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
     }
 
     function deployHostMessengerWhitelist() private {
-        bytes memory args = abi.encode(notnull(OWNER_ADDR));
+        bytes memory args = abi.encode(notnull(DEPLOYER_ADDR));
         HOST_MESSENGER_WHITELIST_ADDR = deploy("HOST_MESSENGER_WHITELIST", type(Whitelist).creationCode, args);
     }
 
