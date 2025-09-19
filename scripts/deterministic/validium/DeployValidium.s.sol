@@ -272,8 +272,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         initializeHostErc20Gateway();
         initializeHostFastWithdrawVault();
 
-        // lockTokensOnL1();
-        // transferL1ContractOwnership();
+        transferHostContractOwnership();
     }
 
     // @notice initializeValidiumContracts initializes contracts deployed on the validium layer.
@@ -283,10 +282,9 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         initializeValidiumGasPriceOracle();
         initializeValidiumMessenger();
         initializeValidiumSystemConfig();
-
         initializeValidiumErc20Gateway();
 
-        // transferL2ContractOwnership();
+        transferValidiumContractOwnership();
     }
 
     /********************
@@ -498,6 +496,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
         validium.grantRole(validium.PROVER_ROLE(), notnull(FINALIZE_SENDER_ADDR));
         validium.grantRole(validium.KEY_MANAGER_ROLE(), notnull(DEPLOYER_ADDR));
 
+        // register initial sequencer key
         validium.registerNewEncryptionKey(vm.parseBytes(SEQUENCER_ENCRYPTION_KEY));
 
         // transfer roles to owner
@@ -514,8 +513,8 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
 
         SystemConfig.MessageQueueParameters memory messageQueueParameters = SystemConfig.MessageQueueParameters({
             maxGasLimit: uint32(VALIDIUM_GAS_LIMIT),
-            baseFeeOverhead: 1000000000,
-            baseFeeScalar: 1000000000
+            baseFeeOverhead: 0,
+            baseFeeScalar: 0
         });
 
         SystemConfig.EnforcedBatchParameters memory enforcedBatchParameters = SystemConfig.EnforcedBatchParameters({
@@ -551,7 +550,7 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
     }
 
     function initializeHostMessengerWhitelist() private {
-        address[] memory gateways = new address[](2);
+        address[] memory gateways = new address[](1);
         gateways[0] = HOST_ERC20_GATEWAY_ADDR;
         Whitelist(HOST_MESSENGER_WHITELIST_ADDR).updateWhitelistStatus(gateways, true);
     }
@@ -569,6 +568,17 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
                 notnull(FAST_WITHDRAW_SIGNER_ADDR)
             );
         }
+    }
+
+    function transferHostContractOwnership() private {
+        transferOwnership(HOST_PROXY_ADMIN_ADDR, OWNER_ADDR);
+        // HOST_VALIDIUM_ADDR already coverd in initializeHostValidium
+        transferOwnership(HOST_MESSAGE_QUEUE_ADDR, OWNER_ADDR);
+        transferOwnership(HOST_SYSTEM_CONFIG_ADDR, OWNER_ADDR);
+        transferOwnership(HOST_MESSENGER_ADDR, OWNER_ADDR);
+        transferOwnership(HOST_MESSENGER_WHITELIST_ADDR, OWNER_ADDR);
+        transferOwnership(HOST_ERC20_GATEWAY_ADDR, OWNER_ADDR);
+        // HOST_FAST_WITHDRAW_VAULT_ADDR already covered in initializeHostFastWithdrawVault
     }
 
     /****************************
@@ -617,5 +627,17 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
                 notnull(VALIDIUM_STANDARD_ERC20_FACTORY_ADDR)
             );
         }
+    }
+
+    function transferValidiumContractOwnership() private {
+        transferOwnership(VALIDIUM_MESSAGE_QUEUE_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_GAS_PRICE_ORACLE_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_GAS_PRICE_ORACLE_WHITELIST_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_TX_FEE_VAULT_ADDR, OWNER_ADDR);
+
+        transferOwnership(VALIDIUM_PROXY_ADMIN_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_MESSENGER_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_SYSTEM_CONFIG_ADDR, OWNER_ADDR);
+        transferOwnership(VALIDIUM_ERC20_GATEWAY_ADDR, OWNER_ADDR);
     }
 }
