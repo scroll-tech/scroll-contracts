@@ -40,9 +40,7 @@
         "scrollChainAddress": null,
         "l2SystemConfigAddress": null,
         "numL1MessagesPerBlock": "10"
-      },
-      "genesisStateRoot": "0x08d535cc60f40af5dd3b31e0998d7567c2d568b224bed2ba26070aeb078d1339",
-      "missingHeaderFieldsSHA256": "0x9062e2fa1200dca63bee1d18d429572f134f5f0c98cb4852f62fc394e33cf6e6"
+      }
     }
   },
   "nonce": "0x0",
