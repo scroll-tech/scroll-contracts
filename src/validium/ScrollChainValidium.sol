@@ -112,6 +112,9 @@ contract ScrollChainValidium is AccessControlUpgradeable, PausableUpgradeable, I
     /// @dev An array of encryption keys.
     EncryptionKey[] public encryptionKeys;
 
+    /// @dev The storage slots reserved for future usage.
+    uint256[50] private __gap;
+
     /***************
      * Constructor *
      ***************/
