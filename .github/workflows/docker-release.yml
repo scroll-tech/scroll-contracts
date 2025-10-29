@@ -27,6 +27,7 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '21'
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm install
