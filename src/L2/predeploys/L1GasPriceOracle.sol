@@ -108,6 +108,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     bool public isCurie;
 
     /// @custom:deprecated The penalty threshold parameter is deprecated after the Galileo fork.
+    // slither-disable-next-line uninitialized-state
     uint256 public __penaltyThreshold;
 
     /// @inheritdoc IL1GasPriceOracle
@@ -340,7 +341,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     }
 
     /// @dev Internal function to compute the L1 portion of the fee based on the size of the compressed rlp-
-    //       encoded input transaction, the current L1 base fee, and the various dynamic parameters, after the Galileo fork.
+    ///      encoded input transaction, the current L1 base fee, and the various dynamic parameters, after the Galileo fork.
     /// @param _data Signed fully RLP-encoded transaction to get the L1 fee for, compressed using zstd.
     /// @return L1 fee that should be paid for the tx
     function _getL1FeeGalileo(bytes memory _data) private view returns (uint256) {
