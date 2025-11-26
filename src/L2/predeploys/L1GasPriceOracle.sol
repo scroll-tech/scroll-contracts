@@ -117,6 +117,9 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// @notice Indicates whether the network has gone through the Feynman upgrade.
     bool public isFeynman;
 
+    /// @dev Gap added to ensure that `isGalileo` is in the next storage slot.
+    uint248 private __gap;
+
     /// @notice Indicates whether the network has gone through the Galileo upgrade.
     bool public isGalileo;
 
