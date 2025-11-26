@@ -312,4 +312,19 @@ contract L1GasPriceOracleTest is DSTestPlus {
 
         assertEq(oracle.getL1Fee(_data), (_baseTerm + _penaltyTerm) / PRECISION);
     }
+
+    function testSetStorageDuringUpgrade() external {
+        assertFalse(oracle.isFeynman());
+        assertFalse(oracle.isGalileo());
+
+        // Feynman upgrade
+        hevm.store(address(oracle), bytes32(uint256(11)), bytes32(uint256(1)));
+        assertTrue(oracle.isFeynman());
+        assertFalse(oracle.isGalileo());
+
+        // GalileoV2 upgrade
+        hevm.store(address(oracle), bytes32(uint256(12)), bytes32(uint256(1)));
+        assertTrue(oracle.isFeynman());
+        assertTrue(oracle.isGalileo());
+    }
 }
