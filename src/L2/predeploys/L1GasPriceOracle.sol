@@ -39,16 +39,14 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// @dev Thrown when we enable Curie fork after Curie fork.
     error ErrAlreadyInCurieFork();
 
-    /// @dev Thrown when the compression penalty threshold exceeds `MAX_PENALTY_THRESHOLD`,
-    /// or is less than 1 * PRECISION.
-    error ErrInvalidPenaltyThreshold();
-
-    /// @dev Thrown when the compression penalty factor exceeds `MAX_PENALTY_FACTOR`,
-    /// or is less than 1 * PRECISION.
+    /// @dev Thrown when the penalty factor is zero.
     error ErrInvalidPenaltyFactor();
 
     /// @dev Thrown when we enable Feynman fork after Feynman fork.
     error ErrAlreadyInFeynmanFork();
+
+    /// @dev Thrown when we enable Galileo fork after Galileo fork.
+    error ErrAlreadyInGalileoFork();
 
     /*************
      * Constants *
@@ -81,14 +79,6 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// So, the value should not exceed 10^9 * 1e9 normally.
     uint256 private constant MAX_BLOB_SCALAR = 10**9 * PRECISION;
 
-    /// @dev The maximum possible compression penalty threshold after Feynman.
-    /// The value should not exceed 10^9 * 1e9 normally.
-    uint256 private constant MAX_PENALTY_THRESHOLD = 10**9 * PRECISION;
-
-    /// @dev The maximum possible compression penalty factor after Feynman.
-    /// The value should not exceed 10^9 * 1e9 normally.
-    uint256 private constant MAX_PENALTY_FACTOR = 10**9 * PRECISION;
-
     /*************
      * Variables *
      *************/
@@ -117,14 +107,26 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     /// @notice Indicates whether the network has gone through the Curie upgrade.
     bool public isCurie;
 
-    /// @inheritdoc IL1GasPriceOracle
-    uint256 public override penaltyThreshold;
+    /// @custom:deprecated The penalty threshold parameter is deprecated after the Galileo fork.
+    uint256 public __penaltyThreshold;
 
     /// @inheritdoc IL1GasPriceOracle
     uint256 public override penaltyFactor;
 
     /// @notice Indicates whether the network has gone through the Feynman upgrade.
     bool public isFeynman;
+
+    /// @notice Indicates whether the network has gone through the Galileo upgrade.
+    bool public isGalileo;
+
+    /******************
+     * View functions *
+     ******************/
+
+    /// @inheritdoc IL1GasPriceOracle
+    function penaltyThreshold() external view override returns (uint256) {
+        return __penaltyThreshold;
+    }
 
     /*************
      * Modifiers *
@@ -149,7 +151,9 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
 
     /// @inheritdoc IL1GasPriceOracle
     function getL1Fee(bytes memory _data) external view override returns (uint256) {
-        if (isFeynman) {
+        if (isGalileo) {
+            return _getL1FeeGalileo(_data);
+        } else if (isFeynman) {
             return _getL1FeeFeynman(_data);
         } else if (isCurie) {
             return _getL1FeeCurie(_data);
@@ -160,7 +164,7 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
 
     /// @inheritdoc IL1GasPriceOracle
     function getL1GasUsed(bytes memory _data) public view override returns (uint256) {
-        if (isFeynman || isCurie) {
+        if (isGalileo || isFeynman || isCurie) {
             // It is near zero since we put all transactions to blob.
             return 0;
         } else {
@@ -232,20 +236,10 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
         emit BlobScalarUpdated(_scalar);
     }
 
-    /// Allows the owner to modify the penaltyThreshold.
-    /// @param _threshold New threshold
-    function setPenaltyThreshold(uint256 _threshold) external onlyOwner {
-        if (_threshold < PRECISION || _threshold > MAX_PENALTY_THRESHOLD) revert ErrInvalidPenaltyThreshold();
-
-        penaltyThreshold = _threshold;
-        emit PenaltyThresholdUpdated(_threshold);
-    }
-
     /// Allows the owner to modify the penaltyFactor.
     /// @param _factor New factor
     function setPenaltyFactor(uint256 _factor) external onlyOwner {
-        if (_factor < PRECISION || _factor > MAX_PENALTY_FACTOR) revert ErrInvalidPenaltyFactor();
-
+        if (_factor == 0) revert ErrInvalidPenaltyFactor();
         penaltyFactor = _factor;
         emit PenaltyFactorUpdated(_factor);
     }
@@ -278,6 +272,16 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
     function enableFeynman() external onlyOwner {
         if (isFeynman) revert ErrAlreadyInFeynmanFork();
         isFeynman = true;
+    }
+
+    /// @notice Enable the Galileo fork (callable by contract owner).
+    ///
+    /// @dev Since this is a predeploy contract, we will directly set the slot while hard fork
+    /// to avoid external owner operations.
+    /// The reason that we keep this function is for easy unit testing.
+    function enableGalileo() external onlyOwner {
+        if (isGalileo) revert ErrAlreadyInGalileoFork();
+        isGalileo = true;
     }
 
     /**********************
@@ -333,5 +337,15 @@ contract L1GasPriceOracle is OwnableBase, IL1GasPriceOracle {
             ((commitScalar * l1BaseFee + blobScalar * l1BlobBaseFee) * _data.length * penaltyFactor) /
             PRECISION /
             PRECISION;
+    }
+
+    /// @dev Internal function to compute the L1 portion of the fee based on the size of the compressed rlp-
+    //       encoded input transaction, the current L1 base fee, and the various dynamic parameters, after the Galileo fork.
+    /// @param _data Signed fully RLP-encoded transaction to get the L1 fee for, compressed using zstd.
+    /// @return L1 fee that should be paid for the tx
+    function _getL1FeeGalileo(bytes memory _data) private view returns (uint256) {
+        uint256 baseTerm = (commitScalar * l1BaseFee + blobScalar * l1BlobBaseFee) * _data.length;
+        uint256 penaltyTerm = (baseTerm * _data.length) / penaltyFactor;
+        return (baseTerm + penaltyTerm) / PRECISION;
     }
 }

@@ -260,7 +260,6 @@ contract L1GasPriceOracleTest is DSTestPlus {
         uint256 _blobBaseFee,
         uint256 _commitScalar,
         uint256 _blobScalar,
-        uint256 _penaltyThreshold,
         uint256 _penaltyFactor,
         bytes memory _data
     ) external {
@@ -268,14 +267,16 @@ contract L1GasPriceOracleTest is DSTestPlus {
         _blobBaseFee = bound(_blobBaseFee, 0, 1e9 * 20000); // max 20k gwei
         _commitScalar = bound(_commitScalar, 0, MAX_COMMIT_SCALAR);
         _blobScalar = bound(_blobScalar, 0, MAX_BLOB_SCALAR);
-        _penaltyThreshold = bound(_penaltyThreshold, 1e9, 1e9 * 5);
+        // Note: setPenaltyThreshold is deprecated
+        // _penaltyThreshold = bound(_penaltyThreshold, 1e9, 1e9 * 5);
         _penaltyFactor = bound(_penaltyFactor, 1e9, 1e9 * 10); // min 1x, max 10x penalty
 
         oracle.enableFeynman();
         oracle.setCommitScalar(_commitScalar);
         oracle.setBlobScalar(_blobScalar);
         oracle.setL1BaseFeeAndBlobBaseFee(_baseFee, _blobBaseFee);
-        oracle.setPenaltyThreshold(_penaltyThreshold);
+        // Note: setPenaltyThreshold is deprecated
+        // oracle.setPenaltyThreshold(_penaltyThreshold);
         oracle.setPenaltyFactor(_penaltyFactor);
 
         assertEq(
@@ -284,5 +285,31 @@ contract L1GasPriceOracleTest is DSTestPlus {
                 PRECISION /
                 PRECISION
         );
+    }
+
+    function testGetL1FeeGalileo(
+        uint256 _baseFee,
+        uint256 _blobBaseFee,
+        uint256 _commitScalar,
+        uint256 _blobScalar,
+        uint256 _penaltyFactor,
+        bytes memory _data
+    ) external {
+        _baseFee = bound(_baseFee, 0, 1e9 * 20000); // max 20k gwei
+        _blobBaseFee = bound(_blobBaseFee, 0, 1e9 * 20000); // max 20k gwei
+        _commitScalar = bound(_commitScalar, 0, MAX_COMMIT_SCALAR);
+        _blobScalar = bound(_blobScalar, 0, MAX_BLOB_SCALAR);
+        _penaltyFactor = bound(_penaltyFactor, 1, 1e9 * 100);
+
+        oracle.enableGalileo();
+        oracle.setCommitScalar(_commitScalar);
+        oracle.setBlobScalar(_blobScalar);
+        oracle.setL1BaseFeeAndBlobBaseFee(_baseFee, _blobBaseFee);
+        oracle.setPenaltyFactor(_penaltyFactor);
+
+        uint256 _baseTerm = (_commitScalar * _baseFee + _blobScalar * _blobBaseFee) * _data.length;
+        uint256 _penaltyTerm = (_baseTerm * _data.length) / _penaltyFactor;
+
+        assertEq(oracle.getL1Fee(_data), (_baseTerm + _penaltyTerm) / PRECISION);
     }
 }

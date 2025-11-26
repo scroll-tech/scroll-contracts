@@ -23,10 +23,6 @@ interface IL1GasPriceOracle {
     /// @param scalar The current blob fee scalar updated.
     event BlobScalarUpdated(uint256 scalar);
 
-    /// @notice Emitted when current compression penalty threshold is updated.
-    /// @param threshold The new compression penalty threshold.
-    event PenaltyThresholdUpdated(uint256 threshold);
-
     /// @notice Emitted when current compression penalty factor is updated.
     /// @param factor The new compression penalty factor.
     event PenaltyFactorUpdated(uint256 factor);
@@ -56,6 +52,7 @@ interface IL1GasPriceOracle {
     function blobScalar() external view returns (uint256);
 
     /// @notice Return the current compression penalty threshold.
+    /// @custom:deprecated The penalty threshold parameter is deprecated after the Galileo fork.
     function penaltyThreshold() external view returns (uint256);
 
     /// @notice Return the current compression penalty factor.
