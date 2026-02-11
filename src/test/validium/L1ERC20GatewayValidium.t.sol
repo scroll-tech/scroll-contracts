@@ -14,7 +14,7 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 import {IL1ERC20GatewayValidium} from "../../validium/IL1ERC20GatewayValidium.sol";
 import {IL2ERC20GatewayValidium} from "../../validium/IL2ERC20GatewayValidium.sol";
 import {L1ERC20GatewayValidium} from "../../validium/L1ERC20GatewayValidium.sol";
-import {L1WETHGatewayValidium} from "../../validium/L1WethGatewayValidium.sol";
+import {L1WETHGatewayValidium} from "../../validium/L1WETHGatewayValidium.sol";
 import {ScrollChainValidium} from "../../validium/ScrollChainValidium.sol";
 
 import {TransferReentrantToken} from "../mocks/tokens/TransferReentrantToken.sol";
