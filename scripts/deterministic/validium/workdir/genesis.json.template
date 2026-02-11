@@ -21,9 +21,11 @@
     "euclidTime": 0,
     "euclidV2Time": 0,
     "feynmanTime": 0,
+    "galileoTime": 0,
+    "galileoV2Time": 0,
     "systemContract": {
       "period": 1,
-      "blocks_per_second": 2,
+      "blocks_per_second": 10,
       "system_contract_address": null,
       "system_contract_slot": "0x0000000000000000000000000000000000000000000000000000000000000067"
     },
