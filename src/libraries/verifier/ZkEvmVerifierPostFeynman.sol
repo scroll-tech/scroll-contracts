@@ -28,6 +28,8 @@ contract ZkEvmVerifierPostFeynman is IZkEvmVerifierV2 {
     bytes32 public immutable verifierDigest2;
 
     /// @notice The version of the protocol.
+    /// @dev The protocol version for Validium@v1 onwards encodes `domain` and `version` such that
+    /// @dev protocolVersion = (domain << 6) + version.
     uint256 public immutable protocolVersion;
 
     /***************
@@ -54,8 +56,8 @@ contract ZkEvmVerifierPostFeynman is IZkEvmVerifierV2 {
     ///
     /// @dev Encoding for `publicInput`. And this is exactly the same as `ZkEvmVerifierV2`.
     /// ```text
-    /// | layer2ChainId | msgQueueHash | numBatches | prevStateRoot | prevBatchHash | postStateRoot | batchHash | withdrawRoot |
-    /// |    8 bytes    |   32  bytes  |  4  bytes  |   32  bytes   |   32  bytes   |   32  bytes   | 32  bytes |   32 bytes   |
+    /// | layer2ChainId | msgQueueHash | numBatches | prevStateRoot | prevBatchHash | postStateRoot | batchHash | withdrawRoot | validium ? encryptionKey |
+    /// |    8 bytes    |   32  bytes  |  4  bytes  |   32  bytes   |   32  bytes   |   32  bytes   | 32  bytes |   32 bytes   |       33 bytes           |
     /// ```
     function verify(bytes calldata bundleProof, bytes calldata publicInput) external view override {
         address _verifier = plonkVerifier;
