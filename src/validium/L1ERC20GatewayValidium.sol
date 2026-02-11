@@ -34,6 +34,9 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @dev Error thrown when amount is zero.
     error ErrorAmountIsZero();
 
+    /// @dev Error thrown when caller is not the WETH gateway.
+    error ErrorCallerNotWethGateway();
+
     /*************
      * Constants *
      *************/
@@ -46,6 +49,9 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
 
     /// @notice The address of ScrollChainValidium contract in L2.
     address public immutable scrollChainValidium;
+
+    /// @notice The address of L1WETHGatewayValidium contract.
+    address public immutable wethGateway;
 
     /*************
      * Variables *
@@ -67,18 +73,22 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
     /// @param _messenger The address of `L1ScrollMessenger` contract in L1.
     /// @param _l2TokenImplementation The address of `ScrollStandardERC20` implementation in L2.
     /// @param _l2TokenFactory The address of `ScrollStandardERC20Factory` contract in L2.
+    /// @param _scrollChainValidium The address of `ScrollChainValidium` contract in L2.
+    /// @param _wethGateway The address of `L1WETHGatewayValidium` contract.
     constructor(
         address _counterpart,
         address _messenger,
         address _l2TokenImplementation,
         address _l2TokenFactory,
-        address _scrollChainValidium
+        address _scrollChainValidium,
+        address _wethGateway
     ) ScrollGatewayBase(_counterpart, address(0), _messenger) {
         _disableInitializers();
 
         l2TokenImplementation = _l2TokenImplementation;
         l2TokenFactory = _l2TokenFactory;
         scrollChainValidium = _scrollChainValidium;
+        wethGateway = _wethGateway;
     }
 
     /// @notice Initialize the storage of L1ERC20GatewayValidium.
@@ -123,6 +133,9 @@ contract L1ERC20GatewayValidium is ScrollGatewayBase, IL1ERC20GatewayValidium {
         uint256 _gasLimit,
         uint256 _keyId
     ) external payable override {
+        // Only the WETH gateway can call this function to preserve the real sender
+        if (_msgSender() != wethGateway) revert ErrorCallerNotWethGateway();
+
         _deposit(_token, _realSender, _to, _amount, new bytes(0), _gasLimit, _keyId);
     }
 

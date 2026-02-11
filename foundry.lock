@@ -1,0 +1,11 @@
+{
+  "lib/ds-test": {
+    "rev": "e282159d5170298eb2455a6c05280ab5a73a4ef0"
+  },
+  "lib/forge-std": {
+    "rev": "978ac6fadb62f5f0b723c996f64be52eddba6801"
+  },
+  "lib/solmate": {
+    "rev": "c892309933b25c03d32b1b0d674df7ae292ba925"
+  }
+}
