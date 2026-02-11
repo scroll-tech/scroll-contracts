@@ -385,7 +385,8 @@ contract DeployValidium is ValidiumConfiguration, DeterministicDeployment {
             notnull(HOST_MESSENGER_ADDR),
             notnull(VALIDIUM_STANDARD_ERC20_TOKEN_ADDR),
             notnull(VALIDIUM_STANDARD_ERC20_FACTORY_ADDR),
-            notnull(HOST_VALIDIUM_ADDR)
+            notnull(HOST_VALIDIUM_ADDR),
+            notnull(HOST_WETH_GATEWAY_ADDR)
         );
 
         address impl = deploy("HOST_ERC20_GATEWAY_IMPLEMENTATION", type(L1ERC20GatewayValidium).creationCode, args);
