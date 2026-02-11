@@ -114,6 +114,9 @@ contract GenerateGenesis is DeployValidium {
         bytes32 _isFeynmanSlot = hex"000000000000000000000000000000000000000000000000000000000000000b";
         vm.store(predeployAddr, _isFeynmanSlot, bytes32(uint256(1)));
 
+        bytes32 _isGalileoSlot = hex"000000000000000000000000000000000000000000000000000000000000000c";
+        vm.store(predeployAddr, _isGalileoSlot, bytes32(uint256(1)));
+
         // reset so it's not included state dump
         vm.etch(address(_oracle), "");
         vm.resetNonce(address(_oracle));
