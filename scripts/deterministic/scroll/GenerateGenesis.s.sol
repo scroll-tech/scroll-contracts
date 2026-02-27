@@ -9,7 +9,7 @@ import {WrappedEther} from "../../../src/L2/predeploys/WrappedEther.sol";
 
 import {FEE_VAULT_MIN_WITHDRAW_AMOUNT, GENESIS_ALLOC_JSON_PATH, GENESIS_JSON_PATH, GENESIS_JSON_TEMPLATE_PATH} from "./Constants.sol";
 import {DeployScroll} from "./DeployScroll.s.sol";
-import {DeterministicDeployment, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR} from "../DeterministicDeployment.sol";
+import {DeterministicDeployment, DETERMINISTIC_DEPLOYMENT_PROXY_ADDR, EIP_2935_HISTORY_STORAGE_ADDRESS} from "../DeterministicDeployment.sol";
 
 contract GenerateGenesis is DeployScroll {
     /***************
@@ -44,6 +44,7 @@ contract GenerateGenesis is DeployScroll {
         setL2FeeVault();
 
         // other predeploys
+        setEIP2935HistoryStorage();
         setDeterministicDeploymentProxy();
 
         // reset sender
@@ -180,6 +181,12 @@ contract GenerateGenesis is DeployScroll {
         // reset so its not included state dump
         vm.etch(_vaultAddr, "");
         vm.resetNonce(_vaultAddr);
+    }
+
+    function setEIP2935HistoryStorage() internal {
+        bytes
+            memory code = hex"3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500";
+        vm.etch(EIP_2935_HISTORY_STORAGE_ADDRESS, code);
     }
 
     function setDeterministicDeploymentProxy() internal {
