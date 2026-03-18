@@ -14,6 +14,7 @@ import {AddressAliasHelper} from "../../libraries/common/AddressAliasHelper.sol"
 import {IL1ERC20GatewayValidium} from "../../validium/IL1ERC20GatewayValidium.sol";
 import {IL2ERC20GatewayValidium} from "../../validium/IL2ERC20GatewayValidium.sol";
 import {L1ERC20GatewayValidium} from "../../validium/L1ERC20GatewayValidium.sol";
+import {L1WETHGatewayValidium} from "../../validium/L1WETHGatewayValidium.sol";
 import {ScrollChainValidium} from "../../validium/ScrollChainValidium.sol";
 
 import {TransferReentrantToken} from "../mocks/tokens/TransferReentrantToken.sol";
@@ -46,6 +47,7 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
     ScrollStandardERC20 private template;
     ScrollStandardERC20Factory private factory;
     L2StandardERC20Gateway private counterpartGateway;
+    L1WETHGatewayValidium private wethGateway = L1WETHGatewayValidium(address(1)); // placeholder for tests
 
     MockERC20 private l1Token;
     MockERC20 private l2Token;
@@ -120,15 +122,6 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         _deposit(address(this), amount, recipient, gasLimit);
     }
 
-    function testDepositERC20WithSender(
-        address sender,
-        uint256 amount,
-        bytes memory recipient,
-        uint256 gasLimit
-    ) public {
-        _deposit(sender, amount, recipient, gasLimit);
-    }
-
     function testDepositERC20WrongKey(
         uint256 amount,
         bytes memory recipient,
@@ -137,6 +130,35 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         (uint256 keyId, ) = rollup.getLatestEncryptionKey();
         hevm.expectRevert(ScrollChainValidium.ErrorUnknownEncryptionKey.selector);
         gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId + 1);
+    }
+
+    function testDepositERC20WithRealSenderUnauthorized(
+        address attacker,
+        address victim,
+        uint256 amount,
+        bytes memory recipient,
+        uint256 gasLimit
+    ) public {
+        hevm.assume(attacker != address(0));
+        hevm.assume(attacker != address(wethGateway));
+
+        amount = bound(amount, 1, l1Token.balanceOf(address(this)));
+        gasLimit = bound(gasLimit, defaultGasLimit / 2, defaultGasLimit);
+        (uint256 keyId, ) = rollup.getLatestEncryptionKey();
+
+        // Transfer tokens to attacker
+        l1Token.transfer(attacker, amount);
+
+        // Attacker approves gateway
+        hevm.startPrank(attacker);
+        l1Token.approve(address(gateway), amount);
+
+        // Attacker tries to call depositERC20 with victim as _realSender
+        // This should revert with ErrorCallerNotWethGateway
+        hevm.expectRevert(L1ERC20GatewayValidium.ErrorCallerNotWethGateway.selector);
+        gateway.depositERC20(address(l1Token), victim, recipient, amount, gasLimit, keyId);
+
+        hevm.stopPrank();
     }
 
     function testDepositReentrantToken(uint256 amount) public {
@@ -407,12 +429,11 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
         if (amount == 0) {
             (uint256 keyId, ) = rollup.getLatestEncryptionKey();
             hevm.expectRevert(L1ERC20GatewayValidium.ErrorAmountIsZero.selector);
-            if (from == address(this)) {
-                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
-            } else {
-                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit, keyId);
-            }
+            gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
         } else {
+            // Note: from parameter is only used in event expectations, not in actual calls
+            // The depositERC20 function always uses msg.sender for actual deposits
+
             // emit QueueTransaction from L1MessageQueueV2
             {
                 hevm.expectEmit(true, true, false, true);
@@ -434,11 +455,7 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
             uint256 feeVaultBalance = address(feeVault).balance;
             assertEq(l1Messenger.messageSendTimestamp(keccak256(xDomainCalldata)), 0);
             (uint256 keyId, ) = rollup.getLatestEncryptionKey();
-            if (from == address(this)) {
-                gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
-            } else {
-                gateway.depositERC20(address(l1Token), from, recipient, amount, gasLimit, keyId);
-            }
+            gateway.depositERC20(address(l1Token), recipient, amount, gasLimit, keyId);
             assertEq(amount + gatewayBalance, l1Token.balanceOf(address(gateway)));
             assertEq(feeVaultBalance, address(feeVault).balance);
             assertGt(l1Messenger.messageSendTimestamp(keccak256(xDomainCalldata)), 0);
@@ -456,7 +473,8 @@ contract L1ERC20GatewayValidiumTest is ValidiumTestBase {
                     address(messenger),
                     address(template),
                     address(factory),
-                    address(rollup)
+                    address(rollup),
+                    address(wethGateway)
                 )
             )
         );

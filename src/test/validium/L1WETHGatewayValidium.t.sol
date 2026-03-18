@@ -64,8 +64,23 @@ contract L1WETHGatewayValidiumTest is ValidiumTestBase {
         counterpartGateway = new L2StandardERC20Gateway(address(1), address(1), address(1), address(factory));
 
         // Deploy L1 contracts
-        gateway = _deployGateway(address(l1Messenger));
+        gateway = L1ERC20GatewayValidium(_deployProxy(address(0)));
         wethGateway = new L1WETHGatewayValidium(address(weth), address(gateway));
+
+        // Upgrade gateway implementation with actual wethGateway address
+        admin.upgrade(
+            ITransparentUpgradeableProxy(address(gateway)),
+            address(
+                new L1ERC20GatewayValidium(
+                    address(counterpartGateway),
+                    address(l1Messenger),
+                    address(template),
+                    address(factory),
+                    address(rollup),
+                    address(wethGateway)
+                )
+            )
+        );
 
         // Initialize L1 contracts
         gateway.initialize();
@@ -145,22 +160,5 @@ contract L1WETHGatewayValidiumTest is ValidiumTestBase {
             assertEq(feeVaultBalance, address(feeVault).balance);
             assertGt(l1Messenger.messageSendTimestamp(keccak256(xDomainCalldata)), 0);
         }
-    }
-
-    function _deployGateway(address messenger) internal returns (L1ERC20GatewayValidium _gateway) {
-        _gateway = L1ERC20GatewayValidium(_deployProxy(address(0)));
-
-        admin.upgrade(
-            ITransparentUpgradeableProxy(address(_gateway)),
-            address(
-                new L1ERC20GatewayValidium(
-                    address(counterpartGateway),
-                    address(messenger),
-                    address(template),
-                    address(factory),
-                    address(rollup)
-                )
-            )
-        );
     }
 }
