@@ -190,4 +190,76 @@ contract PauseControllerTest is Test {
 
         vm.stopPrank();
     }
+
+    function test_Unpause_Permissionless() public {
+        vm.startPrank(owner);
+        pauseController.pause(mockPausable);
+        assertTrue(mockPausable.paused());
+        uint256 pauseExpiry = block.timestamp + pauseController.DEFAULT_PAUSE_EXPIRY();
+        vm.stopPrank();
+
+        address notOwner = makeAddr("notOwner");
+        vm.startPrank(notOwner);
+
+        vm.warp(pauseExpiry - 1);
+        vm.expectRevert("Ownable: caller is not the owner");
+        pauseController.unpause(mockPausable);
+        assertTrue(mockPausable.paused());
+
+        vm.warp(pauseExpiry);
+        pauseController.unpause(mockPausable);
+        assertFalse(mockPausable.paused());
+
+        vm.stopPrank();
+    }
+
+    function test_Pause_Extend() public {
+        vm.startPrank(owner);
+
+        pauseController.pause(mockPausable);
+        assertTrue(mockPausable.paused());
+        uint256 pauseExpiry = block.timestamp + pauseController.DEFAULT_PAUSE_EXPIRY();
+
+        vm.expectRevert(PauseController.ErrorInvalidPauseExpiry.selector);
+        pauseController.extendPause(mockPausable, pauseExpiry);
+
+        pauseController.extendPause(mockPausable, pauseExpiry + 1 days);
+
+        vm.stopPrank();
+
+        address notOwner = makeAddr("notOwner");
+        vm.startPrank(notOwner);
+
+        vm.warp(pauseExpiry);
+        vm.expectRevert("Ownable: caller is not the owner");
+        pauseController.unpause(mockPausable);
+        assertTrue(mockPausable.paused());
+
+        vm.warp(pauseExpiry + 1 days);
+        pauseController.unpause(mockPausable);
+        assertFalse(mockPausable.paused());
+
+        vm.stopPrank();
+    }
+
+    function test_Pause_Unpause_Extend() public {
+        vm.startPrank(owner);
+        pauseController.pause(mockPausable);
+        uint256 pauseExpiry = block.timestamp + pauseController.DEFAULT_PAUSE_EXPIRY();
+        assertTrue(mockPausable.paused());
+        vm.stopPrank();
+
+        vm.warp(pauseExpiry);
+
+        address notOwner = makeAddr("notOwner");
+        vm.startPrank(notOwner);
+        pauseController.unpause(mockPausable);
+        assertFalse(mockPausable.paused());
+        vm.stopPrank();
+
+        vm.startPrank(owner);
+        pauseController.extendPause(mockPausable, pauseExpiry + 1 days);
+        assertTrue(mockPausable.paused()); // auto re-pause contract
+        vm.stopPrank();
+    }
 }
