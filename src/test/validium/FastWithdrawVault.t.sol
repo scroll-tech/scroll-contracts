@@ -268,7 +268,8 @@ contract FastWithdrawVaultTest is ValidiumTestBase {
                     address(messenger),
                     address(template),
                     address(factory),
-                    address(rollup)
+                    address(rollup),
+                    address(1) // wethGateway - placeholder for tests
                 )
             )
         );
