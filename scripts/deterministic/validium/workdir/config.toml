@@ -1,0 +1,46 @@
+[general]
+
+chain_id_host = 22222222
+chain_id_validium = 33333333
+
+gas_limit = 20_000_000
+max_eth_supply = "226156424291633194186662080095093570025917938800079226639565593765455331328"
+deployer_initial_balance = 1000000000000000000
+
+
+[accounts]
+
+deployer = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+owner = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+fee_vault = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+sequencer = "0x20fc66f922534612f9185734e92b5e99edd53ecf"
+commit_sender = "0x22Cda1e7cB5BFFE17bcedE09aa277D50D689CD15"
+finalize_sender = "0x9d842De42C7b467c9862c29F57Ed487e25e154Ad"
+fast_withdraw_signer = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+
+
+[keys]
+
+# note: for now we simply use Anvil's dev accounts
+deployer = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+# Public key used for encrypting deposits.
+sequencer_encryption = "02bce905b751cbf4032d6b853904e23cea1c2fd1d6b0c84b4888b0ec6af97cbcd7"
+
+# Private key used for decrypting deposits.
+sequencer_decryption = "9fca2e8bf31078e47ac0cce462867b8093f2649ffd5be1cca89215d9e23822c4"
+
+
+[contracts]
+
+DEPLOYMENT_SALT = "devnetSalt-000"
+
+[contracts.overrides]
+
+# Uncomment the following line for Sepolia deployment.
+# HOST_WETH = "0x5300000000000000000000000000000000000004"
+
+VALIDIUM_MESSAGE_QUEUE = "0x5300000000000000000000000000000000000000"
+VALIDIUM_GAS_PRICE_ORACLE = "0x5300000000000000000000000000000000000002"
+VALIDIUM_GAS_PRICE_ORACLE_WHITELIST = "0x5300000000000000000000000000000000000003"
+VALIDIUM_TX_FEE_VAULT = "0x5300000000000000000000000000000000000005"

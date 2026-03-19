@@ -1,0 +1,57 @@
+{
+  "config": {
+    "chainId": null,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip150Hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "berlinBlock": 0,
+    "londonBlock": 0,
+    "archimedesBlock": 0,
+    "shanghaiBlock": 0,
+    "bernoulliBlock": 0,
+    "curieBlock": 0,
+    "darwinTime": 0,
+    "darwinV2Time": 0,
+    "euclidTime": 0,
+    "euclidV2Time": 0,
+    "feynmanTime": 0,
+    "galileoTime": 0,
+    "galileoV2Time": 0,
+    "systemContract": {
+      "period": 1,
+      "blocks_per_second": 10,
+      "system_contract_address": null,
+      "system_contract_slot": "0x0000000000000000000000000000000000000000000000000000000000000067"
+    },
+    "scroll": {
+      "useZktrie": false,
+      "maxTxPerBlock": 100,
+      "maxTxPayloadBytesPerBlock": 122880,
+      "feeVaultAddress": null,
+      "l1Config": {
+        "l1ChainId": null,
+        "l1MessageQueueAddress": "0x0000000000000000000000000000000000000001",
+        "l1MessageQueueV2Address": null,
+        "l1MessageQueueV2DeploymentBlock": 0,
+        "scrollChainAddress": null,
+        "l2SystemConfigAddress": null,
+        "numL1MessagesPerBlock": "10"
+      }
+    }
+  },
+  "nonce": "0x0",
+  "timestamp": null,
+  "extraData": "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "gasLimit": null,
+  "difficulty": "0x1",
+  "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "coinbase": "0x0000000000000000000000000000000000000000",
+  "baseFeePerGas": "0x1",
+  "alloc": null
+}

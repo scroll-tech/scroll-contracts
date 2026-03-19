@@ -14,6 +14,7 @@ abstract contract Configuration is Script {
 
     string internal cfg;
     string internal contractsCfg;
+    string internal contractsCfgPath;
 
     /**********************
      * Internal interface *
@@ -23,7 +24,7 @@ abstract contract Configuration is Script {
         string memory cfgPath = string(abi.encodePacked(workdir, "/config.toml"));
         cfg = vm.readFile(cfgPath);
 
-        string memory contractsCfgPath = string(abi.encodePacked(workdir, "/config-contracts.toml"));
+        contractsCfgPath = string(abi.encodePacked(workdir, "/config-contracts.toml"));
         contractsCfg = vm.readFile(contractsCfgPath);
     }
 
@@ -39,8 +40,8 @@ abstract contract Configuration is Script {
         return cfg.readString(key);
     }
 
-    function writeToml(address addr, string memory tomlPath) internal {
-        vm.writeToml(vm.toString(addr), cfg, tomlPath);
+    function writeContract(address addr, string memory tomlPath) internal {
+        vm.writeToml(vm.toString(addr), contractsCfgPath, tomlPath);
     }
 
     /// @dev Ensure that `addr` is not the zero address.

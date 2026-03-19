@@ -14,6 +14,10 @@ import {Configuration} from "./Configuration.sol";
 ///      See https://github.com/Arachnid/deterministic-deployment-proxy.
 address constant DETERMINISTIC_DEPLOYMENT_PROXY_ADDR = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
 
+/// @dev The address of the EIP-2935 history storage system contract.
+///      See https://eips.ethereum.org/EIPS/eip-2935.
+address constant EIP_2935_HISTORY_STORAGE_ADDRESS = 0x0000F90827F1C53a10cb7A02335B175320002935;
+
 /// @notice DeterministicDeployment provides utilities for deterministic contract deployments.
 abstract contract DeterministicDeployment is Configuration {
     using stdToml for string;
@@ -207,7 +211,7 @@ abstract contract DeterministicDeployment is Configuration {
         string memory tomlPath = string(abi.encodePacked(".", name, "_ADDR"));
 
         if (mode == ScriptMode.WriteConfig) {
-            writeToml(addr, tomlPath);
+            writeContract(addr, tomlPath);
             return;
         }
 
