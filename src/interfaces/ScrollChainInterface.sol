@@ -35,7 +35,7 @@ interface ScrollChainInterface {
 
     /// @notice Emitted when we enter or exit enforced batch mode.
     /// @param enabled True if we are entering enforced batch mode, false otherwise.
-    /// @param lastCommittedBatchIndex The index of the last committed batch.
+    /// @param lastCommittedBatchIndex The index of the committed batch.
     event UpdateEnforcedBatchMode(bool enabled, uint256 lastCommittedBatchIndex);
 
     /*************************
@@ -56,6 +56,10 @@ interface ScrollChainInterface {
     /// @param batchIndex The index of the batch.
     /// @return The message root of a committed batch.
     function withdrawRoots(uint256 batchIndex) external view returns (bytes32);
+
+    /// @param batchIndex The index of the batch.
+    /// @return The last L2 block hash of a finalized bundle.
+    function finalizedL2BlockHashes(uint256 batchIndex) external view returns (bytes32);
 
     /// @param batchIndex The index of the batch.
     /// @return Whether the batch is finalized by batch index.
@@ -190,6 +194,10 @@ interface ScrollChainInterface {
     /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this bundle.
     /// @param withdrawRoot The withdraw trie root after this bundle.
+    /// @param prevBlockHash The L2 block hash before this bundle.
+    /// @param postBlockHash The last L2 block hash after this bundle.
+    /// @param initialBlockNumber The first L2 block number in this bundle.
+    /// @param finalBlockNumber The last L2 block number in this bundle.
     /// @param aggrProof The bundle proof for this bundle.
     /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     function finalizeBundlePostEuclidV2(
@@ -197,6 +205,10 @@ interface ScrollChainInterface {
         uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
+        bytes32 prevBlockHash,
+        bytes32 postBlockHash,
+        uint64 initialBlockNumber,
+        uint64 finalBlockNumber,
         bytes calldata aggrProof
     ) external;
 
@@ -209,6 +221,10 @@ interface ScrollChainInterface {
     /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this batch.
     /// @param withdrawRoot The withdraw trie root after this batch.
+    /// @param prevBlockHash The L2 block hash before this batch.
+    /// @param postBlockHash The last L2 block hash after this batch.
+    /// @param initialBlockNumber The first L2 block number in this batch.
+    /// @param finalBlockNumber The last L2 block number in this batch.
     /// @param zkProof The bundle proof for this batch (single-batch bundle).
     /// @dev See `BatchHeaderV7Codec` for the batch header encoding.
     struct FinalizeStruct {
@@ -216,6 +232,10 @@ interface ScrollChainInterface {
         uint256 totalL1MessagesPoppedOverall;
         bytes32 postStateRoot;
         bytes32 withdrawRoot;
+        bytes32 prevBlockHash;
+        bytes32 postBlockHash;
+        uint64 initialBlockNumber;
+        uint64 finalBlockNumber;
         bytes zkProof;
     }
 
@@ -263,6 +283,10 @@ interface ScrollChainInterface {
         bytes calldata batchHeader,
         uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
-        bytes32 withdrawRoot
+        bytes32 withdrawRoot,
+        bytes32 prevBlockHash,
+        bytes32 postBlockHash,
+        uint64 initialBlockNumber,
+        uint64 finalBlockNumber
     ) external;
 }

@@ -59,6 +59,9 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Thrown when the batch version is incorrect.
     error ErrorIncorrectBatchVersion();
 
+    /// @dev Thrown when the previous L2 block hash does not match the finalized lineage.
+    error ErrorIncorrectPrevBlockHash();
+
     /// @dev Thrown when reverting a finalized batch.
     error ErrorRevertFinalizedBatch();
 
@@ -129,6 +132,32 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint88 reserved;
     }
 
+    /// @notice Input data for bundle proof verification.
+    /// @param version The batch version.
+    /// @param batchHash The hash of the last batch in the bundle.
+    /// @param batchIndex The index of the last batch in the bundle.
+    /// @param prevBatchIndex The index of the previous finalized batch.
+    /// @param totalL1MessagesPoppedOverall The total L1 messages popped after this bundle.
+    /// @param postStateRoot The state root after this bundle.
+    /// @param withdrawRoot The withdraw trie root after this bundle.
+    /// @param prevBlockHash The L2 block hash before this bundle.
+    /// @param postBlockHash The last L2 block hash after this bundle.
+    /// @param initialBlockNumber The first L2 block number in this bundle.
+    /// @param finalBlockNumber The last L2 block number in this bundle.
+    struct BundleProofInput {
+        uint256 version;
+        bytes32 batchHash;
+        uint256 batchIndex;
+        uint256 prevBatchIndex;
+        uint256 totalL1MessagesPoppedOverall;
+        bytes32 postStateRoot;
+        bytes32 withdrawRoot;
+        bytes32 prevBlockHash;
+        bytes32 postBlockHash;
+        uint64 initialBlockNumber;
+        uint64 finalBlockNumber;
+    }
+
     /*************
      * Variables *
      *************/
@@ -169,6 +198,11 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @dev Starting from Darwin, this array is sparse: it only contains
     /// the last withdraw root per finalized bundle, and not intermediate ones.
     mapping(uint256 => bytes32) public override withdrawRoots;
+
+    /// @inheritdoc IScrollChain
+    /// @dev Starting from the Feynman blockhash-lineage fix, this array is sparse:
+    /// it only contains the last L2 block hash per finalized bundle.
+    mapping(uint256 => bytes32) public override finalizedL2BlockHashes;
 
     /// @notice The index of first Euclid batch.
     uint256 public initialEuclidBatchIndex;
@@ -376,6 +410,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
         uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
+        bytes32 prevBlockHash,
+        bytes32 postBlockHash,
+        uint64 initialBlockNumber,
+        uint64 finalBlockNumber,
         bytes calldata aggrProof
     ) external override OnlyProver whenNotPaused whenEnforcedBatchNotEnabled {
         uint256 flags = miscData.flags;
@@ -390,7 +428,17 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             miscData.flags = uint8(_insertBoolToFlag(flags, V1_MESSAGES_FINALIZED_OFFSET, true));
         }
 
-        _finalizeBundlePostEuclidV2(batchHeader, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, aggrProof);
+        _finalizeBundlePostEuclidV2(
+            batchHeader,
+            totalL1MessagesPoppedOverall,
+            postStateRoot,
+            withdrawRoot,
+            prevBlockHash,
+            postBlockHash,
+            initialBlockNumber,
+            finalBlockNumber,
+            aggrProof
+        );
     }
 
     /// @inheritdoc IScrollChain
@@ -445,6 +493,10 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
             finalizeStruct.totalL1MessagesPoppedOverall,
             finalizeStruct.postStateRoot,
             finalizeStruct.withdrawRoot,
+            finalizeStruct.prevBlockHash,
+            finalizeStruct.postBlockHash,
+            finalizeStruct.initialBlockNumber,
+            finalizeStruct.finalBlockNumber,
             finalizeStruct.zkProof
         );
     }
@@ -650,43 +702,106 @@ contract ScrollChain is OwnableUpgradeable, PausableUpgradeable, IScrollChain {
     /// @param totalL1MessagesPoppedOverall The number of messages processed after this bundle.
     /// @param postStateRoot The state root after this bundle.
     /// @param withdrawRoot The withdraw trie root after this bundle.
+    /// @param prevBlockHash The L2 block hash before this bundle.
+    /// @param postBlockHash The last L2 block hash after this bundle.
+    /// @param initialBlockNumber The first L2 block number in this bundle.
+    /// @param finalBlockNumber The last L2 block number in this bundle.
     /// @param aggrProof The bundle proof for this bundle.
     function _finalizeBundlePostEuclidV2(
         bytes calldata batchHeader,
         uint256 totalL1MessagesPoppedOverall,
         bytes32 postStateRoot,
         bytes32 withdrawRoot,
+        bytes32 prevBlockHash,
+        bytes32 postBlockHash,
+        uint64 initialBlockNumber,
+        uint64 finalBlockNumber,
         bytes calldata aggrProof
     ) internal {
         // actions before verification
-        (uint256 version, bytes32 batchHash, uint256 batchIndex, , uint256 prevBatchIndex) = _beforeFinalizeBatch(
+        BundleProofInput memory input;
+        (input.version, input.batchHash, input.batchIndex, , input.prevBatchIndex) = _beforeFinalizeBatch(
             batchHeader,
             postStateRoot
         );
 
+        // fill in the remaining proof input fields
+        input.totalL1MessagesPoppedOverall = totalL1MessagesPoppedOverall;
+        input.postStateRoot = postStateRoot;
+        input.withdrawRoot = withdrawRoot;
+        input.prevBlockHash = prevBlockHash;
+        input.postBlockHash = postBlockHash;
+        input.initialBlockNumber = initialBlockNumber;
+        input.finalBlockNumber = finalBlockNumber;
+
+        // verify the bundle proof and check blockhash lineage
+        _verifyBundleProof(input, aggrProof);
+
+        // actions after verification
+        _afterFinalizeBatch(
+            input.batchIndex,
+            input.batchHash,
+            totalL1MessagesPoppedOverall,
+            postStateRoot,
+            withdrawRoot,
+            false
+        );
+
+        // store the last L2 block hash of this bundle to anchor the next bundle
+        finalizedL2BlockHashes[input.batchIndex] = postBlockHash;
+    }
+
+    /// @dev Internal function to verify a bundle proof, including blockhash lineage and public input checks.
+    /// @param input The bundle proof input data.
+    /// @param aggrProof The bundle proof.
+    function _verifyBundleProof(BundleProofInput memory input, bytes calldata aggrProof) internal view {
+        // anchor the first block's parent hash to the previously finalized L2 block hash
+        if (input.prevBatchIndex == 0) {
+            if (input.prevBlockHash != bytes32(0)) revert ErrorIncorrectPrevBlockHash();
+        } else {
+            if (input.prevBlockHash != finalizedL2BlockHashes[input.prevBatchIndex])
+                revert ErrorIncorrectPrevBlockHash();
+        }
+
         // L1 message hashes are chained,
         // this hash commits to the whole queue up to and including `totalL1MessagesPoppedOverall-1`
-        bytes32 messageQueueHash = totalL1MessagesPoppedOverall == 0
-            ? bytes32(0)
-            : IL1MessageQueueV2(messageQueueV2).getMessageRollingHash(totalL1MessagesPoppedOverall - 1);
+        bytes32 messageQueueHash = _computeMessageQueueHash(input.totalL1MessagesPoppedOverall);
 
         bytes memory publicInputs = abi.encodePacked(
             layer2ChainId,
             messageQueueHash,
-            uint32(batchIndex - prevBatchIndex), // numBatches
-            finalizedStateRoots[prevBatchIndex], // _prevStateRoot
-            committedBatches[prevBatchIndex], // _prevBatchHash
-            postStateRoot,
-            batchHash,
-            withdrawRoot
+            uint32(input.batchIndex - input.prevBatchIndex), // numBatches
+            finalizedStateRoots[input.prevBatchIndex], // _prevStateRoot
+            committedBatches[input.prevBatchIndex], // _prevBatchHash
+            input.postStateRoot,
+            input.batchHash,
+            input.withdrawRoot,
+            input.prevBlockHash,
+            input.postBlockHash,
+            input.initialBlockNumber,
+            input.finalBlockNumber
         );
 
         // verify bundle, choose the correct verifier based on the last batch
         // our off-chain service will make sure all unfinalized batches have the same batch version.
-        IRollupVerifier(verifier).verifyBundleProof(version, batchIndex, aggrProof, publicInputs);
+        IRollupVerifier(verifier).verifyBundleProof(input.version, input.batchIndex, aggrProof, publicInputs);
+    }
 
-        // actions after verification
-        _afterFinalizeBatch(batchIndex, batchHash, totalL1MessagesPoppedOverall, postStateRoot, withdrawRoot, false);
+    /// @dev Internal function to compute the message queue hash for bundle finalization.
+    /// @param totalL1MessagesPoppedOverall The total number of L1 messages popped after the bundle.
+    /// @return messageQueueHash The rolling hash of the L1 message queue.
+    function _computeMessageQueueHash(uint256 totalL1MessagesPoppedOverall)
+        internal
+        view
+        returns (bytes32 messageQueueHash)
+    {
+        if (totalL1MessagesPoppedOverall == 0) {
+            messageQueueHash = bytes32(0);
+        } else {
+            messageQueueHash = IL1MessageQueueV2(messageQueueV2).getMessageRollingHash(
+                totalL1MessagesPoppedOverall - 1
+            );
+        }
     }
 
     /// @dev Internal function to load batch header from calldata to memory.
