@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.24;
 
+/// @custom:deprecated Do not use.
 library PatriciaMerkleTrieVerifier {
     /// @notice Internal function to validates a proof from eth_getProof.
     /// @param account The address of the contract.
