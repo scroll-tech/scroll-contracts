@@ -127,9 +127,9 @@ describe("PatriciaMerkleTrieVerifier", async () => {
   for (const test of testcases) {
     it(`should succeed for block[${test.block}] account[${test.account}] storage[${test.storage}]`, async () => {
       const proof = concat([
-        `0x0${test.accountProof.length.toString(16)}`,
+        `0x${test.accountProof.length.toString(16).padStart(2, "0")}`,
         ...test.accountProof,
-        `0x0${test.storageProof.length.toString(16)}`,
+        `0x${test.storageProof.length.toString(16).padStart(2, "0")}`,
         ...test.storageProof,
       ]);
       const [root, value, gasUsed] = await verifier.verifyPatriciaProof(test.account, test.storage, proof);
