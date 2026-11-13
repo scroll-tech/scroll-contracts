@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 
 // solhint-disable no-inline-assembly
 
+/// @custom:deprecated Do not use.
 library ZkTrieVerifier {
     /// @notice Internal function to validates a proof from eth_getProof.
     /// @param poseidon The address of poseidon hash contract.

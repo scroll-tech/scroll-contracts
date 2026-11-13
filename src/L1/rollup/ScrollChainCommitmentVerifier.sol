@@ -6,6 +6,7 @@ import {ScrollChain} from "./ScrollChain.sol";
 import {ZkTrieVerifier} from "../../libraries/verifier/ZkTrieVerifier.sol";
 import {PatriciaMerkleTrieVerifier} from "../../libraries/verifier/PatriciaMerkleTrieVerifier.sol";
 
+/// @custom:deprecated Do not use.
 contract ScrollChainCommitmentVerifier {
     /// @notice The address of poseidon hash contract
     address public immutable poseidon;
